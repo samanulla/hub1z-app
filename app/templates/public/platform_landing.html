@@ -1,0 +1,208 @@
+{% extends "public/base_marketing.html" %}
+{% block title %}{{ app_name }} · Run your coworking business{% endblock %}
+
+{% block body %}
+<!-- ============ HERO ============ -->
+<section class="hero-full">
+  <nav class="marketing-nav on-hero">
+    <a class="brand" href="/"><span class="brand-dot"></span> {{ app_name }}</a>
+    <div class="nav-links">
+      <a class="nav-link" href="#platform">Platform</a>
+      <a class="nav-link" href="#pricing">Pricing</a>
+      <a class="nav-link" href="#how-it-works">How it works</a>
+      <a class="nav-link btn-nav-cta" href="{{ url_for('auth.login') }}">Sign in</a>
+    </div>
+  </nav>
+
+  <div class="container-x" style="padding-top: 4rem;">
+    <div style="max-width: 720px;">
+      <div class="eyebrow" style="margin-bottom: 1.5rem;">The back office for coworking operators</div>
+      <h1>Run your coworking<br>business on {{ app_name }}.</h1>
+      <p style="margin-top: 1.5rem;">
+        Locations, seats, bookings, billing, community, and your own branded
+        member portal — one platform, your own domain. Built India-first:
+        GST invoicing, UPI/NEFT/RTGS/IMPS, ₹ and Indian number formats out of the box.
+      </p>
+      <div class="gap-buttons" style="margin-top: 2.5rem;">
+        <a class="btn-saffron" href="{{ url_for('auth.register_tenant') }}">Start free trial</a>
+        <a class="btn-outline-ink" href="{{ url_for('auth.login') }}" style="color: var(--cream); border-color: var(--cream);">Sign in</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="section" id="how-it-works">
+  <div class="container-x">
+    <div class="text-center" style="max-width: 700px; margin: 0 auto 4rem;">
+      <div class="eyebrow">01 · How it works</div>
+      <hr class="divider" style="margin: 1rem auto 1.5rem;">
+      <h2>Live in an afternoon,<br>not a quarter.</h2>
+    </div>
+    <div class="row g-0" style="border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <div class="col-md-4" style="padding: 3rem 2.5rem; border-right: 1px solid var(--line);">
+        <div class="num-serif small saffron">01</div>
+        <h3 style="margin-top: 1rem;">Start your trial</h3>
+        <p style="margin-top: .8rem;">Pick a URL slug, set your admin login — no platform staff involved, no credit card. You're in.</p>
+      </div>
+      <div class="col-md-4" style="padding: 3rem 2.5rem; border-right: 1px solid var(--line);">
+        <div class="num-serif small saffron">02</div>
+        <h3 style="margin-top: 1rem;">Set up your space</h3>
+        <p style="margin-top: .8rem;">Add locations, floors, seats, rooms, and pricing plans. Invite your Managers — including Location Managers if you run more than one site.</p>
+      </div>
+      <div class="col-md-4" style="padding: 3rem 2.5rem;">
+        <div class="num-serif small saffron">03</div>
+        <h3 style="margin-top: 1rem;">Go live</h3>
+        <p style="margin-top: .8rem;">Invite companies and individuals, or let them sign up on your own branded portal. We approve your trial and you're fully live.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PLATFORM FEATURES — dark editorial band ============ -->
+<section class="bg-ink" style="padding: 7rem 0;" id="platform">
+  <div class="container-x">
+    <div class="text-center" style="max-width: 720px; margin: 0 auto 4rem;">
+      <div class="eyebrow text-saffron">02 · What's included</div>
+      <hr class="divider" style="margin: 1rem auto 1.5rem; background: var(--cream);">
+      <h2 class="text-cream">Everything your space needs.<br>Nothing you have to build.</h2>
+    </div>
+    <div class="row g-4">
+      <div class="col-md-6 col-lg-4">
+        <div class="flat-card on-ink" style="height: 100%;">
+          <div class="eyebrow text-saffron">Inventory</div>
+          <h3 class="text-cream" style="margin-top: .8rem;">Multi-location, built in</h3>
+          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">Run one site or ten. Location Managers scoped to just their own site; tenant-wide Managers for everything.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="flat-card on-ink" style="height: 100%;">
+          <div class="eyebrow text-saffron">Day pass</div>
+          <h3 class="text-cream" style="margin-top: .8rem;">QR check-in</h3>
+          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">Members get a scannable QR. Reception verifies with one tap. Guests and visitors pre-registered by their host.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="flat-card on-ink" style="height: 100%;">
+          <div class="eyebrow text-saffron">Billing</div>
+          <h3 class="text-cream" style="margin-top: .8rem;">India-first invoicing</h3>
+          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">GSTIN, INR, Indian number formats, UPI/NEFT/RTGS/IMPS. Credit notes, refunds, PDF invoice export.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="flat-card on-ink" style="height: 100%;">
+          <div class="eyebrow text-saffron">Your brand</div>
+          <h3 class="text-cream" style="margin-top: .8rem;">Your domain, your look</h3>
+          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">A free subdomain from day one (yourspace.{{ config.PLATFORM_BASE_DOMAIN }}), logo, brand colour, tagline — it's your members' portal, not ours.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="flat-card on-ink" style="height: 100%;">
+          <div class="eyebrow text-saffron">Community</div>
+          <h3 class="text-cream" style="margin-top: .8rem;">More than wifi</h3>
+          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">Member directory, announcements, guest passes, support tickets, lockers, referral rewards.</p>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="flat-card on-ink" style="height: 100%;">
+          <div class="eyebrow text-saffron">Security</div>
+          <h3 class="text-cream" style="margin-top: .8rem;">Enterprise-grade</h3>
+          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">Two-factor auth, rate limiting, full audit log with CSV export, and hard data isolation between every tenant.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRICING ============ -->
+<section class="section" id="pricing">
+  <div class="container-x">
+    <div class="text-center" style="max-width: 700px; margin: 0 auto 4rem;">
+      <div class="eyebrow">03 · Pricing</div>
+      <hr class="divider" style="margin: 1rem auto 1.5rem;">
+      <h2>Grow into it.</h2>
+      <p style="margin-top: 1rem;">Every plan includes the full platform. Tiers set how much space you can run — upgrade anytime as you grow.</p>
+    </div>
+    <div class="row g-4 justify-content-center">
+      {% for t in tiers %}
+      <div class="col-md-4">
+        <div class="flat-card h-100">
+          <div class="eyebrow">{{ t.name }}</div>
+          <div class="num-serif small" style="margin-top: .8rem;">
+            {% if t.monthly_price is not none %}{{ t.monthly_price | money }}<span style="font-size: 1rem; color: var(--ink-soft);">/mo</span>
+            {% else %}Custom{% endif %}
+          </div>
+          <hr class="divider" style="margin: 1.5rem 0;">
+          <ul class="small mb-0" style="list-style: none; padding: 0; color: var(--ink-soft);">
+            <li style="margin-bottom: .5rem;">{{ t.max_locations if t.max_locations is not none else "Unlimited" }} location(s)</li>
+            <li style="margin-bottom: .5rem;">{{ t.max_seats if t.max_seats is not none else "Unlimited" }} seats</li>
+            <li style="margin-bottom: .5rem;">{{ t.max_private_offices if t.max_private_offices is not none else "Unlimited" }} private offices</li>
+            <li style="margin-bottom: .5rem;">{{ t.max_rooms if t.max_rooms is not none else "Unlimited" }} conference rooms</li>
+          </ul>
+          <a class="btn-ink" style="margin-top: 1.5rem;" href="{{ url_for('auth.register_tenant') }}">Start free trial</a>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-center text-muted">Pricing coming soon — <a href="{{ url_for('auth.register_tenant') }}">start a free trial</a> in the meantime.</p>
+      {% endfor %}
+    </div>
+    <p class="text-center" style="margin-top: 2.5rem; color: var(--ink-soft);">
+      Custom domain mapping available on request.
+    </p>
+  </div>
+</section>
+
+<!-- ============ CTA ============ -->
+<section class="bg-ink" style="padding: 6rem 0;">
+  <div class="container-x text-center">
+    <h2 class="text-cream">Your space, your software.</h2>
+    <p class="text-cream" style="opacity: .8; max-width: 500px; margin: 1rem auto 2rem;">
+      Free {{ config.TENANT_TRIAL_DAYS }}-day trial. No card required to start.
+    </p>
+    <div class="gap-buttons" style="justify-content: center;">
+      <a class="btn-saffron" href="{{ url_for('auth.register_tenant') }}">Start free trial</a>
+      <a class="btn-outline-ink" style="color: var(--cream); border-color: var(--cream);" href="{{ url_for('auth.login') }}">Sign in</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer class="editorial">
+  <div class="container-x">
+    <div class="row g-4" style="margin-bottom: 3rem;">
+      <div class="col-md-4">
+        <div class="brand" style="font-size: 1.3rem; font-weight: 700; display: inline-flex; align-items: center; gap: .5rem;">
+          <span class="brand-dot" style="width: 8px; height: 8px; background: var(--saffron); border-radius: 50%;"></span>
+          {{ app_name }}
+        </div>
+        <p style="color: rgba(251,247,240,.65); margin-top: 1rem; max-width: 320px;">
+          The back office for coworking operators. India-first, built for multi-location teams.
+        </p>
+      </div>
+      <div class="col-6 col-md-2">
+        <div class="eyebrow">Explore</div>
+        <ul style="list-style: none; padding: 0; margin: 1rem 0 0;">
+          <li style="margin-bottom: .5rem;"><a href="#platform">Platform</a></li>
+          <li style="margin-bottom: .5rem;"><a href="#pricing">Pricing</a></li>
+          <li style="margin-bottom: .5rem;"><a href="#how-it-works">How it works</a></li>
+        </ul>
+      </div>
+      <div class="col-6 col-md-2">
+        <div class="eyebrow">Account</div>
+        <ul style="list-style: none; padding: 0; margin: 1rem 0 0;">
+          <li style="margin-bottom: .5rem;"><a href="{{ url_for('auth.login') }}">Sign in</a></li>
+          <li style="margin-bottom: .5rem;"><a href="{{ url_for('auth.register_tenant') }}">Start free trial</a></li>
+          <li style="margin-bottom: .5rem;"><a href="{{ url_for('auth.pick_workspace') }}">Find your workspace</a></li>
+        </ul>
+      </div>
+      <div class="col-md-4">
+        <div class="eyebrow">Say hello</div>
+        <p style="color: rgba(251,247,240,.65); margin-top: 1rem;">hello@{{ config.PLATFORM_BASE_DOMAIN }}</p>
+      </div>
+    </div>
+    <div style="border-top: 1px solid rgba(251,247,240,.15); padding-top: 2rem; color: rgba(251,247,240,.5); font-size: .85rem;">
+      © {{ app_name }} · Made in India · <a href="/healthz" style="color: rgba(251,247,240,.6);">health</a>
+    </div>
+  </div>
+</footer>
+{% endblock %}

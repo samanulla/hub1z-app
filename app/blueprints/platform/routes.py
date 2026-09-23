@@ -9,10 +9,12 @@ from ...extensions import db
 from ...models import (
     Tenant, TenantStatus, User, UserRole, Company, Location,
     PricingPlan, PlanType, BillingCycle, EmailTemplate, EmailKind,
-    AuditLog, Invoice,
+    AuditLog, Invoice, PricingTier,
 )
 from ...services import audit_service
-from ...utils.decorators import platform_owner_required
+from ...utils.decorators import (
+    platform_staff_required, platform_permission_required, platform_owner_required,
+)
 from .forms import TenantForm, NewTenantForm
 
 
@@ -50,7 +52,7 @@ def _seed_tenant_defaults(tenant: Tenant) -> None:
 
 
 @platform_bp.route("/")
-@platform_owner_required
+@platform_staff_required
 def dashboard():
     stats = {
         "tenants": Tenant.query.execution_options(skip_tenant_filter=True).count(),
@@ -65,7 +67,7 @@ def dashboard():
 
 
 @platform_bp.route("/tenants")
-@platform_owner_required
+@platform_permission_required("tenants")
 def tenants_list():
     tenants = (Tenant.query
                .execution_options(skip_tenant_filter=True)
@@ -80,14 +82,16 @@ def tenants_list():
 
 
 @platform_bp.route("/tenants/new", methods=["GET", "POST"])
-@platform_owner_required
+@platform_permission_required("tenants")
 def tenant_new():
     form = NewTenantForm()
+    form.plan_tier.choices = [(t.key, t.name) for t in
+                              PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all()]
     if form.validate_on_submit():
         slug = form.slug.data.lower().strip()
         # Auto-fill primary_domain if the operator left it blank
         if not (form.primary_domain.data or "").strip():
-            base = current_app.config.get("PLATFORM_BASE_DOMAIN", "coworkhub.io")
+            base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
             form.primary_domain.data = f"{slug}.{base}"
 
         existing = (Tenant.query
@@ -128,11 +132,16 @@ def tenant_new():
 
 
 @platform_bp.route("/tenants/<int:tenant_id>/edit", methods=["GET", "POST"])
-@platform_owner_required
+@platform_permission_required("tenants")
 def tenant_edit(tenant_id: int):
     t = (Tenant.query.execution_options(skip_tenant_filter=True)
                      .filter_by(id=tenant_id).first_or_404())
     form = TenantForm(obj=t)
+    tiers = PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all()
+    choices = [(pt.key, pt.name) for pt in tiers]
+    if t.plan_tier and t.plan_tier not in {k for k, _ in choices}:
+        choices.append((t.plan_tier, f"{t.plan_tier} (retired)"))
+    form.plan_tier.choices = choices
     if form.validate_on_submit():
         form.populate_obj(t)
         db.session.commit()
@@ -143,9 +152,58 @@ def tenant_edit(tenant_id: int):
                            title=f"Edit {t.name}", tenant=t)
 
 
+@platform_bp.route("/tenants/<int:tenant_id>/approve", methods=["POST"])
+@platform_permission_required("tenants")
+def tenant_approve(tenant_id: int):
+    """TRIAL -> ACTIVE. For tenants that came in via /platform/tenants/invite
+    (directly-provisioned tenants from /platform/tenants/new start ACTIVE already)."""
+    t = (Tenant.query.execution_options(skip_tenant_filter=True)
+                     .filter_by(id=tenant_id).first_or_404())
+    if t.status != TenantStatus.TRIAL:
+        flash(f"{t.name} isn't pending approval.", "warning")
+        return redirect(url_for("platform.tenants_list"))
+    t.status = TenantStatus.ACTIVE
+    db.session.commit()
+    audit_service.record("tenant.approved", "tenant", t.id, {"slug": t.slug})
+    flash(f"{t.name} approved and now active.", "success")
+    return redirect(url_for("platform.tenants_list"))
+
+
+@platform_bp.route("/tenants/<int:tenant_id>/hold", methods=["POST"])
+@platform_permission_required("tenants")
+def tenant_hold(tenant_id: int):
+    """Soft, reversible pause — available to any staffer with the 'tenants' grant."""
+    t = (Tenant.query.execution_options(skip_tenant_filter=True)
+                     .filter_by(id=tenant_id).first_or_404())
+    if t.status == TenantStatus.SUSPENDED:
+        flash(f"{t.name} is suspended; only a Platform Super Admin can change that.", "warning")
+        return redirect(url_for("platform.tenants_list"))
+    t.status = TenantStatus.HOLD
+    db.session.commit()
+    audit_service.record("tenant.held", "tenant", t.id, {"slug": t.slug})
+    flash(f"{t.name} placed on hold.", "info")
+    return redirect(url_for("platform.tenants_list"))
+
+
+@platform_bp.route("/tenants/<int:tenant_id>/release-hold", methods=["POST"])
+@platform_permission_required("tenants")
+def tenant_release_hold(tenant_id: int):
+    t = (Tenant.query.execution_options(skip_tenant_filter=True)
+                     .filter_by(id=tenant_id).first_or_404())
+    if t.status != TenantStatus.HOLD:
+        flash(f"{t.name} isn't on hold.", "warning")
+        return redirect(url_for("platform.tenants_list"))
+    t.status = TenantStatus.ACTIVE
+    db.session.commit()
+    audit_service.record("tenant.hold_released", "tenant", t.id, {"slug": t.slug})
+    flash(f"{t.name} is active again.", "success")
+    return redirect(url_for("platform.tenants_list"))
+
+
 @platform_bp.route("/tenants/<int:tenant_id>/suspend", methods=["POST"])
 @platform_owner_required
 def tenant_suspend(tenant_id: int):
+    """Hard stop (deactivation) — Platform Super Admin only, not delegable."""
     t = (Tenant.query.execution_options(skip_tenant_filter=True)
                      .filter_by(id=tenant_id).first_or_404())
     t.status = TenantStatus.SUSPENDED
@@ -158,6 +216,8 @@ def tenant_suspend(tenant_id: int):
 @platform_bp.route("/tenants/<int:tenant_id>/activate", methods=["POST"])
 @platform_owner_required
 def tenant_activate(tenant_id: int):
+    """Reactivating out of a hard Suspend — Platform Super Admin only, to match
+    Suspend being Owner-exclusive. (Reactivating from Hold is tenant_release_hold.)"""
     t = (Tenant.query.execution_options(skip_tenant_filter=True)
                      .filter_by(id=tenant_id).first_or_404())
     t.status = TenantStatus.ACTIVE

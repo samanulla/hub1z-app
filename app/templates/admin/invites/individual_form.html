@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Invite a member{% endblock %}
+
+{% block content %}
+<h3>Invite an individual member</h3>
+<div class="card"><div class="card-body">
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+    {{ field(form.full_name, autofocus=true) }}
+    {{ field(form.email) }}
+    <div class="form-text mb-3">We'll email them a secure link to set their own password and join your workspace.</div>
+    <button class="btn btn-dark">Send invitation</button>
+    <a class="btn btn-link" href="{{ url_for('admin.invites_list') }}">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

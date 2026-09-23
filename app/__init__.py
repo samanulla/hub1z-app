@@ -96,7 +96,7 @@ def _register_context(app: Flask) -> None:
     def inject_globals():
         from flask import g
         return {
-            "app_name": app.config.get("APP_NAME", "CoWorkHub"),
+            "app_name": app.config.get("APP_NAME", "hub1z"),
             "tenant": getattr(g, "tenant", None),
         }
 
@@ -106,7 +106,14 @@ def _register_root_routes(app: Flask) -> None:
     def index():
         if current_user.is_authenticated:
             return redirect(url_for("auth.post_login_redirect"))
-        return render_template("public/landing.html")
+        from flask import g
+        if getattr(g, "tenant", None):
+            return render_template("public/landing.html")
+        # No tenant resolved (the platform's own apex domain) — a coworking
+        # business's own site, not the SaaS platform's marketing page.
+        from .models import PricingTier
+        tiers = PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all()
+        return render_template("public/platform_landing.html", tiers=tiers)
 
     @app.route("/healthz")
     def healthz():

@@ -8,4 +8,4 @@ Applicant: {{ applicant.full_name }} <{{ applicant.email }}>
 
 Review and activate at: /admin/companies/{{ company.id }}
 
-— CoWorkHub
+— {{ app_name }}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<h3>{{ title }}</h3>
+
+<div class="card"><div class="card-body">
+<form method="post" novalidate>
+  {{ form.hidden_tag() }}
+
+  <h6>Login</h6>
+  <div class="row">
+    <div class="col-md-4">{{ field(form.full_name) }}</div>
+    <div class="col-md-4">{{ field(form.email) }}</div>
+    <div class="col-md-4">{{ field(form.password) }}</div>
+  </div>
+  {{ field(form.is_active) }}
+
+  <hr>
+  <h6>Feature permissions</h6>
+  <p class="text-muted small">What this Platform Manager can do under /platform/*. Unchecked = no access to that area.</p>
+  {% for key, label, desc in features %}
+    {{ field(form["perm_" ~ key]) }}
+  {% endfor %}
+
+  <button class="btn btn-dark mt-2">Save</button>
+  <a class="btn btn-link" href="{{ url_for('platform.team_list') }}">Cancel</a>
+</form>
+</div></div>
+{% endblock %}

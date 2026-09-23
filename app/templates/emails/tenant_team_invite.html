@@ -1,0 +1,7 @@
+<p>Hi {{ user.full_name }},</p>
+<p>You've been invited to join the <strong>{{ tenant_name }}</strong> team as a
+{{ role_label }}{% if location %} for <strong>{{ location.name }}</strong>{% endif %}.</p>
+<p><a href="{{ accept_url }}" style="background:#0f766e;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">Accept invitation</a></p>
+<p>Or copy this URL:<br><code>{{ accept_url }}</code></p>
+<p>The link is valid for {{ ttl_days }} days. If you weren't expecting this, you can safely ignore it.</p>
+<p>— The {{ tenant_name }} team</p>

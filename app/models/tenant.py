@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import enum
+from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Numeric, Enum
+from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Numeric, Enum, DateTime
 from sqlalchemy.orm import relationship
 
 from ..extensions import db
@@ -18,9 +19,10 @@ class TenantScoped:
 
 
 class TenantStatus(str, enum.Enum):
-    TRIAL = "trial"
+    TRIAL = "trial"          # invited/self-registered, pending platform approval
     ACTIVE = "active"
-    SUSPENDED = "suspended"
+    HOLD = "hold"            # soft, reversible pause — Manager-grantable
+    SUSPENDED = "suspended"  # hard stop — Platform Super Admin only
     CHURNED = "churned"
 
 
@@ -39,8 +41,11 @@ class Tenant(db.Model, PkMixin, TimestampMixin):
     # Lifecycle
     plan_tier = Column(String(20), default="starter", nullable=False)
     status = Column(Enum(TenantStatus), default=TenantStatus.ACTIVE, nullable=False, index=True)
+    # Set only for self-serve trial sign-ups (see auth.register_tenant). Null
+    # for staff-provisioned/invited tenants — no forced deadline on those.
+    trial_ends_at = Column(DateTime, nullable=True)
 
-    # Domain mapping — one primary subdomain (adyarspace.coworkhub.io) plus one optional
+    # Domain mapping — one primary subdomain (adyarspace.hub1z.com) plus one optional
     # custom domain (portal.adyarspace.com). Both used by the resolver to pick a tenant.
     primary_domain = Column(String(255), unique=True, index=True)
     custom_domain = Column(String(255), unique=True, index=True)
@@ -77,6 +82,12 @@ class Tenant(db.Model, PkMixin, TimestampMixin):
         return cls.query.filter(
             or_(cls.primary_domain == host, cls.custom_domain == host)
         ).first()
+
+    @property
+    def is_trial_expired(self) -> bool:
+        return (self.status == TenantStatus.TRIAL
+                and self.trial_ends_at is not None
+                and self.trial_ends_at < datetime.utcnow())
 
     def __repr__(self) -> str:
         return f"<Tenant {self.slug}>"

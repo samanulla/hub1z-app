@@ -1,4 +1,4 @@
-"""Environment-based configuration for CoWorkHub."""
+"""Environment-based configuration for hub1z."""
 from __future__ import annotations
 
 import os
@@ -13,7 +13,7 @@ def _bool(name: str, default: bool = False) -> bool:
 
 
 class BaseConfig:
-    APP_NAME = os.getenv("APP_NAME", "CoWorkHub")
+    APP_NAME = os.getenv("APP_NAME", "hub1z")
     APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:5000")
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
     TIMEZONE = os.getenv("TIMEZONE", "Asia/Kolkata")
@@ -46,7 +46,7 @@ class BaseConfig:
     MAIL_USE_TLS = _bool("MAIL_USE_TLS", False)
     MAIL_USERNAME = os.getenv("MAIL_USERNAME") or None
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD") or None
-    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "no-reply@coworkhub.io")
+    MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "no-reply@hub1z.com")
     MAIL_SUPPRESS_SEND = _bool("MAIL_SUPPRESS_SEND", False)
 
     # Booking policy
@@ -55,14 +55,16 @@ class BaseConfig:
     BOOKING_CANCEL_WINDOW_MINUTES = int(os.getenv("BOOKING_CANCEL_WINDOW_MINUTES", "60"))
     DEFAULT_ROOM_SLOT_MINUTES = int(os.getenv("DEFAULT_ROOM_SLOT_MINUTES", "30"))
 
-    # Bootstrap admin
-    BOOTSTRAP_ADMIN_EMAIL = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "admin@coworkhub.io")
+    # Bootstrap admin — this is the sample TENANT's admin (seed-demo), not the
+    # platform super admin. It must use a tenant domain, never hub1z.com.
+    BOOTSTRAP_ADMIN_EMAIL = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "admin@adyarspace.com")
     BOOTSTRAP_ADMIN_PASSWORD = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "ChangeMe123!")
 
     # Multi-tenancy
     DEPLOY_MODE = os.getenv("DEPLOY_MODE", "shared").lower()  # 'shared' | 'dedicated'
     TENANT_ID = os.getenv("TENANT_ID")  # only used when DEPLOY_MODE=dedicated
-    PLATFORM_BASE_DOMAIN = os.getenv("PLATFORM_BASE_DOMAIN", "coworkhub.io")
+    PLATFORM_BASE_DOMAIN = os.getenv("PLATFORM_BASE_DOMAIN", "hub1z.com")
+    TENANT_TRIAL_DAYS = int(os.getenv("TENANT_TRIAL_DAYS", "14"))
 
 
 class DevelopmentConfig(BaseConfig):

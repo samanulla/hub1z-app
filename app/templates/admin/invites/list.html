@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Invites{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4">
+  <div>
+    <h3 class="mb-1">Invites</h3>
+    <div class="text-muted small">
+      Bring individuals or companies onto your workspace directly. They can
+      also sign up themselves at
+      <code>{{ request.host }}{{ url_for('auth.register_individual') }}</code> or
+      <code>{{ request.host }}{{ url_for('auth.register_company') }}</code>.
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-dark" href="{{ url_for('admin.invite_individual_new') }}">+ Invite member</a>
+    <a class="btn btn-outline-dark" href="{{ url_for('admin.invite_company_new') }}">+ Invite company</a>
+    {% if current_user.is_super_admin or current_user.is_platform_owner %}
+    <a class="btn btn-dark" href="{{ url_for('admin.invite_team_new') }}">+ Invite team member</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mb-3"><div class="card-body">
+  <h6>Pending individual invites</h6>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Name</th><th>Email</th><th>Invited</th><th></th></tr></thead>
+    <tbody>
+      {% for u in pending_individuals %}
+      <tr>
+        <td>{{ u.full_name }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ u.created_at.strftime("%d-%b-%Y") }}</td>
+        <td class="text-end">
+          <form method="post" action="{{ url_for('admin.invite_individual_revoke', user_id=u.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-danger">Revoke</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="text-muted text-center py-3">No pending invites.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <h6>Pending company invites</h6>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Company</th><th>Admin</th><th>Invited</th><th></th></tr></thead>
+    <tbody>
+      {% for u in pending_companies %}
+      <tr>
+        <td>{{ u.company.name if u.company else "—" }}</td>
+        <td>{{ u.full_name }} ({{ u.email }})</td>
+        <td>{{ u.created_at.strftime("%d-%b-%Y") }}</td>
+        <td class="text-end">
+          {% if u.company %}
+          <form method="post" action="{{ url_for('admin.invite_company_revoke', company_id=u.company.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-danger">Revoke</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="text-muted text-center py-3">No pending invites.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+{% if current_user.is_super_admin or current_user.is_platform_owner %}
+<div class="card mt-3"><div class="card-body">
+  <h6>Pending team invites</h6>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Location</th><th>Invited</th><th></th></tr></thead>
+    <tbody>
+      {% for u in pending_team %}
+      <tr>
+        <td>{{ u.full_name }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ "Location Manager" if u.role.value == "location_manager" else "Manager" }}</td>
+        <td>{{ u.managed_location.name if u.managed_location else "— tenant-wide —" }}</td>
+        <td>{{ u.created_at.strftime("%d-%b-%Y") }}</td>
+        <td class="text-end">
+          <form method="post" action="{{ url_for('admin.invite_team_revoke', user_id=u.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-danger">Revoke</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="text-muted text-center py-3">No pending invites.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endif %}
+{% endblock %}

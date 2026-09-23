@@ -1,7 +1,7 @@
 """Company-admin forms."""
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, IntegerField, SelectField, SubmitField
-from wtforms.validators import DataRequired, Email, Length, Optional, NumberRange, EqualTo
+from wtforms import StringField, PasswordField, SubmitField
+from wtforms.validators import DataRequired, Email, Length, Optional, EqualTo
 
 
 class InviteEmployeeForm(FlaskForm):
@@ -18,9 +18,3 @@ class AcceptInviteForm(FlaskForm):
                             validators=[DataRequired(), Length(min=8, max=200),
                                         EqualTo("password")])
     submit = SubmitField("Set password and sign in")
-
-
-class SubscribeForm(FlaskForm):
-    plan_id = SelectField("Plan", coerce=int, validators=[DataRequired()])
-    quantity = IntegerField("Seats / users", default=1, validators=[NumberRange(min=1)])
-    submit = SubmitField("Subscribe")

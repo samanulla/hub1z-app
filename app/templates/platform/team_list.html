@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Platform team{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+  <div>
+    <h3 class="mb-1">Platform team</h3>
+    <div class="text-muted small">Platform employees/contractors with a hub1z.com login. Owner-only.</div>
+  </div>
+  <a class="btn btn-dark" href="{{ url_for('platform.manager_new') }}">+ New Platform Manager</a>
+</div>
+
+<table class="table bg-white shadow-sm">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Role</th>
+      <th>Permissions</th>
+      <th>Status</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for u in staff %}
+    <tr>
+      <td>{{ u.full_name }}</td>
+      <td>{{ u.email }}</td>
+      <td>
+        {% if u.role.value == 'platform_owner' %}<span class="badge bg-dark">Super Admin</span>
+        {% else %}<span class="badge bg-secondary">Manager</span>{% endif %}
+      </td>
+      <td>
+        {% if u.role.value == 'platform_owner' %}
+          <span class="text-muted small">All (Super Admin)</span>
+        {% else %}
+          {% set perms = u.get_platform_permissions() %}
+          {% for key, label, desc in features %}
+            {% if key in perms %}<span class="badge bg-info text-dark me-1">{{ label }}</span>{% endif %}
+          {% else %}
+            <span class="text-muted small">None</span>
+          {% endfor %}
+          {% if not perms %}<span class="text-muted small">None</span>{% endif %}
+        {% endif %}
+      </td>
+      <td>
+        {% if u.is_active %}<span class="badge bg-success">Active</span>
+        {% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}
+      </td>
+      <td class="text-end">
+        {% if u.role.value == 'platform_manager' %}
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('platform.manager_edit', user_id=u.id) }}">Edit</a>
+        {% if u.is_active %}
+        <form method="post" action="{{ url_for('platform.manager_deactivate', user_id=u.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-danger">Deactivate</button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('platform.manager_activate', user_id=u.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-success">Activate</button>
+        </form>
+        {% endif %}
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

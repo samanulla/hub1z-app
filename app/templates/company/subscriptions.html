@@ -20,7 +20,7 @@
       <td>{{ s.start_date }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="7" class="text-muted text-center py-4">No subscriptions yet — <a href="{{ url_for('company.plans') }}">choose a plan</a>.</td></tr>
+    <tr><td colspan="7" class="text-muted text-center py-4">No subscriptions yet — see <a href="{{ url_for('company.plans') }}">available plans</a> and contact your workspace admin.</td></tr>
     {% endfor %}
   </tbody>
 </table>

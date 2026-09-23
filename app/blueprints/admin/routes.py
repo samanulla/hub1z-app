@@ -3,18 +3,19 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, g
 from flask_login import current_user
 from sqlalchemy import func
 
 from ...extensions import db
 from ...models import (
-    User, UserRole, Location, Floor, Seat, ConferenceRoom,
+    User, UserRole, Location, Floor, Seat, SeatType, ConferenceRoom,
     Company, CompanyStatus, PricingPlan, Subscription, SubscriptionStatus,
     SeatAllocation, AllocationStatus, SeatBooking, RoomBooking, BookingStatus,
     Document, DocumentKind, CompanyDocument, Invoice, DayPass, DayPassStatus,
 )
 from ...services.storage import storage_service
+from ...services import tier_limits
 from ...utils.decorators import admin_required, super_admin_required, manager_or_super_required
 from .forms import (
     LocationForm, FloorForm, SeatForm, RoomForm, PricingPlanForm,
@@ -29,16 +30,19 @@ admin_bp = Blueprint("admin", __name__, template_folder="../../templates")
 @admin_bp.route("/")
 @admin_required
 def dashboard():
+    # Seat/ConferenceRoom/SeatBooking/RoomBooking have no tenant_id of their
+    # own (scoped only via Location), so the ambient auto-scoping listener
+    # doesn't filter them — these joins scope them explicitly.
     stats = {
         "locations": Location.query.count(),
-        "seats": Seat.query.count(),
-        "rooms": ConferenceRoom.query.count(),
+        "seats": Seat.query.join(Location).count(),
+        "rooms": ConferenceRoom.query.join(Location).count(),
         "companies": Company.query.count(),
         "members": User.query.filter(User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL])).count(),
         "active_subs": Subscription.query.filter_by(status=SubscriptionStatus.ACTIVE).count(),
-        "today_seat_bookings": SeatBooking.query.filter(
+        "today_seat_bookings": SeatBooking.query.join(Seat).join(Location).filter(
             func.date(SeatBooking.start_at) == date.today()).count(),
-        "today_room_bookings": RoomBooking.query.filter(
+        "today_room_bookings": RoomBooking.query.join(ConferenceRoom).join(Location).filter(
             func.date(RoomBooking.start_at) == date.today()).count(),
     }
     recent_companies = Company.query.order_by(Company.created_at.desc()).limit(5).all()
@@ -64,7 +68,11 @@ def locations_list():
 def location_new():
     form = LocationForm()
     if form.validate_on_submit():
-        loc = Location()
+        ok, msg = tier_limits.check_limit(getattr(g, "tenant", None), "location")
+        if not ok:
+            flash(msg, "warning")
+            return render_template("admin/locations/form.html", form=form, title="New location")
+        loc = Location(tenant_id=getattr(g, "tenant_id", None))
         form.populate_obj(loc)
         db.session.add(loc)
         db.session.commit()
@@ -126,6 +134,11 @@ def seat_new(location_id: int):
     form = SeatForm()
     form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in loc.floors]
     if form.validate_on_submit():
+        resource = "private_office" if form.seat_type.data == SeatType.PRIVATE_OFFICE.value else "seat"
+        ok, msg = tier_limits.check_limit(getattr(g, "tenant", None), resource)
+        if not ok:
+            flash(msg, "warning")
+            return render_template("admin/seats/form.html", form=form, location=loc, title="New seat")
         seat = Seat(location_id=loc.id)
         form.populate_obj(seat)
         db.session.add(seat)
@@ -166,6 +179,10 @@ def room_new(location_id: int):
     form = RoomForm()
     form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in loc.floors]
     if form.validate_on_submit():
+        ok, msg = tier_limits.check_limit(getattr(g, "tenant", None), "room")
+        if not ok:
+            flash(msg, "warning")
+            return render_template("admin/rooms/form.html", form=form, location=loc, title="New room")
         room = ConferenceRoom(location_id=loc.id)
         form.populate_obj(room)
         db.session.add(room)
@@ -239,7 +256,7 @@ def companies_list():
 def company_new():
     form = CompanyForm()
     if form.validate_on_submit():
-        c = Company()
+        c = Company(tenant_id=getattr(g, "tenant_id", None))
         form.populate_obj(c)
         db.session.add(c)
         db.session.commit()
@@ -252,7 +269,8 @@ def company_new():
 @admin_required
 def company_detail(company_id: int):
     c = Company.query.get_or_404(company_id)
-    return render_template("admin/companies/detail.html", company=c)
+    subs = Subscription.query.filter_by(company_id=c.id).order_by(Subscription.created_at.desc()).all()
+    return render_template("admin/companies/detail.html", company=c, subscriptions=subs)
 
 
 @admin_bp.route("/companies/<int:company_id>/edit", methods=["GET", "POST"])

@@ -1,0 +1,13 @@
+Hi {{ user.full_name }},
+
+You've been invited to bring {{ tenant.name }} onto {{ app_name }} as a coworking-space tenant.
+
+Click the link below to set your password and start setting up your workspace. The link is valid for {{ ttl_days }} days.
+
+{{ accept_url }}
+
+Your workspace will be reviewed and approved by the {{ app_name }} team before it's fully live.
+
+If you weren't expecting this invitation, you can safely ignore it.
+
+— The {{ app_name }} team

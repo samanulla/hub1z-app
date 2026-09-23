@@ -19,7 +19,7 @@ _SAMPLE_CONTEXT = {
                 "total_amount": "0.00"},
     "invoice": {"number": "INV-202601-00042", "total_amount": "1299.00",
                 "due_date": "2026-02-15"},
-    "app": {"name": "CoWorkHub", "base_url": "https://coworkhub.example.com"},
+    "app": {"name": "hub1z", "base_url": "https://hub1z.example.com"},
     "temp_password": "S3cure!Temp",
 }
 

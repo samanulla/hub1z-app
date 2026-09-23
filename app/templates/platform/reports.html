@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Platform reports{% endblock %}
+
+{% block content %}
+<h3 class="mb-4">Platform reports</h3>
+
+<div class="row g-3 mb-4">
+  {% for label, val in [
+    ("Total tenants", stats.total_tenants),
+    ("Active", stats.status_counts.get("active", 0)),
+    ("Trial", stats.status_counts.get("trial", 0)),
+    ("Suspended", stats.status_counts.get("suspended", 0)),
+    ("Companies (all tenants)", stats.total_companies),
+    ("Tenants on custom domain", stats.custom_domain_count),
+  ] %}
+  <div class="col-6 col-md-4 col-lg-2">
+    <div class="card card-stat h-100"><div class="card-body">
+      <div class="text-muted small">{{ label }}</div>
+      <div class="stat-value">{{ val }}</div>
+    </div></div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card mb-3"><div class="card-body">
+  <h6>Tenants provisioned per month (last 6 months)</h6>
+  <canvas id="chartGrowth" height="90"></canvas>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <h6>Top tenants by user count</h6>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Tenant</th><th class="text-end">Users</th></tr></thead>
+    <tbody>
+      {% for name, n in stats.top_tenants %}
+        <tr><td>{{ name }}</td><td class="text-end">{{ n }}</td></tr>
+      {% else %}
+        <tr><td colspan="2" class="text-muted text-center py-3">No tenants yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+  new Chart(document.getElementById('chartGrowth'), {
+    type: 'bar',
+    data: {
+      labels: {{ stats.growth.keys() | list | tojson }},
+      datasets: [{ label: 'New tenants', data: {{ stats.growth.values() | list | tojson }} }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+  });
+</script>
+{% endblock %}

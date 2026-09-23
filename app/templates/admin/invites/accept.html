@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Accept invitation{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h4 class="mb-1">Welcome, {{ user.full_name }}!</h4>
+        <p class="text-muted small">
+          {% if user.company %}
+            You've been invited to set up <strong>{{ user.company.name }}</strong>.
+          {% else %}
+            You've been invited to join as a member.
+          {% endif %}
+          Choose a password to activate your account.
+        </p>
+        <form method="post" novalidate>
+          {{ form.hidden_tag() }}
+          {{ field(form.password, autofocus=true) }}
+          {{ field(form.confirm) }}
+          <button class="btn btn-dark w-100" type="submit">{{ form.submit.label.text }}</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

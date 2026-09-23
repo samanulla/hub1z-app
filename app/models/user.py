@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import enum
+import json
 from flask_login import UserMixin
 from sqlalchemy import (
-    Column, String, Boolean, Enum, ForeignKey, Integer,
+    Column, String, Boolean, Enum, ForeignKey, Integer, Text,
     UniqueConstraint, Index, text,
 )
 from sqlalchemy.orm import relationship
@@ -17,12 +18,24 @@ from .tenant import TenantScoped
 
 class UserRole(str, enum.Enum):
     PLATFORM_OWNER = "platform_owner"  # SaaS operator — manages tenants; not scoped to one
+    PLATFORM_MANAGER = "platform_manager"  # Platform staff/contractor with admin-granted feature access
     SUPER_ADMIN = "super_admin"        # Tenant owner — full access within one tenant
-    MANAGER = "manager"                # CoWorkHub operations manager (day-to-day, no destructive actions)
+    MANAGER = "manager"                # Tenant operations manager (day-to-day, no destructive actions)
     LOCATION_MANAGER = "location_manager"  # Manages a specific location
     COMPANY_ADMIN = "company_admin"    # Admin of a subscribing company
     EMPLOYEE = "employee"              # Employee of a subscribing company
     INDIVIDUAL = "individual"          # Independent member (no company)
+
+
+# Feature areas a Platform Super Admin can grant to / revoke from a Platform
+# Manager. (key, label, description) — Platform Owners implicitly have all of
+# them; a Manager only has what's in their `platform_permissions`.
+PLATFORM_FEATURES: list[tuple[str, str, str]] = [
+    ("tenants", "Tenants", "Provision, edit, suspend/activate coworking businesses"),
+    ("billing", "Billing & accounting", "Tenant plan tiers and custom-domain access/surcharge"),
+    ("reports", "Reports", "Cross-tenant analytics"),
+]
+PLATFORM_FEATURE_KEYS = {key for key, _, _ in PLATFORM_FEATURES}
 
 
 class User(db.Model, PkMixin, TimestampMixin, UserMixin, TenantScoped):
@@ -56,6 +69,10 @@ class User(db.Model, PkMixin, TimestampMixin, UserMixin, TenantScoped):
     two_factor_secret = Column(String(64), nullable=True)
     two_factor_enabled = Column(Boolean, default=False, nullable=False)
 
+    # JSON-encoded list of PLATFORM_FEATURES keys — only meaningful for
+    # role=PLATFORM_MANAGER. Set by a Platform Super Admin.
+    platform_permissions = Column(Text, nullable=True)
+
     # Optional company link (for company_admin & employee)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="SET NULL"), nullable=True, index=True)
     company = relationship("Company", back_populates="users", foreign_keys=[company_id])
@@ -88,6 +105,35 @@ class User(db.Model, PkMixin, TimestampMixin, UserMixin, TenantScoped):
     @property
     def is_platform_owner(self) -> bool:
         return self.role == UserRole.PLATFORM_OWNER
+
+    @property
+    def is_platform_manager(self) -> bool:
+        return self.role == UserRole.PLATFORM_MANAGER
+
+    @property
+    def is_platform_staff(self) -> bool:
+        """Works at the platform (hub1z.com) level — Owner or Manager."""
+        return self.role in {UserRole.PLATFORM_OWNER, UserRole.PLATFORM_MANAGER}
+
+    def get_platform_permissions(self) -> list[str]:
+        """Feature keys this user can use under /platform/*. Owners get all of them."""
+        if self.role == UserRole.PLATFORM_OWNER:
+            return sorted(PLATFORM_FEATURE_KEYS)
+        if self.role != UserRole.PLATFORM_MANAGER or not self.platform_permissions:
+            return []
+        try:
+            perms = json.loads(self.platform_permissions)
+        except (TypeError, ValueError):
+            return []
+        return [p for p in perms if p in PLATFORM_FEATURE_KEYS]
+
+    def set_platform_permissions(self, keys: list[str]) -> None:
+        self.platform_permissions = json.dumps(sorted(set(keys) & PLATFORM_FEATURE_KEYS))
+
+    def has_platform_permission(self, feature: str) -> bool:
+        if self.role == UserRole.PLATFORM_OWNER:
+            return True
+        return feature in self.get_platform_permissions()
 
     @property
     def is_manager(self) -> bool:

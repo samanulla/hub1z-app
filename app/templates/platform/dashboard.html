@@ -5,9 +5,14 @@
 <div class="d-flex justify-content-between align-items-start mb-4">
   <div>
     <h3 class="mb-1">Platform overview</h3>
-    <div class="text-muted small">CoWorkHub SaaS operator view — visible only to Platform Owners.</div>
+    <div class="text-muted small">
+      hub1z.com SaaS operator view — signed in as
+      {% if current_user.is_platform_owner %}Platform Super Admin{% else %}Platform Manager{% endif %}.
+    </div>
   </div>
+  {% if current_user.has_platform_permission("tenants") %}
   <a class="btn btn-dark" href="{{ url_for('platform.tenant_new') }}"><i class="bi bi-plus-lg me-1"></i>Provision tenant</a>
+  {% endif %}
 </div>
 
 <div class="row g-3 mb-4">
@@ -34,10 +39,41 @@
     <h5 class="mb-0">Quick links</h5>
   </div>
   <div class="row g-3">
+    {% if current_user.has_platform_permission("tenants") %}
     <div class="col-md-6">
       <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: color-mix(in srgb, var(--brand) 6%, transparent); text-decoration: none;" href="{{ url_for('platform.tenants_list') }}">
         <span class="stat-icon m-0" style="width:40px;height:40px;"><i class="bi bi-building"></i></span>
         <div><div class="fw-semibold">Manage tenants</div><small class="text-muted">List, suspend, activate, edit branding</small></div>
+      </a>
+    </div>
+    {% endif %}
+    {% if current_user.has_platform_permission("billing") %}
+    <div class="col-md-6">
+      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(217,119,6,.08); text-decoration: none;" href="{{ url_for('platform.billing') }}">
+        <span class="stat-icon amber m-0" style="width:40px;height:40px;"><i class="bi bi-credit-card"></i></span>
+        <div><div class="fw-semibold">Billing</div><small class="text-muted">Tenant plan tiers &amp; custom-domain surcharge</small></div>
+      </a>
+    </div>
+    {% endif %}
+    {% if current_user.has_platform_permission("reports") %}
+    <div class="col-md-6">
+      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(124,58,237,.06); text-decoration: none;" href="{{ url_for('platform.reports') }}">
+        <span class="stat-icon purple m-0" style="width:40px;height:40px;"><i class="bi bi-graph-up"></i></span>
+        <div><div class="fw-semibold">Reports</div><small class="text-muted">Cross-tenant analytics</small></div>
+      </a>
+    </div>
+    {% endif %}
+    {% if current_user.is_platform_owner %}
+    <div class="col-md-6">
+      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(15,118,110,.08); text-decoration: none;" href="{{ url_for('platform.team_list') }}">
+        <span class="stat-icon teal m-0" style="width:40px;height:40px;"><i class="bi bi-people"></i></span>
+        <div><div class="fw-semibold">Platform team</div><small class="text-muted">Create Platform Managers &amp; set their permissions</small></div>
+      </a>
+    </div>
+    <div class="col-md-6">
+      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(217,119,6,.08); text-decoration: none;" href="{{ url_for('platform.tiers_list') }}">
+        <span class="stat-icon amber m-0" style="width:40px;height:40px;"><i class="bi bi-layers"></i></span>
+        <div><div class="fw-semibold">Pricing tiers</div><small class="text-muted">Introduce/edit tiers &amp; their resource caps</small></div>
       </a>
     </div>
     <div class="col-md-6">
@@ -46,6 +82,7 @@
         <div><div class="fw-semibold">Global audit log</div><small class="text-muted">Every sensitive action, filterable + CSV</small></div>
       </a>
     </div>
+    {% endif %}
   </div>
 </div></div>
 {% endblock %}

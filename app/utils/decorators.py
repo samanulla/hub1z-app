@@ -49,6 +49,28 @@ def platform_owner_required(view):
     return roles_required(UserRole.PLATFORM_OWNER)(view)
 
 
+def platform_staff_required(view):
+    """Platform Owner or Platform Manager — any authenticated platform-level user."""
+    return roles_required(UserRole.PLATFORM_OWNER, UserRole.PLATFORM_MANAGER)(view)
+
+
+def platform_permission_required(feature: str):
+    """Restrict a /platform/* view to staff who hold a specific feature grant.
+
+    Platform Owners always pass (they implicitly hold every feature). A
+    Platform Manager must have ``feature`` in their ``platform_permissions``.
+    """
+    def deco(view):
+        @wraps(view)
+        @platform_staff_required
+        def wrapper(*args, **kwargs):
+            if not current_user.has_platform_permission(feature):
+                abort(403)
+            return view(*args, **kwargs)
+        return wrapper
+    return deco
+
+
 def company_admin_required(view):
     return roles_required(UserRole.COMPANY_ADMIN)(view)
 

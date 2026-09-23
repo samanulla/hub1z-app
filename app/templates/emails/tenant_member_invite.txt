@@ -1,0 +1,11 @@
+Hi {{ user.full_name }},
+
+You've been invited to join {{ tenant_name }} as a member.
+
+Click the link below to set your password and activate your account. The link is valid for {{ ttl_days }} days.
+
+{{ accept_url }}
+
+If you weren't expecting this invitation, you can safely ignore it.
+
+— The {{ tenant_name }} team

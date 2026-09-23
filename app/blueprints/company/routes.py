@@ -1,9 +1,6 @@
 """Company-admin portal routes."""
 from __future__ import annotations
 
-from datetime import date
-from decimal import Decimal
-
 from flask import Blueprint, render_template, redirect, url_for, flash, abort, request, g, current_app
 from flask_login import current_user, login_user
 
@@ -13,9 +10,8 @@ from ...models import (
     SeatAllocation, AllocationStatus, Invoice, SeatBooking, RoomBooking,
 )
 from ...utils.decorators import company_admin_required
-from .forms import InviteEmployeeForm, SubscribeForm, AcceptInviteForm
-from ...services.formatting import format_money
-from ...services import mail_service
+from .forms import InviteEmployeeForm, AcceptInviteForm
+from ...services import mail_service, tier_limits
 
 INVITE_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
 
@@ -66,6 +62,10 @@ def employee_new():
         if emp_count >= c.max_employees:
             flash(f"Employee limit ({c.max_employees}) reached.", "warning")
             return redirect(url_for("company.employees"))
+        ok, msg = tier_limits.check_limit(getattr(g, "tenant", None), "person")
+        if not ok:
+            flash(msg, "warning")
+            return redirect(url_for("company.employees"))
         email = form.email.data.lower().strip()
         if User.query.filter_by(email=email).first():
             flash("That email is already registered under this workspace.", "warning")
@@ -86,7 +86,7 @@ def employee_new():
         token = mail_service.make_token(u.id, "employee-invite")
         accept_url = url_for("company.accept_invite", token=token, _external=True)
         mail_service.send(
-            subject=f"You're invited to {c.name} on CoWorkHub",
+            subject=f"You're invited to {c.name} on {current_app.config['APP_NAME']}",
             recipient=u.email,
             template="employee_invite",
             user=u, company=c, accept_url=accept_url,
@@ -137,29 +137,14 @@ def employee_deactivate(user_id: int):
 
 # --------------------------------------------------------------- plans --
 
-@company_bp.route("/plans", methods=["GET", "POST"])
+@company_bp.route("/plans")
 @company_admin_required
 def plans():
+    """Read-only: what the tenant offers. Subscribing is tenant-controlled
+    (/admin/companies/<id>/subscriptions/new) — it's tied to real seat
+    inventory the tenant manages, not a company self-checkout."""
     c = _own_company()
-    form = SubscribeForm()
-    form.plan_id.choices = [(p.id, f"{p.name} — {format_money(p.base_price)}/{p.billing_cycle.value}")
-                            for p in PricingPlan.query.filter_by(is_active=True).order_by(PricingPlan.base_price).all()]
-    if form.validate_on_submit():
-        plan = PricingPlan.query.get_or_404(form.plan_id.data)
-        sub = Subscription(
-            plan_id=plan.id,
-            company_id=c.id,
-            quantity=form.quantity.data,
-            unit_price=Decimal(plan.base_price),
-            start_date=date.today(),
-            status=SubscriptionStatus.ACTIVE,
-            meeting_credits_balance=(plan.included_meeting_credits or 0) * form.quantity.data,
-        )
-        db.session.add(sub)
-        db.session.commit()
-        flash(f"Subscribed to {plan.name}.", "success")
-        return redirect(url_for("company.subscriptions"))
-    return render_template("company/plans.html", company=c, form=form,
+    return render_template("company/plans.html", company=c,
                            plans=PricingPlan.query.filter_by(is_active=True).all())
 
 

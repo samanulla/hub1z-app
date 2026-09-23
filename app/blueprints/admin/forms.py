@@ -2,8 +2,9 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from wtforms import (StringField, IntegerField, DecimalField, SelectField,
-                     TextAreaField, TimeField, BooleanField, SubmitField, DateField)
-from wtforms.validators import DataRequired, Length, Optional, NumberRange, Email
+                     TextAreaField, TimeField, BooleanField, SubmitField, DateField,
+                     PasswordField)
+from wtforms.validators import DataRequired, Length, Optional, NumberRange, Email, EqualTo
 
 from ...models import (
     SeatType, PlanType, BillingCycle, CompanyStatus,
@@ -317,3 +318,56 @@ class SystemSettingsForm(FlaskForm):
     invoice_prefix = StringField("Invoice number prefix", validators=[DataRequired(), Length(max=10)])
 
     submit = SubmitField("Save settings")
+
+
+# ---------------------------------------------------------- tenant invites --
+
+class InviteIndividualForm(FlaskForm):
+    """Tenant invites a person to join as an Individual member."""
+    full_name = StringField("Full name", validators=[DataRequired(), Length(max=150)])
+    email = StringField("Email", validators=[DataRequired(), Email(), Length(max=255)])
+    submit = SubmitField("Send invitation")
+
+
+class InviteCompanyForm(FlaskForm):
+    """Tenant invites a company to sign up and set up its own admin."""
+    company_name = StringField("Company name", validators=[DataRequired(), Length(max=200)])
+    billing_email = StringField("Billing email", validators=[DataRequired(), Email(), Length(max=255)])
+    admin_full_name = StringField("Admin's name", validators=[DataRequired(), Length(max=150)])
+    admin_email = StringField("Admin's email", validators=[DataRequired(), Email(), Length(max=255)])
+    submit = SubmitField("Send invitation")
+
+
+class InviteTeamMemberForm(FlaskForm):
+    """Tenant Super Admin invites a Manager or a Location Manager. Always
+    Super-Admin-only to send — never delegable to an existing Manager, same
+    privilege-escalation guard as Platform Manager creation."""
+    full_name = StringField("Full name", validators=[DataRequired(), Length(max=150)])
+    email = StringField("Work email", validators=[DataRequired(), Email(), Length(max=255)])
+    role = SelectField("Role", choices=[
+        ("manager", "Manager — tenant-wide, day-to-day operations"),
+        ("location_manager", "Location Manager — scoped to one location"),
+    ], validators=[DataRequired()])
+    location_id = SelectField("Location (required for Location Manager)", coerce=int,
+                              validators=[Optional()])
+    submit = SubmitField("Send invitation")
+
+
+class AcceptTenantInviteForm(FlaskForm):
+    password = PasswordField("Choose a password",
+                             validators=[DataRequired(), Length(min=8, max=200)])
+    confirm = PasswordField("Confirm password",
+                            validators=[DataRequired(), Length(min=8, max=200),
+                                        EqualTo("password")])
+    submit = SubmitField("Set password and sign in")
+
+
+# --------------------------------------------------------- subscriptions --
+
+class AdminSubscribeForm(FlaskForm):
+    """Tenant admin/manager sets up a company's subscription — tied to real
+    seat inventory the tenant manages, not a company self-checkout."""
+    plan_id = SelectField("Plan", coerce=int, validators=[DataRequired()])
+    quantity = IntegerField("Seats / users", default=1, validators=[NumberRange(min=1)])
+    start_date = DateField("Start date", validators=[DataRequired()])
+    submit = SubmitField("Add subscription")

@@ -100,26 +100,20 @@
     <div class="text-center" style="max-width: 700px; margin: 0 auto 4rem;">
       <div class="eyebrow">03 · Who it's for</div>
       <hr class="divider" style="margin: 1rem auto 1.5rem;">
-      <h2>Three doors.<br>Same building.</h2>
+      <h2>Two doors.<br>Same building.</h2>
     </div>
     <div class="row g-0" style="border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
-      <div class="col-md-4" style="padding: 3rem 2.5rem; border-right: 1px solid var(--line);">
+      <div class="col-md-6" style="padding: 3rem 2.5rem; border-right: 1px solid var(--line);">
         <div class="num-serif small saffron">01</div>
         <h3 style="margin-top: 1rem;">Individual</h3>
         <p style="margin-top: .8rem;">Freelancers, remote workers, founders between meetings. Get a subscription. Book instantly. Meet interesting people.</p>
         <a class="btn-ink" style="margin-top: 1rem;" href="{{ url_for('auth.register_individual') }}">Join as member</a>
       </div>
-      <div class="col-md-4" style="padding: 3rem 2.5rem; border-right: 1px solid var(--line);">
+      <div class="col-md-6" style="padding: 3rem 2.5rem;">
         <div class="num-serif small saffron">02</div>
         <h3 style="margin-top: 1rem;">Company</h3>
         <p style="margin-top: .8rem;">Bring your team. Pool credits. Consolidated invoices. Track allocations. Employees get email invites — no shared passwords.</p>
         <a class="btn-ink" style="margin-top: 1rem;" href="{{ url_for('auth.register_company') }}">Register a company</a>
-      </div>
-      <div class="col-md-4" style="padding: 3rem 2.5rem;">
-        <div class="num-serif small saffron">03</div>
-        <h3 style="margin-top: 1rem;">Operator</h3>
-        <p style="margin-top: .8rem;">Run your own coworking brand on our software. Multi-tenant, per-tenant domain and branding, full back office.</p>
-        <a class="btn-ink" style="margin-top: 1rem;" href="{{ url_for('auth.pick_workspace') }}">Find your workspace</a>
       </div>
     </div>
   </div>
@@ -240,7 +234,7 @@
       <div class="col-md-4">
         <div class="eyebrow">Say hello</div>
         <p style="color: rgba(251,247,240,.65); margin-top: 1rem;">
-          {% if tenant and tenant.support_email %}{{ tenant.support_email }}{% else %}hello@coworkhub.io{% endif %}
+          {% if tenant and tenant.support_email %}{{ tenant.support_email }}{% else %}hello@hub1z.com{% endif %}
         </p>
       </div>
     </div>

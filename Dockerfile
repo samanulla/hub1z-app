@@ -15,7 +15,9 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . .
 
-RUN useradd --create-home --uid 1000 app && chown -R app:app /app
+RUN mkdir -p /app/var/uploads \
+  && useradd --create-home --uid 1000 app \
+  && chown -R app:app /app
 USER app
 
 ENV FLASK_APP=wsgi.py \

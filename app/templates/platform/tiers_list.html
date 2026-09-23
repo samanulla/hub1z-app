@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Pricing tiers{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+  <div>
+    <h3 class="mb-1">Pricing tiers</h3>
+    <div class="text-muted small">Owner-only. Defines what {{ app_name }} charges each tenant and how much
+      inventory (locations, seats, private offices, rooms) their plan allows.</div>
+  </div>
+  <a class="btn btn-dark" href="{{ url_for('platform.tier_new') }}">+ New tier</a>
+</div>
+
+<table class="table bg-white shadow-sm">
+  <thead>
+    <tr>
+      <th>Tier</th>
+      <th>Monthly price</th>
+      <th>Locations</th>
+      <th>Seats</th>
+      <th>Private offices</th>
+      <th>Rooms</th>
+      <th>Status</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in tiers %}
+    <tr>
+      <td><strong>{{ t.name }}</strong> <code class="text-muted">{{ t.key }}</code></td>
+      <td>{{ "₹%.0f"|format(t.monthly_price) if t.monthly_price is not none else "Custom" }}</td>
+      <td>{{ t.max_locations if t.max_locations is not none else "Unlimited" }}</td>
+      <td>{{ t.max_seats if t.max_seats is not none else "Unlimited" }}</td>
+      <td>{{ t.max_private_offices if t.max_private_offices is not none else "Unlimited" }}</td>
+      <td>{{ t.max_rooms if t.max_rooms is not none else "Unlimited" }}</td>
+      <td>
+        {% if t.is_active %}<span class="badge bg-success">Active</span>
+        {% else %}<span class="badge bg-secondary">Retired</span>{% endif %}
+      </td>
+      <td class="text-end">
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('platform.tier_edit', tier_id=t.id) }}">Edit</a>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="text-center text-muted py-4">No tiers yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

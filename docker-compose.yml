@@ -6,23 +6,35 @@ services:
       POSTGRES_PASSWORD: coworkhub
       POSTGRES_DB: coworkhub
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coworkhub -d coworkhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   web:
     build: .
-    depends_on: [db]
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8000:8000"
     environment:
-      FLASK_ENV: production
+      FLASK_ENV: development
       SECRET_KEY: change-me
+      APP_BASE_URL: http://localhost:8000
       DATABASE_URL: postgresql+psycopg2://coworkhub:coworkhub@db:5432/coworkhub
       STORAGE_BACKEND: local
       LOCAL_STORAGE_DIR: /app/var/uploads
     volumes:
-      - uploads:/app/var/uploads
+      - uploads:/app/var
+    command: >-
+      sh -c "flask --app wsgi.py db upgrade &&
+      flask --app wsgi.py seed-demo &&
+      gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 60 wsgi:app"
 
 volumes:
   pgdata:

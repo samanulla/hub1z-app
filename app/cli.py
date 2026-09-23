@@ -73,42 +73,38 @@ def seed_demo_cmd() -> None:
     """Populate DB with default tenant + sample data."""
     from flask import current_app
 
-    tenant = Tenant.query.filter_by(slug="coworkhub").first()
+    # Sample tenant — a coworking business ("Adyar Space") that lives on the
+    # platform, not the platform itself. Its people get their own company
+    # domain (adyarspace.com); hub1z.com is reserved for the platform.
+    tenant = Tenant.query.filter_by(slug="adyarspace").first()
     if tenant is None:
         tenant = Tenant(
-            slug="coworkhub", name="CoWorkHub",
+            slug="adyarspace", name="Adyar Space",
             tagline="A workspace that scales with your team.",
-            primary_domain="coworkhub.io", status=TenantStatus.ACTIVE,
-            brand_color="#0f766e", support_email="hello@coworkhub.io",
+            primary_domain="adyarspace.hub1z.com", status=TenantStatus.ACTIVE,
+            brand_color="#0f766e", support_email="hello@adyarspace.com",
+            plan_tier="growth",  # comfortably covers the seeded inventory below
         )
         db.session.add(tenant)
         db.session.commit()
-        click.echo(f"Seeded default tenant: {tenant.slug}")
+        click.echo(f"Seeded sample tenant: {tenant.slug}")
     tid = tenant.id
 
-    po_email = "platform@coworkhub.io"
+    po_email = "platform@hub1z.com"
     if not User.query.filter_by(email=po_email).first():
-        po = User(email=po_email, full_name="Platform Owner",
+        po = User(email=po_email, full_name="Platform Super Admin",
                   role=UserRole.PLATFORM_OWNER, is_active=True, email_verified=True)
         po.set_password("ChangeMe123!")
         db.session.add(po)
-        click.echo(f"Seeded platform owner: {po_email}")
+        click.echo(f"Seeded platform super admin: {po_email}")
 
     email = current_app.config["BOOTSTRAP_ADMIN_EMAIL"]
     if not User.query.filter_by(email=email).first():
-        admin = User(tenant_id=tid, email=email, full_name="Platform Admin",
+        admin = User(tenant_id=tid, email=email, full_name="Tenant Admin",
                      role=UserRole.SUPER_ADMIN, is_active=True, email_verified=True)
         admin.set_password(current_app.config["BOOTSTRAP_ADMIN_PASSWORD"])
         db.session.add(admin)
         click.echo(f"Seeded tenant super admin: {email}")
-
-    if not User.query.filter_by(email="manager@coworkhub.io").first():
-        mgr = User(tenant_id=tid, email="manager@coworkhub.io",
-                   full_name="Operations Manager",
-                   role=UserRole.MANAGER, is_active=True, email_verified=True)
-        mgr.set_password("ChangeMe123!")
-        db.session.add(mgr)
-        click.echo("Seeded manager")
 
     for n in ["Wi-Fi", "Coffee", "Printing", "Phone booths", "Kitchen", "Shower", "Bike storage"]:
         if not Amenity.query.filter_by(name=n).first():
@@ -121,7 +117,7 @@ def seed_demo_cmd() -> None:
     loc = Location.query.filter_by(code="BLR-01").first()
     if not loc:
         loc = Location(
-            tenant_id=tid, name="CoWorkHub Bengaluru — Indiranagar", code="BLR-01",
+            tenant_id=tid, name="Adyar Space Bengaluru — Indiranagar", code="BLR-01",
             address_line1="100 Feet Road", city="Bengaluru", state="KA",
             country="IN", postal_code="560038", timezone="Asia/Kolkata",
             open_time=time(7, 0), close_time=time(22, 0),
@@ -184,10 +180,7 @@ def seed_demo_cmd() -> None:
         ca = User(tenant_id=tid, email="jane@acme.example", full_name="Jane Doe",
                   role=UserRole.COMPANY_ADMIN, company_id=acme.id, is_active=True)
         ca.set_password("ChangeMe123!")
-        emp = User(tenant_id=tid, email="bob@acme.example", full_name="Bob Smith",
-                   role=UserRole.EMPLOYEE, company_id=acme.id, is_active=True)
-        emp.set_password("ChangeMe123!")
-        db.session.add_all([ca, emp])
+        db.session.add(ca)
         plan = PricingPlan.query.filter_by(name="Dedicated Desk").first()
         if plan:
             db.session.add(Subscription(
@@ -198,13 +191,12 @@ def seed_demo_cmd() -> None:
             ))
         click.echo("Seeded demo company Acme Robotics")
 
-    if not User.query.filter_by(email="alex@example.com").first():
-        alex = User(tenant_id=tid, email="alex@example.com",
-                    full_name="Alex Freelancer",
-                    role=UserRole.INDIVIDUAL, is_active=True)
-        alex.set_password("ChangeMe123!")
-        db.session.add(alex)
-        click.echo("Seeded individual member")
-
     db.session.commit()
-    click.echo("Done. Sign in at /auth/login")
+
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("hub1z demo environment ready. Sign in at /auth/login:")
+    click.echo(f"  Platform Super Admin:  {po_email} / ChangeMe123!")
+    click.echo(f"  Tenant Super Admin:    {email} / ChangeMe123!  ({tenant.name})")
+    click.echo(f"  Company Admin:         jane@acme.example / ChangeMe123!  (Acme Robotics)")
+    click.echo("=" * 60)

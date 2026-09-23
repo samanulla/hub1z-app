@@ -1,16 +1,17 @@
 """Authentication routes."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, g
 from flask_login import login_user, logout_user, login_required, current_user
 
 from ...extensions import db, limiter
-from ...models import User, UserRole, Company, CompanyStatus, Tenant
-from ...services import mail_service
+from ...models import User, UserRole, Company, CompanyStatus, Tenant, TenantStatus
+from ...services import mail_service, tier_limits
 from .forms import (
-    LoginForm, RegisterIndividualForm, RegisterCompanyForm,
+    LoginForm, RegisterIndividualForm, RegisterCompanyForm, RegisterTenantForm,
     ForgotPasswordForm, ResetPasswordForm, ChangePasswordForm, TenantPickerForm,
     TotpVerifyForm, TotpEnableForm,
 )
@@ -64,6 +65,11 @@ def login():
     if form.validate_on_submit():
         user = User.query.filter_by(email=form.email.data.lower().strip()).first()
         if user and user.check_password(form.password.data) and user.is_active:
+            if user.tenant_id and user.tenant and user.tenant.is_trial_expired:
+                flash(f"This workspace's trial ended on "
+                     f"{user.tenant.trial_ends_at.strftime('%d-%b-%Y')}. "
+                     f"Contact {current_app.config['APP_NAME']} to continue.", "warning")
+                return render_template("auth/login.html", form=form)
             next_url = _safe_next(request.args.get("next"))
             if user.two_factor_enabled:
                 from flask import session as flask_session
@@ -96,8 +102,11 @@ def register_individual():
     form = RegisterIndividualForm()
     if form.validate_on_submit():
         email = form.email.data.lower().strip()
+        ok, tier_msg = tier_limits.check_limit(tenant, "person")
         if User.query.filter_by(email=email).first():
             flash("An account with that email already exists.", "warning")
+        elif not ok:
+            flash(tier_msg, "warning")
         else:
             user = User(
                 tenant_id=tenant.id if tenant else None,
@@ -110,7 +119,7 @@ def register_individual():
             db.session.add(user)
             db.session.commit()
             login_user(user)
-            flash(f"Welcome to {tenant.name if tenant else 'CoWorkHub'}!", "success")
+            flash(f"Welcome to {tenant.name if tenant else current_app.config['APP_NAME']}!", "success")
             return redirect(url_for("member.dashboard"))
     return render_template("auth/register_individual.html", form=form)
 
@@ -131,6 +140,10 @@ def register_company():
             return render_template("auth/register_company.html", form=form)
         if Company.query.filter_by(name=form.company_name.data.strip()).first():
             flash("A company with that name already exists.", "warning")
+            return render_template("auth/register_company.html", form=form)
+        ok, tier_msg = tier_limits.check_limit(tenant, "person")
+        if not ok:
+            flash(tier_msg, "warning")
             return render_template("auth/register_company.html", form=form)
 
         company = Company(
@@ -157,9 +170,56 @@ def register_company():
         _notify_new_company_signup(company, admin)
 
         login_user(admin)
-        flash("Your company account is created. A platform admin will contact you to finalise onboarding.", "success")
+        flash("Your company account is created. The workspace admin will contact you to finalise onboarding.", "success")
         return redirect(url_for("company.dashboard"))
     return render_template("auth/register_company.html", form=form)
+
+
+@auth_bp.route("/register/tenant", methods=["GET", "POST"])
+def register_tenant():
+    """Self-serve: a coworking business signs itself up directly, no
+    platform staff involved. Lands as a time-boxed TRIAL so they can try the
+    platform; a Platform Super Admin/Manager still has to Approve it
+    (/platform/tenants/<id>/approve) to lift the trial deadline."""
+    if current_user.is_authenticated:
+        return redirect(url_for("auth.post_login_redirect"))
+
+    form = RegisterTenantForm()
+    if form.validate_on_submit():
+        slug = form.slug.data.lower().strip()
+        admin_email = form.admin_email.data.lower().strip()
+
+        if Tenant.query.execution_options(skip_tenant_filter=True).filter_by(slug=slug).first():
+            flash("That URL slug is already taken.", "warning")
+            return render_template("auth/register_tenant.html", form=form)
+        if User.query.execution_options(skip_tenant_filter=True).filter_by(email=admin_email).first():
+            flash("An account with that email already exists.", "warning")
+            return render_template("auth/register_tenant.html", form=form)
+
+        base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
+        trial_days = current_app.config.get("TENANT_TRIAL_DAYS", 14)
+        t = Tenant(
+            slug=slug, name=form.business_name.data.strip(),
+            primary_domain=f"{slug}.{base}", status=TenantStatus.TRIAL,
+            trial_ends_at=datetime.utcnow() + timedelta(days=trial_days),
+        )
+        db.session.add(t)
+        db.session.flush()
+
+        admin = User(
+            tenant_id=t.id, email=admin_email,
+            full_name=form.admin_full_name.data.strip(),
+            role=UserRole.SUPER_ADMIN, is_active=True, email_verified=False,
+        )
+        admin.set_password(form.password.data)
+        db.session.add(admin)
+        db.session.commit()
+
+        login_user(admin)
+        flash(f"Welcome! Your {trial_days}-day free trial has started — "
+             f"explore everything, and we'll be in touch to get you fully set up.", "success")
+        return redirect(url_for("admin.dashboard"))
+    return render_template("auth/register_tenant.html", form=form)
 
 
 @auth_bp.route("/post-login")
@@ -167,7 +227,7 @@ def register_company():
 def post_login_redirect():
     """Route logged-in users to their home based on role."""
     role = current_user.role
-    if role == UserRole.PLATFORM_OWNER:
+    if role in (UserRole.PLATFORM_OWNER, UserRole.PLATFORM_MANAGER):
         return redirect(url_for("platform.dashboard"))
     if role in (UserRole.SUPER_ADMIN, UserRole.MANAGER, UserRole.LOCATION_MANAGER):
         return redirect(url_for("admin.dashboard"))
@@ -190,7 +250,7 @@ def forgot_password():
             token = mail_service.make_token(user.id, "password-reset")
             reset_url = url_for("auth.reset_password", token=token, _external=True)
             mail_service.send(
-                subject="Reset your CoWorkHub password",
+                subject=f"Reset your {current_app.config['APP_NAME']} password",
                 recipient=user.email,
                 template="password_reset",
                 user=user,
@@ -250,7 +310,7 @@ def pick_workspace():
         if tenant is None:
             flash(f"No workspace found for '{slug}'. Check the spelling.", "warning")
         else:
-            base = current_app.config.get("PLATFORM_BASE_DOMAIN", "coworkhub.io")
+            base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
             host = tenant.primary_domain or f"{tenant.slug}.{base}"
             scheme = "https" if not current_app.debug else request.scheme
             return redirect(f"{scheme}://{host}/auth/login")
@@ -261,7 +321,7 @@ def pick_workspace():
 
 def _totp_issuer_name() -> str:
     tenant = getattr(g, "tenant", None)
-    return (tenant.name if tenant else current_app.config.get("APP_NAME", "CoWorkHub"))
+    return (tenant.name if tenant else current_app.config.get("APP_NAME", "hub1z"))
 
 
 @auth_bp.route("/2fa/login", methods=["GET", "POST"])

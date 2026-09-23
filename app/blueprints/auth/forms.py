@@ -1,7 +1,7 @@
 """Auth forms."""
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SelectField, SubmitField
-from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional
+from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, Regexp
 
 
 class LoginForm(FlaskForm):
@@ -33,6 +33,25 @@ class RegisterCompanyForm(FlaskForm):
     confirm = PasswordField("Confirm password",
                             validators=[DataRequired(), EqualTo("password")])
     submit = SubmitField("Create company account")
+
+
+class RegisterTenantForm(FlaskForm):
+    """Self-serve: a coworking business signs itself up with no platform
+    staff involved. Lands as a time-boxed TRIAL — see auth.register_tenant."""
+    business_name = StringField("Business name", validators=[DataRequired(), Length(max=200)])
+    slug = StringField(
+        "URL slug", validators=[
+            DataRequired(), Length(min=3, max=40),
+            Regexp(r"^[a-z0-9-]+$", message="Lowercase letters, digits, hyphens only"),
+        ],
+        description="Your workspace will be reachable at <slug>.hub1z.com",
+    )
+    admin_full_name = StringField("Your name", validators=[DataRequired(), Length(max=150)])
+    admin_email = StringField("Your email", validators=[DataRequired(), Email(), Length(max=255)])
+    password = PasswordField("Password", validators=[DataRequired(), Length(min=8, max=200)])
+    confirm = PasswordField("Confirm password",
+                            validators=[DataRequired(), EqualTo("password")])
+    submit = SubmitField("Start my free trial")
 
 
 class ForgotPasswordForm(FlaskForm):

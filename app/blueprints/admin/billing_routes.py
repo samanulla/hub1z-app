@@ -343,7 +343,7 @@ def register_billing_routes(bp):
         from xhtml2pdf import pisa
         inv = Invoice.query.get_or_404(invoice_id)
         html = render_template("admin/invoices/pdf.html", invoice=inv,
-                               app_name=current_app.config.get("APP_NAME", "CoWorkHub"))
+                               app_name=current_app.config.get("APP_NAME", "hub1z"))
         buf = BytesIO()
         pisa.CreatePDF(html, dest=buf, encoding="utf-8")
         buf.seek(0)

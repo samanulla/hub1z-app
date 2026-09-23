@@ -4,7 +4,10 @@
 {% block content %}
 <div class="d-flex justify-content-between mb-3">
   <h3>Tenants</h3>
-  <a class="btn btn-dark" href="{{ url_for('platform.tenant_new') }}">+ Provision tenant</a>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-dark" href="{{ url_for('platform.tenant_invite') }}">+ Invite tenant</a>
+    <a class="btn btn-dark" href="{{ url_for('platform.tenant_new') }}">+ Provision tenant</a>
+  </div>
 </div>
 
 <table class="table bg-white shadow-sm">
@@ -38,21 +41,43 @@
       <td>{{ t._location_count }}</td>
       <td>
         {% if t.status.value == 'active' %}<span class="badge bg-success">Active</span>
+        {% elif t.status.value == 'trial' %}<span class="badge bg-info text-dark">Pending approval</span>
+        {% elif t.status.value == 'hold' %}<span class="badge bg-warning text-dark">On hold</span>
         {% elif t.status.value == 'suspended' %}<span class="badge bg-danger">Suspended</span>
         {% else %}<span class="badge bg-secondary">{{ t.status.value }}</span>{% endif %}
       </td>
       <td class="text-end">
         <a class="btn btn-sm btn-outline-dark" href="{{ url_for('platform.tenant_edit', tenant_id=t.id) }}">Edit</a>
-        {% if t.status.value == 'active' %}
-        <form method="post" action="{{ url_for('platform.tenant_suspend', tenant_id=t.id) }}" class="d-inline">
+
+        {% if t.status.value == 'trial' %}
+        <form method="post" action="{{ url_for('platform.tenant_approve', tenant_id=t.id) }}" class="d-inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn btn-sm btn-outline-danger">Suspend</button>
+          <button class="btn btn-sm btn-outline-success">Approve</button>
         </form>
-        {% else %}
-        <form method="post" action="{{ url_for('platform.tenant_activate', tenant_id=t.id) }}" class="d-inline">
+        {% elif t.status.value == 'hold' %}
+        <form method="post" action="{{ url_for('platform.tenant_release_hold', tenant_id=t.id) }}" class="d-inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn btn-sm btn-outline-success">Activate</button>
+          <button class="btn btn-sm btn-outline-success">Release hold</button>
         </form>
+        {% elif t.status.value == 'active' %}
+        <form method="post" action="{{ url_for('platform.tenant_hold', tenant_id=t.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-warning">Hold</button>
+        </form>
+        {% endif %}
+
+        {% if current_user.is_platform_owner %}
+          {% if t.status.value == 'suspended' %}
+          <form method="post" action="{{ url_for('platform.tenant_activate', tenant_id=t.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-success">Reactivate</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('platform.tenant_suspend', tenant_id=t.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-danger">Deactivate</button>
+          </form>
+          {% endif %}
         {% endif %}
       </td>
     </tr>

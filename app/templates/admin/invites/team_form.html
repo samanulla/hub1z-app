@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Invite a team member{% endblock %}
+
+{% block content %}
+<h3>Invite a team member</h3>
+<div class="card"><div class="card-body">
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+    {{ field(form.full_name, autofocus=true) }}
+    {{ field(form.email) }}
+    {{ field(form.role) }}
+    {{ field(form.location_id) }}
+    <div class="form-text mb-3">
+      A Location Manager only sees and manages the location you pick here — pick
+      "not applicable" for a tenant-wide Manager. We'll email them a secure link
+      to set their own password.
+    </div>
+    <button class="btn btn-dark">Send invitation</button>
+    <a class="btn btn-link" href="{{ url_for('admin.invites_list') }}">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

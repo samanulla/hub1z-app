@@ -1,11 +1,11 @@
 """Platform Owner forms (tenant CRUD)."""
 from flask_wtf import FlaskForm
 from wtforms import (StringField, DecimalField, SelectField, TextAreaField,
-                     BooleanField, SubmitField, PasswordField)
+                     BooleanField, SubmitField, PasswordField, IntegerField)
 from wtforms.validators import (DataRequired, Length, Optional, Email,
                                 NumberRange, Regexp)
 
-from ...models import TenantStatus
+from ...models import TenantStatus, PLATFORM_FEATURES
 
 
 class TenantForm(FlaskForm):
@@ -16,7 +16,7 @@ class TenantForm(FlaskForm):
             Length(min=3, max=40),
             Regexp(r"^[a-z0-9-]+$", message="Lowercase letters, digits, hyphens only"),
         ],
-        description="Used to build the subdomain — e.g. 'adyarspace' → adyarspace.coworkhub.io",
+        description="Used to build the subdomain — e.g. 'adyarspace' → adyarspace.hub1z.com",
     )
     name = StringField("Display name", validators=[DataRequired(), Length(max=200)])
     tagline = StringField("Tagline", validators=[Optional(), Length(max=200)])
@@ -25,16 +25,14 @@ class TenantForm(FlaskForm):
                               default="#0f766e")
     support_email = StringField("Support email", validators=[Optional(), Email(), Length(max=255)])
 
-    plan_tier = SelectField("Plan tier", choices=[
-        ("starter", "Starter"),
-        ("growth", "Growth"),
-        ("enterprise", "Enterprise"),
-    ], validators=[DataRequired()])
+    # Choices populated dynamically from PricingTier at request time (see routes.py) —
+    # tiers are Owner-configurable, not a fixed list.
+    plan_tier = SelectField("Plan tier", validators=[DataRequired()])
     status = SelectField("Status", choices=[(s.value, s.value.title()) for s in TenantStatus],
                          validators=[DataRequired()])
 
     primary_domain = StringField("Primary domain", validators=[DataRequired(), Length(max=255)],
-                                 description="e.g. adyarspace.coworkhub.io")
+                                 description="e.g. adyarspace.hub1z.com")
     custom_domain = StringField("Custom domain", validators=[Optional(), Length(max=255)],
                                 description="Optional. e.g. portal.adyarspace.com")
 
@@ -70,6 +68,65 @@ class TenantForm(FlaskForm):
     pan = StringField("PAN", validators=[Optional(), Length(max=20)])
 
     submit = SubmitField("Save tenant")
+
+
+class PlatformManagerForm(FlaskForm):
+    """Create/edit a Platform Manager — a real employee/contractor of the
+    platform, set up by a Platform Super Admin with their own login and a
+    hand-picked set of feature permissions."""
+    full_name = StringField("Full name", validators=[DataRequired(), Length(max=150)])
+    email = StringField("Email", validators=[DataRequired(), Email(), Length(max=255)],
+                        description="A hub1z.com address is recommended — this is a platform account.")
+    password = PasswordField(
+        "Password",
+        validators=[Optional(), Length(min=8, max=200)],
+        description="Leave blank when editing to keep the current password.",
+    )
+    is_active = BooleanField("Active", default=True)
+    submit = SubmitField("Save")
+
+
+for _key, _label, _desc in PLATFORM_FEATURES:
+    setattr(PlatformManagerForm, f"perm_{_key}",
+            BooleanField(f"{_label} — {_desc}", default=True))
+
+
+class InviteTenantForm(FlaskForm):
+    """Invite a prospective coworking business to become a tenant. Unlike
+    NewTenantForm, the business sets its own admin password via the emailed
+    link, and the tenant lands as TRIAL pending an explicit Approve."""
+    slug = StringField(
+        "URL slug",
+        validators=[
+            DataRequired(),
+            Length(min=3, max=40),
+            Regexp(r"^[a-z0-9-]+$", message="Lowercase letters, digits, hyphens only"),
+        ],
+        description="Used to build the subdomain — e.g. 'adyarspace' → adyarspace.hub1z.com",
+    )
+    name = StringField("Business name", validators=[DataRequired(), Length(max=200)])
+    admin_name = StringField("Admin's name", validators=[DataRequired(), Length(max=150)])
+    admin_email = StringField("Admin's email", validators=[DataRequired(), Email(), Length(max=255)])
+    submit = SubmitField("Send invitation")
+
+
+class PricingTierForm(FlaskForm):
+    """Owner-only: define/edit a tier's price and resource caps. Leave a cap
+    blank for unlimited."""
+    key = StringField(
+        "Key", validators=[DataRequired(), Length(max=30), Regexp(r"^[a-z0-9_-]+$",
+        message="Lowercase letters, digits, hyphens/underscores only")],
+        description="Stable identifier stored on tenants — don't change this after tenants are on it.",
+    )
+    name = StringField("Display name", validators=[DataRequired(), Length(max=80)])
+    monthly_price = DecimalField("Monthly price (₹)", validators=[Optional(), NumberRange(min=0)],
+                                 description="Leave blank for 'custom / contact us'.")
+    is_active = BooleanField("Active (offered to new/edited tenants)", default=True)
+    max_locations = IntegerField("Max locations", validators=[Optional(), NumberRange(min=0)])
+    max_seats = IntegerField("Max seats (hot + dedicated desks)", validators=[Optional(), NumberRange(min=0)])
+    max_private_offices = IntegerField("Max private offices (manager cabins)", validators=[Optional(), NumberRange(min=0)])
+    max_rooms = IntegerField("Max conference rooms", validators=[Optional(), NumberRange(min=0)])
+    submit = SubmitField("Save tier")
 
 
 class NewTenantForm(TenantForm):

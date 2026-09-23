@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Invite a company{% endblock %}
+
+{% block content %}
+<h3>Invite a company</h3>
+<div class="card"><div class="card-body">
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+    {{ field(form.company_name, autofocus=true) }}
+    {{ field(form.billing_email) }}
+    {{ field(form.admin_full_name) }}
+    {{ field(form.admin_email) }}
+    <div class="form-text mb-3">We'll email the admin a secure link to set their password and activate the company.</div>
+    <button class="btn btn-dark">Send invitation</button>
+    <a class="btn btn-link" href="{{ url_for('admin.invites_list') }}">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

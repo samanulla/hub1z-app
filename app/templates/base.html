@@ -256,7 +256,7 @@
     <div class="collapse navbar-collapse" id="navmenu">
       <ul class="navbar-nav ms-auto align-items-lg-center">
         {% if current_user.is_authenticated %}
-          {% if current_user.is_platform_owner %}
+          {% if current_user.is_platform_staff %}
             <li class="nav-item"><a class="nav-link" href="{{ url_for('platform.dashboard') }}">Platform</a></li>
           {% endif %}
           {% if current_user.is_admin %}
@@ -268,7 +268,7 @@
           {% endif %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('book.index') }}">Book</a></li>
           <li class="nav-item"><a class="nav-link" href="{{ url_for('member.bookings') }}">My bookings</a></li>
-          {% if not current_user.is_platform_owner %}
+          {% if not current_user.is_platform_staff %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('member.day_passes') }}">Day pass</a></li>
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#">Hub</a>
@@ -309,6 +309,8 @@
                                    href="{{ url_for('auth.register_individual') }}">Join as member</a></li>
           <li class="nav-item"><a class="btn btn-sm btn-dark ms-2"
                                    href="{{ url_for('auth.register_company') }}">Register company</a></li>
+          <li class="nav-item"><a class="btn btn-sm btn-outline-success ms-2"
+                                   href="{{ url_for('auth.register_tenant') }}">Start free trial</a></li>
         {% endif %}
       </ul>
     </div>

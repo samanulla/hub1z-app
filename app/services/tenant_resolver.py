@@ -56,8 +56,12 @@ def install(app: Flask) -> None:
 
         host = (request.host or "").split(":")[0].lower()
         t = Tenant.resolve(host)
-        if t is None:
-            # Fallback for localhost / unknown host: use the first tenant.
+        if t is None and host in ("localhost", "127.0.0.1"):
+            # Local-dev convenience only: bare localhost with no DNS set up
+            # falls back to the first tenant. A genuinely unmatched *real*
+            # domain (including the platform's own apex, e.g. hub1z.com)
+            # must resolve to no tenant — that's what tells index() to show
+            # the platform's own marketing page instead of a tenant's.
             t = Tenant.default()
         g.tenant = t
         g.tenant_id = t.id if t is not None else None
