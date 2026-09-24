@@ -1,0 +1,7 @@
+{% extends "public/base_marketing.html" %}
+{% block title %}{{ title }} | {{ app_name }}{% endblock %}
+{% block body %}
+<nav class="marketing-nav solid"><a class="brand" href="/"><span class="brand-dot"></span> {{ app_name }}</a><div class="nav-links"><a class="nav-link" href="/features">Features</a><a class="nav-link" href="/pricing">Pricing</a><a class="nav-link btn-nav-cta" href="/auth/register/tenant">Start free</a></div></nav>
+<section class="section" style="padding-top: 10rem;"><div class="container-x"><div class="eyebrow">Feature</div><h1 style="max-width: 780px; margin-top: 1rem;">{{ title }}</h1><p style="max-width: 650px; margin-top: 1.5rem;">{{ description }}</p><div class="row g-4" style="margin-top: 3rem;">{% for bullet in bullets %}<div class="col-md-6"><div class="flat-card h-100"><div class="num-serif small saffron">{{ '%02d'|format(loop.index) }}</div><p style="margin-top:1rem; color:var(--ink);">{{ bullet }}</p></div></div>{% endfor %}</div></div></section>
+<section class="section" style="background:var(--cream-2);"><div class="container-x text-center"><h2>See it in your own workspace.</h2><p>Create your operator account, add a location, and explore the experience.</p><a class="btn-ink" style="margin-top:1.5rem;" href="/auth/register/tenant">Start free trial</a></div></section>
+{% endblock %}

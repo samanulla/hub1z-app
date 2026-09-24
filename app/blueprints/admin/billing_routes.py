@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 
-from flask import render_template, redirect, url_for, flash
+from flask import render_template, redirect, url_for, flash, g
 from flask_login import current_user
 
 from ...extensions import db
@@ -75,6 +75,12 @@ def register_billing_routes(bp):
                     status=InvoiceStatus.DRAFT,
                     subtotal=0, total_amount=0,
                 )
+                from ...services.billing_service import billing_snapshot_for_tenant
+                inv.tenant_id = getattr(g, "tenant_id", None)
+                tenant = getattr(g, "tenant", None)
+                inv.currency = tenant.currency_code if tenant else "USD"
+                for key, value in billing_snapshot_for_tenant(tenant).items():
+                    setattr(inv, key, value)
                 db.session.add(inv)
                 db.session.commit()
                 return redirect(url_for("admin.invoice_detail", invoice_id=inv.id))

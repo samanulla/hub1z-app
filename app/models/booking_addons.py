@@ -64,3 +64,5 @@ class RecurringRoomBooking(db.Model, PkMixin, TimestampMixin, TenantScoped):
 
     room = relationship("ConferenceRoom", foreign_keys=[room_id])
     user = relationship("User", foreign_keys=[user_id])
+    instances = relationship("RoomBooking", backref="recurring_booking",
+                             foreign_keys="RoomBooking.recurring_booking_id")

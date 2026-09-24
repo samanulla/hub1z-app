@@ -31,7 +31,7 @@ def register_invite_routes(bp):
             admin_email = form.admin_email.data.lower().strip()
 
             if Tenant.query.execution_options(skip_tenant_filter=True).filter_by(slug=slug).first():
-                flash("A tenant with that slug already exists.", "warning")
+                flash("An operator with that workspace slug already exists.", "warning")
                 return render_template("platform/tenant_invite_form.html", form=form)
             if User.query.execution_options(skip_tenant_filter=True).filter_by(email=admin_email).first():
                 flash("That admin email is already registered.", "warning")

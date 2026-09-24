@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import os
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, abort, g, request
 from flask_login import current_user
 from dotenv import load_dotenv
 
@@ -102,18 +102,166 @@ def _register_context(app: Flask) -> None:
 
 
 def _register_root_routes(app: Flask) -> None:
+    def tenant_public_data():
+        from datetime import datetime, timedelta
+        from .models import (Location, PricingPlan, SeatBooking, RoomBooking,
+                             BookingStatus)
+
+        tenant = getattr(g, "tenant", None)
+        if tenant is None:
+            abort(404)
+
+        locations = Location.query.filter_by(is_active=True).order_by(Location.name).all()
+        plans = PricingPlan.query.filter_by(is_active=True).order_by(PricingPlan.base_price).all()
+        now = datetime.utcnow()
+        later = now + timedelta(hours=1)
+        availability = []
+        for location in locations:
+            seats = [seat for seat in location.seats if seat.is_active]
+            rooms = [room for room in location.rooms if room.is_active]
+            seat_ids = [seat.id for seat in seats]
+            room_ids = [room.id for room in rooms]
+            booked_seats = (SeatBooking.query
+                            .filter(SeatBooking.seat_id.in_(seat_ids))
+                            .filter(SeatBooking.status.in_([BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN]))
+                            .filter(SeatBooking.start_at < later, SeatBooking.end_at > now)
+                            .count()) if seat_ids else 0
+            booked_rooms = (RoomBooking.query
+                            .filter(RoomBooking.room_id.in_(room_ids))
+                            .filter(RoomBooking.status.in_([BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN]))
+                            .filter(RoomBooking.start_at < later, RoomBooking.end_at > now)
+                            .count()) if room_ids else 0
+            availability.append({
+                "location": location,
+                "seat_count": len(seats),
+                "room_count": len(rooms),
+                "available_seats": max(0, len(seats) - booked_seats),
+                "available_rooms": max(0, len(rooms) - booked_rooms),
+            })
+        return {
+            "tenant": tenant,
+            "locations": locations,
+            "plans": plans,
+            "availability": availability,
+        }
+
     @app.route("/")
     def index():
         if current_user.is_authenticated:
             return redirect(url_for("auth.post_login_redirect"))
         from flask import g
         if getattr(g, "tenant", None):
-            return render_template("public/landing.html")
+            return render_template("public/landing.html", **tenant_public_data())
         # No tenant resolved (the platform's own apex domain) — a coworking
         # business's own site, not the SaaS platform's marketing page.
         from .models import PricingTier
         tiers = PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all()
         return render_template("public/platform_landing.html", tiers=tiers)
+
+    @app.route("/features")
+    def public_features():
+        features = [
+            ("bookings", "Bookings and availability", "Let members reserve desks and rooms with live conflict detection, recurring rules, waitlists, and check-in workflows."),
+            ("memberships", "Memberships and community", "Manage plans, credits, companies, employees, day passes, visitors, announcements, and member support in one place."),
+            ("billing", "Billing that fits your operation", "Run subscriptions, invoices, credit notes, refunds, expenses, and India-first tax settings without stitching together spreadsheets."),
+            ("multi-location", "One workspace across locations", "Keep locations, floors, resources, managers, pricing, and reporting connected as your coworking brand expands."),
+            ("operator-tools", "Operator tools", "Give managers the dashboards, audit history, reports, payroll, expenses, and reception workflows they need every day."),
+            ("security", "Tenant-safe by design", "Use role-based access, tenant isolation, two-factor authentication, rate limiting, and audit trails across the platform."),
+        ]
+        return render_template("public/features.html", features=features)
+
+    @app.route("/features/<slug>")
+    def public_feature_detail(slug: str):
+        feature_pages = {
+            "bookings": ("Bookings and availability", "Turn every desk and room into a simple, bookable experience.", [
+                "Hot desks, dedicated desks, private offices, and meeting rooms",
+                "Real-time conflict detection and quoting",
+                "Recurring room bookings, waitlists, and cancellation refunds",
+                "Day passes, QR check-in, visitors, and reception workflows",
+            ]),
+            "memberships": ("Memberships and community", "Give individuals and teams a better way to belong to your space.", [
+                "Monthly, daily, all-access, private office, and day-pass plans",
+                "Company credits, employee invitations, allocations, and invoices",
+                "Community directory, announcements, guest passes, lockers, and support tickets",
+            ]),
+            "billing": ("Billing that fits your operation", "Keep the money trail clear while you grow.", [
+                "Recurring subscription invoices and usage charges",
+                "GST-ready tenant settings, credit notes, refunds, and PDF exports",
+                "Manual payment records for UPI, bank transfer, cards, cash, and cheque",
+            ]),
+            "multi-location": ("One workspace across locations", "Expand without creating a new operating system for every site.", [
+                "Shared members, plans, and reporting across locations",
+                "Location Managers scoped to their own site",
+                "Per-location floors, resources, amenities, pricing, and availability",
+            ]),
+            "operator-tools": ("Operator tools", "A calmer back office for the work behind hospitality.", [
+                "Occupancy, financial, subscription, people, and capacity reports",
+                "Payroll, expenses, staff records, and email templates",
+                "Reception, visitor check-in, audit logs, and document storage",
+            ]),
+            "security": ("Tenant-safe by design", "The platform boundary is part of the product.", [
+                "Role-based access for platform, tenant, company, and member users",
+                "Tenant-scoped data, audit logging, CSRF protection, and rate limiting",
+                "TOTP two-factor authentication and secure invitation flows",
+            ]),
+        }
+        page = feature_pages.get(slug)
+        if page is None:
+            abort(404)
+        return render_template("public/feature_detail.html", slug=slug,
+                               title=page[0], description=page[1], bullets=page[2])
+
+    @app.route("/pricing")
+    def public_pricing():
+        from .models import PricingTier
+        currency = (request.args.get("currency") or "INR").upper()
+        if currency not in {"INR", "USD"}:
+            currency = "INR"
+        billing = request.args.get("billing", "monthly")
+        if billing not in {"monthly", "annual"}:
+            billing = "monthly"
+        currency_meta = {"INR": ("₹", 1.0), "USD": ("$", 0.012)}
+        symbol, rate = currency_meta[currency]
+        descriptions = {
+            "starter": "A space finding its feet.",
+            "growth": "An established single site.",
+            "scale": "A larger or multi-floor site.",
+            "enterprise": "500+ members or multi-city.",
+        }
+        feature_sets = {
+            "starter": ["1 location", "Bookings, resources and floor plans", "Invoicing and credit notes", "Member portal"],
+            "growth": ["Bookings, resources and floor plans", "Recurring billing and credit notes", "Manual payment details", "CRM-ready member portal", "Email support"],
+            "scale": ["Multi-location operations", "Recurring billing and reports", "Operator roles and audit log", "Member portal and community", "Priority support"],
+            "enterprise": ["Multiple locations", "Advanced access and audit controls", "API-ready operations", "White-label member experience", "Multi-entity billing"],
+        }
+        plans = []
+        for tier in PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all():
+            monthly = float(tier.monthly_price) * rate if tier.monthly_price is not None else None
+            annual = monthly * 10 if monthly is not None else None
+            plans.append({
+                "tier": tier, "monthly": monthly, "annual": annual,
+                "price": annual / 12 if billing == "annual" and annual is not None else monthly,
+                "description": descriptions.get(tier.key, "A flexible plan for growing operators."),
+                "features": feature_sets.get(tier.key, [
+                    f"{tier.max_locations if tier.max_locations is not None else 'Unlimited'} locations",
+                    "Bookings, memberships and billing", "Operator reports and member portal",
+                ]),
+                "popular": tier.key == "growth",
+            })
+        return render_template("public/pricing.html", plans=plans,
+                               currency=currency, currency_symbol=symbol, billing=billing)
+
+    @app.route("/spaces")
+    def public_spaces():
+        return render_template("public/tenant_spaces.html", **tenant_public_data())
+
+    @app.route("/membership")
+    def public_membership():
+        return render_template("public/tenant_membership.html", **tenant_public_data())
+
+    @app.route("/availability")
+    def public_availability():
+        return render_template("public/tenant_availability.html", **tenant_public_data())
 
     @app.route("/healthz")
     def healthz():

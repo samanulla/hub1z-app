@@ -28,6 +28,8 @@ class Invoice(db.Model, PkMixin, TimestampMixin, TenantScoped):
     number = Column(String(30), unique=True, nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    subscription_id = Column(Integer, ForeignKey("subscriptions.id", ondelete="SET NULL"),
+                             nullable=True, index=True)
 
     period_start = Column(Date, nullable=False)
     period_end = Column(Date, nullable=False)
@@ -43,6 +45,13 @@ class Invoice(db.Model, PkMixin, TimestampMixin, TenantScoped):
     notes = Column(Text)
 
     pdf_document_id = Column(Integer, ForeignKey("documents.id", ondelete="SET NULL"))
+
+    billing_name = Column(String(200))
+    billing_address = Column(String(255))
+    billing_city = Column(String(80))
+    billing_state = Column(String(80))
+    billing_country = Column(String(80))
+    billing_postal_code = Column(String(20))
 
     company = relationship("Company", back_populates="invoices")
     line_items = relationship("InvoiceLineItem", back_populates="invoice", cascade="all, delete-orphan")

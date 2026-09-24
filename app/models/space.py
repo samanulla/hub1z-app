@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
+from .tenant import TenantScoped
 
 
 class SeatType(str, enum.Enum):
@@ -15,9 +16,11 @@ class SeatType(str, enum.Enum):
     PRIVATE_OFFICE = "private_office"
 
 
-class Seat(db.Model, PkMixin, TimestampMixin):
+class Seat(db.Model, PkMixin, TimestampMixin, TenantScoped):
     __tablename__ = "seats"
 
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
+                       nullable=True, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"), nullable=False, index=True)
     floor_id = Column(Integer, ForeignKey("floors.id", ondelete="CASCADE"), nullable=False, index=True)
     code = Column(String(30), nullable=False, index=True)   # e.g. "L5-HD-014"
@@ -46,9 +49,11 @@ class Seat(db.Model, PkMixin, TimestampMixin):
         return f"<Seat {self.code} ({self.seat_type.value})>"
 
 
-class ConferenceRoom(db.Model, PkMixin, TimestampMixin):
+class ConferenceRoom(db.Model, PkMixin, TimestampMixin, TenantScoped):
     __tablename__ = "conference_rooms"
 
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
+                       nullable=True, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"), nullable=False, index=True)
     floor_id = Column(Integer, ForeignKey("floors.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(120), nullable=False)

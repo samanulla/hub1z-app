@@ -5,7 +5,7 @@ All time inputs are ``datetime`` in UTC.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 
 from flask import current_app
@@ -131,12 +131,15 @@ def create_seat_booking(*, user: User, seat: Seat, start: datetime, end: datetim
     _validate_window(start, end)
     if not seat.is_active:
         raise BookingError("Seat is inactive.")
+    if seat.tenant_id and user.tenant_id and seat.tenant_id != user.tenant_id:
+        raise BookingError("Seat does not belong to your workspace.")
     _validate_location_hours(seat.location, start, end)
     if check_seat_conflict(seat.id, start, end, booker=user):
         raise BookingError("Seat is unavailable for the selected time.")
 
     q = quote_seat(seat, start, end)
     booking = SeatBooking(
+        tenant_id=seat.tenant_id or user.tenant_id,
         seat_id=seat.id,
         user_id=user.id,
         company_id=user.company_id,
@@ -200,10 +203,13 @@ def quote_room(user: User, room: ConferenceRoom, start: datetime, end: datetime)
 
 def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, end: datetime,
                         title: str | None = None, attendees: int = 1,
-                        notes: str | None = None) -> RoomBooking:
+                        notes: str | None = None,
+                        recurring_booking_id: int | None = None) -> RoomBooking:
     _validate_window(start, end)
     if not room.is_active:
         raise BookingError("Room is inactive.")
+    if room.tenant_id and user.tenant_id and room.tenant_id != user.tenant_id:
+        raise BookingError("Room does not belong to your workspace.")
     if attendees > room.capacity:
         raise BookingError(f"Room capacity is {room.capacity}.")
     _validate_location_hours(room.location, start, end)
@@ -212,6 +218,7 @@ def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, en
 
     q = quote_room(user, room, start, end)
     booking = RoomBooking(
+        tenant_id=room.tenant_id or user.tenant_id,
         room_id=room.id,
         user_id=user.id,
         company_id=user.company_id,
@@ -223,6 +230,7 @@ def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, en
         notes=notes,
         total_amount=q.subtotal,
         credits_used=q.credits_used,
+        recurring_booking_id=recurring_booking_id,
     )
     db.session.add(booking)
 
@@ -271,3 +279,50 @@ def check_in(booking) -> None:
 def complete(booking) -> None:
     booking.status = BookingStatus.COMPLETED
     db.session.commit()
+
+
+def materialize_recurring_room_bookings(as_of: datetime | None = None,
+                                        horizon_days: int = 1) -> int:
+    """Create the next day of concrete bookings for active recurring series.
+
+    The operation is idempotent because each generated instance is identified
+    by its series and start time. A scheduler can safely run this more than once.
+    """
+    from zoneinfo import ZoneInfo
+    from ..models import RecurringRoomBooking, RecurrencePattern
+
+    now = as_of or datetime.utcnow()
+    window_start = now.date()
+    window_end = window_start + timedelta(days=horizon_days)
+    created = 0
+
+    for series in RecurringRoomBooking.query.filter_by(is_active=True).all():
+        first = max(series.start_date, window_start)
+        last = min(series.end_date, window_end)
+        current = first
+        while current <= last:
+            matches = (series.pattern == RecurrencePattern.DAILY
+                       or current.weekday() == series.start_date.weekday())
+            if matches:
+                local_start = datetime.combine(current, series.start_time)
+                local_end = datetime.combine(current, series.end_time)
+                tz = ZoneInfo(series.room.location.timezone or "UTC")
+                start = local_start.replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+                end = local_end.replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+                exists = RoomBooking.query.filter_by(
+                    recurring_booking_id=series.id, start_at=start,
+                ).first()
+                if not exists and start >= now:
+                    try:
+                        create_room_booking(
+                            user=series.user, room=series.room, start=start, end=end,
+                            title="Recurring room booking", recurring_booking_id=series.id,
+                        )
+                        created += 1
+                    except BookingError:
+                        # Conflicts and exhausted/invalid booking windows are
+                        # left for the operator to resolve without stopping
+                        # other recurring series from being processed.
+                        pass
+            current += timedelta(days=1)
+    return created

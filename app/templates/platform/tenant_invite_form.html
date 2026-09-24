@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import field %}
-{% block title %}Invite a tenant{% endblock %}
+{% block title %}Invite an operator{% endblock %}
 
 {% block content %}
 <h3>Invite a coworking business</h3>
@@ -13,9 +13,9 @@
     {{ field(form.admin_email) }}
     <div class="form-text mb-3">
       They'll set their own password via an emailed link and land as a
-      <strong>trial</strong> tenant, pending your approval before going fully live.
-      For a tenant you want live immediately, use
-      <a href="{{ url_for('platform.tenant_new') }}">Provision tenant</a> instead.
+      <strong>trial</strong> operator account, pending your approval before going fully live.
+      For an operator you want live immediately, use
+      <a href="{{ url_for('platform.tenant_new') }}">Provision operator</a> instead.
     </div>
     <button class="btn btn-dark">Send invitation</button>
     <a class="btn btn-link" href="{{ url_for('platform.tenants_list') }}">Cancel</a>

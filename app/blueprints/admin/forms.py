@@ -320,6 +320,16 @@ class SystemSettingsForm(FlaskForm):
     submit = SubmitField("Save settings")
 
 
+class TenantSettingsForm(FlaskForm):
+    primary_location_id = SelectField("Primary / billing location", coerce=int,
+                                      validators=[Optional()])
+    payment_instructions = TextAreaField("Payment instructions", validators=[Optional(), Length(max=500)])
+    payment_upi_id = StringField("UPI ID", validators=[Optional(), Length(max=120)])
+    payment_gpay = StringField("Google Pay", validators=[Optional(), Length(max=120)])
+    payment_bank_details = TextAreaField("Bank account details", validators=[Optional(), Length(max=500)])
+    submit = SubmitField("Save settings")
+
+
 # ---------------------------------------------------------- tenant invites --
 
 class InviteIndividualForm(FlaskForm):

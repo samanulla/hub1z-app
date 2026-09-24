@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Workspace settings{% endblock %}
+
+{% block content %}
+<h3>Workspace settings</h3>
+<p class="text-muted small">Choose the primary location whose address will appear on new invoices for {{ tenant.name }}.</p>
+<div class="card"><div class="card-body">
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+    {{ field(form.primary_location_id) }}
+    <hr>
+    <h6>Manual payment details</h6>
+    <p class="text-muted small">These details are displayed publicly. No payment gateway is connected.</p>
+    {{ field(form.payment_instructions) }}
+    <div class="row">
+      <div class="col-md-4">{{ field(form.payment_upi_id) }}</div>
+      <div class="col-md-4">{{ field(form.payment_gpay) }}</div>
+      <div class="col-md-4">{{ field(form.payment_bank_details) }}</div>
+    </div>
+    <button class="btn btn-dark">Save settings</button>
+  </form>
+</div></div>
+{% endblock %}

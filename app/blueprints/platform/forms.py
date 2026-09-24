@@ -16,7 +16,7 @@ class TenantForm(FlaskForm):
             Length(min=3, max=40),
             Regexp(r"^[a-z0-9-]+$", message="Lowercase letters, digits, hyphens only"),
         ],
-        description="Used to build the subdomain — e.g. 'adyarspace' → adyarspace.hub1z.com",
+        description="Used to build the workspace subdomain — e.g. 'adyarspace' → adyarspace.hub1z.com",
     )
     name = StringField("Display name", validators=[DataRequired(), Length(max=200)])
     tagline = StringField("Tagline", validators=[Optional(), Length(max=200)])
@@ -41,6 +41,8 @@ class TenantForm(FlaskForm):
                                 validators=[DataRequired(), Length(min=3, max=3)])
     currency_symbol = StringField("Currency symbol", default="₹",
                                   validators=[DataRequired(), Length(max=4)])
+    country_code = StringField("Country code", default="IN",
+                               validators=[DataRequired(), Length(min=2, max=2)])
     locale = StringField("Locale", default="en_IN", validators=[DataRequired(), Length(max=10)])
     number_grouping = SelectField("Number grouping", choices=[
         ("indian", "Indian (12,34,56,789)"),
@@ -66,6 +68,10 @@ class TenantForm(FlaskForm):
                                      validators=[Optional(), Length(max=200)])
     gstin = StringField("GSTIN", validators=[Optional(), Length(max=20)])
     pan = StringField("PAN", validators=[Optional(), Length(max=20)])
+    payment_instructions = StringField("Payment instructions", validators=[Optional(), Length(max=500)])
+    payment_upi_id = StringField("UPI ID", validators=[Optional(), Length(max=120)])
+    payment_gpay = StringField("Google Pay", validators=[Optional(), Length(max=120)])
+    payment_bank_details = StringField("Bank account details", validators=[Optional(), Length(max=500)])
 
     submit = SubmitField("Save tenant")
 
@@ -102,7 +108,7 @@ class InviteTenantForm(FlaskForm):
             Length(min=3, max=40),
             Regexp(r"^[a-z0-9-]+$", message="Lowercase letters, digits, hyphens only"),
         ],
-        description="Used to build the subdomain — e.g. 'adyarspace' → adyarspace.hub1z.com",
+        description="Used to build the workspace subdomain — e.g. 'adyarspace' → adyarspace.hub1z.com",
     )
     name = StringField("Business name", validators=[DataRequired(), Length(max=200)])
     admin_name = StringField("Admin's name", validators=[DataRequired(), Length(max=150)])
@@ -141,4 +147,4 @@ class NewTenantForm(TenantForm):
     seed_defaults = BooleanField(
         "Seed default pricing plans + email templates for this tenant", default=True,
     )
-    submit = SubmitField("Provision tenant")
+    submit = SubmitField("Provision operator")

@@ -37,9 +37,10 @@
   <div class="row">
     <div class="col-md-2">{{ field(form.currency_code) }}</div>
     <div class="col-md-2">{{ field(form.currency_symbol) }}</div>
+    <div class="col-md-2">{{ field(form.country_code) }}</div>
     <div class="col-md-2">{{ field(form.locale) }}</div>
-    <div class="col-md-3">{{ field(form.number_grouping) }}</div>
-    <div class="col-md-3">{{ field(form.timezone) }}</div>
+    <div class="col-md-2">{{ field(form.number_grouping) }}</div>
+    <div class="col-md-2">{{ field(form.timezone) }}</div>
   </div>
   <div class="row">
     <div class="col-md-4">{{ field(form.date_format) }}</div>
@@ -60,9 +61,18 @@
     <div class="col-md-3">{{ field(form.pan) }}</div>
   </div>
 
+  <hr>
+  <h6>Manual payment details</h6>
+  <div class="row">
+    <div class="col-md-3">{{ field(form.payment_upi_id) }}</div>
+    <div class="col-md-3">{{ field(form.payment_gpay) }}</div>
+    <div class="col-md-6">{{ field(form.payment_bank_details) }}</div>
+  </div>
+  {{ field(form.payment_instructions) }}
+
   {% if form.admin_name is defined %}
   <hr>
-  <h6>First super admin (login for this tenant)</h6>
+  <h6>First operator owner (login for this workspace)</h6>
   <div class="row">
     <div class="col-md-4">{{ field(form.admin_name) }}</div>
     <div class="col-md-4">{{ field(form.admin_email) }}</div>

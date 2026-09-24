@@ -7,7 +7,7 @@ from decimal import Decimal
 from ..extensions import db
 from ..models import (
     Invoice, InvoiceLineItem, InvoiceStatus, Subscription, SubscriptionStatus,
-    SystemSettings,
+    SystemSettings, Tenant,
 )
 
 
@@ -18,8 +18,8 @@ def _prefix() -> str:
         return "INV"
 
 
-def next_invoice_number() -> str:
-    prefix = _prefix()
+def next_invoice_number(tenant: Tenant | None = None) -> str:
+    prefix = (tenant.invoice_prefix.strip() if tenant and tenant.invoice_prefix else _prefix())
     ts = datetime.utcnow().strftime("%Y%m")
     last = (Invoice.query
             .filter(Invoice.number.like(f"{prefix}-{ts}-%"))
@@ -37,17 +37,40 @@ def _default_tax_rate() -> Decimal:
         return Decimal("0")
 
 
+def billing_snapshot_for_tenant(tenant: Tenant | None) -> dict:
+    location = tenant.primary_location if tenant else None
+    return {
+        "billing_name": (tenant.company_legal_name if tenant else None),
+        "billing_address": location.address_line1 if location else None,
+        "billing_city": location.city if location else None,
+        "billing_state": location.state if location else None,
+        "billing_country": location.country if location else None,
+        "billing_postal_code": location.postal_code if location else None,
+    }
+
+
 def generate_invoice_for_subscription(sub: Subscription,
                                       period_start: date, period_end: date,
                                       tax_rate: Decimal | None = None) -> Invoice:
     if tax_rate is None:
-        tax_rate = _default_tax_rate()
+        tenant = db.session.get(Tenant, sub.tenant_id) if sub.tenant_id else None
+        tax_rate = (Decimal(tenant.default_tax_rate) / Decimal(100)
+                    if tenant and tenant.default_tax_rate is not None
+                    else _default_tax_rate())
+    tenant = db.session.get(Tenant, sub.tenant_id) if sub.tenant_id else None
+    existing = Invoice.query.filter_by(
+        subscription_id=sub.id, period_start=period_start, period_end=period_end,
+    ).first()
+    if existing:
+        return existing
     subtotal = Decimal(sub.unit_price or 0) * Decimal(sub.quantity or 1)
     tax = (subtotal * tax_rate).quantize(Decimal("0.01"))
     total = subtotal + tax
 
     inv = Invoice(
-        number=next_invoice_number(),
+        number=next_invoice_number(tenant),
+        tenant_id=sub.tenant_id,
+        subscription_id=sub.id,
         company_id=sub.company_id,
         user_id=sub.user_id,
         period_start=period_start,
@@ -58,6 +81,8 @@ def generate_invoice_for_subscription(sub: Subscription,
         tax_amount=tax,
         total_amount=total,
         status=InvoiceStatus.ISSUED,
+        currency=tenant.currency_code if tenant else "USD",
+        **billing_snapshot_for_tenant(tenant),
     )
     db.session.add(inv)
     db.session.flush()

@@ -198,10 +198,22 @@ def register_tenant():
 
         base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
         trial_days = current_app.config.get("TENANT_TRIAL_DAYS", 14)
+        regional_defaults = {
+            "IN": ("INR", "₹", "en_IN", "Asia/Kolkata"),
+            "GB": ("GBP", "£", "en_GB", "Europe/London"),
+            "US": ("USD", "$", "en_US", "America/New_York"),
+            "AE": ("AED", "د.إ", "en_AE", "Asia/Dubai"),
+        }
+        currency, symbol, locale, timezone = regional_defaults.get(
+            form.country_code.data, regional_defaults["IN"]
+        )
         t = Tenant(
             slug=slug, name=form.business_name.data.strip(),
             primary_domain=f"{slug}.{base}", status=TenantStatus.TRIAL,
             trial_ends_at=datetime.utcnow() + timedelta(days=trial_days),
+            country_code=form.country_code.data,
+            currency_code=currency, currency_symbol=symbol,
+            locale=locale, timezone=timezone,
         )
         db.session.add(t)
         db.session.flush()

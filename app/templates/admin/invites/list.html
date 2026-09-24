@@ -82,7 +82,7 @@
         <td>{{ u.full_name }}</td>
         <td>{{ u.email }}</td>
         <td>{{ "Location Manager" if u.role.value == "location_manager" else "Manager" }}</td>
-        <td>{{ u.managed_location.name if u.managed_location else "— tenant-wide —" }}</td>
+        <td>{{ u.managed_location.name if u.managed_location else "— workspace-wide —" }}</td>
         <td>{{ u.created_at.strftime("%d-%b-%Y") }}</td>
         <td class="text-end">
           <form method="post" action="{{ url_for('admin.invite_team_revoke', user_id=u.id) }}" class="d-inline">

@@ -6,9 +6,9 @@
   <div>
     <h3 class="mb-1">Platform billing</h3>
     <div class="text-muted small">
-      What each tenant pays hub1z.com — plan tier, usage vs. that tier's caps,
-      and custom-domain access. (Separate from a tenant's own Admin → Billing,
-      which is what that tenant charges its member companies.)
+      What each operator pays hub1z.com — operator plan, usage vs. that plan's caps,
+      and custom-domain access. (Separate from an operator's own Admin → Billing,
+      which is what that operator charges its member companies.)
     </div>
   </div>
   {% if current_user.is_platform_owner %}
@@ -19,7 +19,7 @@
 <table class="table bg-white shadow-sm align-middle">
   <thead>
     <tr>
-      <th>Tenant</th>
+      <th>Operator</th>
       <th>Custom domain</th>
       <th>Plan tier</th>
       <th>Usage vs. cap</th>
@@ -70,15 +70,15 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="5" class="text-center text-muted py-4">No tenants yet.</td></tr>
+    <tr><td colspan="5" class="text-center text-muted py-4">No operators yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>
 
 <p class="text-muted small">
   Custom-domain mapping itself is still set from
-  <a href="{{ url_for('platform.tenants_list') }}">Tenants → Edit</a>; this
-  page is for tracking which tenants should be billed for it. Automatic
-  invoicing of tenants isn't built yet.
+  <a href="{{ url_for('platform.tenants_list') }}">Operators → Edit</a>; this
+  page is for tracking which operators should be billed for it. Automatic
+  invoicing of operators isn't built yet.
 </p>
 {% endblock %}

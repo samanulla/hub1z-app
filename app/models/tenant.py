@@ -53,6 +53,7 @@ class Tenant(db.Model, PkMixin, TimestampMixin):
     # Localisation (previously on SystemSettings, now per-tenant)
     currency_code = Column(String(3), default="INR", nullable=False)
     currency_symbol = Column(String(4), default="₹", nullable=False)
+    country_code = Column(String(2), default="IN", nullable=False)
     locale = Column(String(10), default="en_IN", nullable=False)
     number_grouping = Column(String(20), default="indian", nullable=False)
     show_currency_code_after_symbol = Column(Boolean, default=False, nullable=False)
@@ -68,6 +69,16 @@ class Tenant(db.Model, PkMixin, TimestampMixin):
     gstin = Column(String(20))
     pan = Column(String(20))
     invoice_prefix = Column(String(10), default="INV", nullable=False)
+
+    # Manual payment instructions shown on the public tenant microsite.
+    payment_instructions = Column(String(500))
+    payment_upi_id = Column(String(120))
+    payment_gpay = Column(String(120))
+    payment_bank_details = Column(String(500))
+
+    primary_location_id = Column(Integer, ForeignKey("locations.id", ondelete="SET NULL"),
+                                 nullable=True, index=True)
+    primary_location = relationship("Location", foreign_keys=[primary_location_id])
 
     @classmethod
     def default(cls) -> "Tenant | None":

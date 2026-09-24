@@ -11,13 +11,13 @@
     </div>
   </div>
   {% if current_user.has_platform_permission("tenants") %}
-  <a class="btn btn-dark" href="{{ url_for('platform.tenant_new') }}"><i class="bi bi-plus-lg me-1"></i>Provision tenant</a>
+  <a class="btn btn-dark" href="{{ url_for('platform.tenant_new') }}"><i class="bi bi-plus-lg me-1"></i>Provision operator</a>
   {% endif %}
 </div>
 
 <div class="row g-3 mb-4">
   {% for label, val, icon, tint in [
-    ("Tenants", stats.tenants, "building", ""),
+    ("Operators", stats.tenants, "building", ""),
     ("Active", stats.active_tenants, "check-circle-fill", "teal"),
     ("Users", stats.total_users, "people-fill", "purple"),
     ("Companies", stats.total_companies, "briefcase-fill", "amber"),
@@ -43,7 +43,7 @@
     <div class="col-md-6">
       <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: color-mix(in srgb, var(--brand) 6%, transparent); text-decoration: none;" href="{{ url_for('platform.tenants_list') }}">
         <span class="stat-icon m-0" style="width:40px;height:40px;"><i class="bi bi-building"></i></span>
-        <div><div class="fw-semibold">Manage tenants</div><small class="text-muted">List, suspend, activate, edit branding</small></div>
+        <div><div class="fw-semibold">Manage operators</div><small class="text-muted">List, suspend, activate, edit branding</small></div>
       </a>
     </div>
     {% endif %}
@@ -51,7 +51,7 @@
     <div class="col-md-6">
       <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(217,119,6,.08); text-decoration: none;" href="{{ url_for('platform.billing') }}">
         <span class="stat-icon amber m-0" style="width:40px;height:40px;"><i class="bi bi-credit-card"></i></span>
-        <div><div class="fw-semibold">Billing</div><small class="text-muted">Tenant plan tiers &amp; custom-domain surcharge</small></div>
+        <div><div class="fw-semibold">Billing</div><small class="text-muted">Operator plans &amp; custom-domain surcharge</small></div>
       </a>
     </div>
     {% endif %}
@@ -59,7 +59,7 @@
     <div class="col-md-6">
       <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(124,58,237,.06); text-decoration: none;" href="{{ url_for('platform.reports') }}">
         <span class="stat-icon purple m-0" style="width:40px;height:40px;"><i class="bi bi-graph-up"></i></span>
-        <div><div class="fw-semibold">Reports</div><small class="text-muted">Cross-tenant analytics</small></div>
+        <div><div class="fw-semibold">Reports</div><small class="text-muted">Cross-operator analytics</small></div>
       </a>
     </div>
     {% endif %}

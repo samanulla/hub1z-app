@@ -7,9 +7,10 @@
   <nav class="marketing-nav on-hero">
     <a class="brand" href="/"><span class="brand-dot"></span> {{ app_name }}</a>
     <div class="nav-links">
-      <a class="nav-link" href="#platform">Platform</a>
-      <a class="nav-link" href="#pricing">Pricing</a>
+      <a class="nav-link" href="{{ url_for('public_features') }}">Features</a>
+      <a class="nav-link" href="{{ url_for('public_pricing') }}">Pricing</a>
       <a class="nav-link" href="#how-it-works">How it works</a>
+      <a class="nav-link" href="{{ url_for('auth.register_tenant') }}">Start free</a>
       <a class="nav-link btn-nav-cta" href="{{ url_for('auth.login') }}">Sign in</a>
     </div>
   </nav>
@@ -25,7 +26,34 @@
       </p>
       <div class="gap-buttons" style="margin-top: 2.5rem;">
         <a class="btn-saffron" href="{{ url_for('auth.register_tenant') }}">Start free trial</a>
+        <a class="btn-outline-ink" href="{{ url_for('public_features') }}" style="color: var(--cream); border-color: var(--cream);">Explore the platform</a>
         <a class="btn-outline-ink" href="{{ url_for('auth.login') }}" style="color: var(--cream); border-color: var(--cream);">Sign in</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background: var(--cream-2);">
+  <div class="container-x">
+    <div class="split">
+      <div>
+        <div class="eyebrow">The operator loop</div>
+        <hr class="divider" style="margin-top: 1rem;">
+        <h2>From first location to full operation.</h2>
+        <p style="margin-top: 1.5rem;">Set up your workspace, publish plans, invite members, and see what is happening across every location from one calm back office.</p>
+        <div class="gap-buttons" style="margin-top: 2rem;">
+          <a class="btn-ink" href="{{ url_for('public_feature_detail', slug='multi-location') }}">See multi-location</a>
+          <a class="btn-outline-ink" href="{{ url_for('public_pricing') }}">View pricing</a>
+        </div>
+      </div>
+      <div class="flat-card" style="background: var(--ink); color: var(--cream); padding: 2.5rem;">
+        <div class="eyebrow text-saffron">One workspace</div>
+        <h3 class="text-cream" style="margin-top: .8rem;">Bookings. Members. Billing.</h3>
+        <div style="margin-top: 2rem; border-top: 1px solid rgba(251,247,240,.2);">
+          <div style="padding: 1rem 0; border-bottom: 1px solid rgba(251,247,240,.2);">Live resource availability</div>
+          <div style="padding: 1rem 0; border-bottom: 1px solid rgba(251,247,240,.2);">Workspace-safe member portals</div>
+          <div style="padding: 1rem 0;">Reports for the decisions ahead</div>
+        </div>
       </div>
     </div>
   </div>
@@ -72,7 +100,7 @@
         <div class="flat-card on-ink" style="height: 100%;">
           <div class="eyebrow text-saffron">Inventory</div>
           <h3 class="text-cream" style="margin-top: .8rem;">Multi-location, built in</h3>
-          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">Run one site or ten. Location Managers scoped to just their own site; tenant-wide Managers for everything.</p>
+          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">Run one site or ten. Location Managers scoped to their own site; workspace-wide Managers for everything.</p>
         </div>
       </div>
       <div class="col-md-6 col-lg-4">
@@ -107,7 +135,7 @@
         <div class="flat-card on-ink" style="height: 100%;">
           <div class="eyebrow text-saffron">Security</div>
           <h3 class="text-cream" style="margin-top: .8rem;">Enterprise-grade</h3>
-          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">Two-factor auth, rate limiting, full audit log with CSV export, and hard data isolation between every tenant.</p>
+          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">Two-factor auth, rate limiting, full audit log with CSV export, and hard data isolation between every operator workspace.</p>
         </div>
       </div>
     </div>
@@ -182,8 +210,8 @@
       <div class="col-6 col-md-2">
         <div class="eyebrow">Explore</div>
         <ul style="list-style: none; padding: 0; margin: 1rem 0 0;">
-          <li style="margin-bottom: .5rem;"><a href="#platform">Platform</a></li>
-          <li style="margin-bottom: .5rem;"><a href="#pricing">Pricing</a></li>
+          <li style="margin-bottom: .5rem;"><a href="{{ url_for('public_features') }}">Features</a></li>
+          <li style="margin-bottom: .5rem;"><a href="{{ url_for('public_pricing') }}">Pricing</a></li>
           <li style="margin-bottom: .5rem;"><a href="#how-it-works">How it works</a></li>
         </ul>
       </div>

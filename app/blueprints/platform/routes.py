@@ -98,8 +98,8 @@ def tenant_new():
                     .execution_options(skip_tenant_filter=True)
                     .filter_by(slug=slug).first())
         if existing:
-            flash("A tenant with that slug already exists.", "warning")
-            return render_template("platform/tenant_form.html", form=form, title="New tenant")
+            flash("An operator with that workspace slug already exists.", "warning")
+            return render_template("platform/tenant_form.html", form=form, title="New operator")
 
         t = Tenant()
         for f in TenantForm.__dict__:
@@ -126,9 +126,9 @@ def tenant_new():
         db.session.commit()
         audit_service.record("tenant.created", "tenant", t.id,
                              {"slug": t.slug, "name": t.name})
-        flash(f"Tenant {t.name} provisioned. Admin: {u.email}", "success")
+        flash(f"Operator workspace {t.name} provisioned. Owner: {u.email}", "success")
         return redirect(url_for("platform.tenants_list"))
-    return render_template("platform/tenant_form.html", form=form, title="Provision new tenant")
+    return render_template("platform/tenant_form.html", form=form, title="Provision new operator")
 
 
 @platform_bp.route("/tenants/<int:tenant_id>/edit", methods=["GET", "POST"])
@@ -146,7 +146,7 @@ def tenant_edit(tenant_id: int):
         form.populate_obj(t)
         db.session.commit()
         audit_service.record("tenant.updated", "tenant", t.id, {"slug": t.slug})
-        flash("Tenant updated.", "success")
+        flash("Operator workspace updated.", "success")
         return redirect(url_for("platform.tenants_list"))
     return render_template("platform/tenant_form.html", form=form,
                            title=f"Edit {t.name}", tenant=t)

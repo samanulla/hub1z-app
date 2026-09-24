@@ -40,9 +40,11 @@ class Location(db.Model, PkMixin, TimestampMixin, TenantScoped):
         return f"<Location {self.code}>"
 
 
-class Floor(db.Model, PkMixin, TimestampMixin):
+class Floor(db.Model, PkMixin, TimestampMixin, TenantScoped):
     __tablename__ = "floors"
 
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
+                       nullable=True, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"), nullable=False)
     level = Column(Integer, nullable=False)          # e.g. 1, 2, 3
     name = Column(String(80), nullable=False)        # e.g. "Ground", "Level 5 — Sales"

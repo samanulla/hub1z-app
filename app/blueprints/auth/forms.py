@@ -36,9 +36,15 @@ class RegisterCompanyForm(FlaskForm):
 
 
 class RegisterTenantForm(FlaskForm):
-    """Self-serve: a coworking business signs itself up with no platform
-    staff involved. Lands as a time-boxed TRIAL — see auth.register_tenant."""
+    """Self-serve: a coworking operator creates an account with no platform
+    staff involved. Lands as a time-boxed trial — see auth.register_tenant."""
     business_name = StringField("Business name", validators=[DataRequired(), Length(max=200)])
+    country_code = SelectField("Country", choices=[
+        ("IN", "India"),
+        ("GB", "United Kingdom"),
+        ("US", "United States"),
+        ("AE", "United Arab Emirates"),
+    ], validators=[DataRequired()])
     slug = StringField(
         "URL slug", validators=[
             DataRequired(), Length(min=3, max=40),

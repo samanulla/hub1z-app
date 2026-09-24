@@ -70,6 +70,12 @@ admins/managers/employees always use that tenant's own email domain.
 - **Team** (`/platform/team`, Owner-only) — create/edit Platform Managers and their feature grants.
 All actions audit-logged.
 
+### Public website
+- **Platform discovery** — `/features`, `/features/<slug>`, and `/pricing` explain the operator product and published pricing tiers.
+- **Tenant microsites** — each tenant homepage links to `/spaces`, `/membership`, and `/availability`, using that tenant's locations, active plans, and current resource snapshot.
+- **Regional signup** — self-serve tenant signup captures country and applies initial currency, locale, and timezone defaults; these can be edited later.
+- **Manual payment display** — tenant admins can publish UPI, Google Pay, bank details, and instructions on the public membership page. This is informational only; no gateway or payment automation is connected.
+
 **Tenant lifecycle:** `TRIAL` (invited/self-registered, pending approval) → `ACTIVE` ⇄ `HOLD` (shared, reversible) → `SUSPENDED` (Owner-only hard stop) → `CHURNED`. Direct provisioning skips straight to `ACTIVE`.
 
 **Pricing tiers with resource caps** answer "is tiers for tenants needed?" — yes, and now with teeth: each `PricingTier` (seeded: Starter/Growth/Enterprise) caps `max_locations`/`max_seats`/`max_private_offices`/`max_rooms`, enforced at creation time in `/admin/locations`, `/admin/.../seats`, `/admin/.../rooms` (`app/services/tier_limits.py`) — a tenant at its cap gets a clear "upgrade to add more" message instead of the create silently succeeding. The same module also caps **people** (`resource="person"`) at `max_seats` — see §5. A tenant on a `plan_tier` with no matching `PricingTier` row fails open (unlimited), so this never blocks tenants provisioned before tiers existed.
@@ -87,6 +93,7 @@ All actions audit-logged.
 - **Email templates** — per-tenant.
 - **Reports** — Occupancy, Financials, Subscriptions, People, **Capacity Heatmap** (`/admin/reports/heatmap`) — all Chart.js.
 - **System Settings** — tenant identity, tax rate, invoice prefix, formats.
+- **Workspace settings** — Tenant Super Admin selects the primary location; its address is snapshotted onto new invoices.
 - **Audit log** — filterable by action/actor/date, **CSV export**.
 - **Reception** — day-pass QR scan (`/admin/reception`) and visitor check-in/out (`/hub/reception/visitors`).
 
@@ -185,6 +192,7 @@ Every value is per-tenant, editable from Settings.
 - **Custom domains — deprioritized.** The `custom_domain` field and edit UI exist, but billing enforcement, wildcard-cert automation, and further work here are explicitly on hold per product direction — not a current focus.
 - **Tier-limit enforcement coverage** — seats/rooms/locations/people are capped today; nothing yet caps the number of tenant staff accounts (Managers/Location Managers) a tenant can invite.
 - **All-Access cross-location booking** (mostly plumbed, needs UI polish).
+- **Scheduled operations** — `flask run-scheduled-jobs` creates concrete recurring room bookings and runs idempotent monthly billing; production deployments should invoke it from cron/EventBridge/Azure Scheduler.
 - **Read replicas** for report queries.
 - **Mobile-app JWT API** (blueprint stub exists at `/api/v1`).
 

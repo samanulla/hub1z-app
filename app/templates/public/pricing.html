@@ -1,0 +1,48 @@
+{% extends "public/base_marketing.html" %}
+{% block title %}Pricing | {{ app_name }}{% endblock %}
+{% block body %}
+<nav class="marketing-nav solid"><a class="brand" href="/"><span class="brand-dot"></span> {{ app_name }}</a><div class="nav-links"><a class="nav-link" href="/features">Features</a><a class="nav-link btn-nav-cta" href="/auth/register/tenant">Start free</a></div></nav>
+
+<section class="section" style="padding-top:9rem;">
+  <div class="container-x">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-4" style="border-bottom:1px solid var(--line); padding-bottom:2rem;">
+      <div style="max-width:700px;">
+        <div class="eyebrow">Operator plans</div>
+        <h1 style="margin-top:1rem;">Choose the room to grow into.</h1>
+        <p style="margin-top:1.2rem; max-width:620px;">A clear starting point for one location, with room for the operator behind a growing network.</p>
+      </div>
+      <div class="gap-buttons" style="justify-content:flex-start;">
+        {% for code in ['INR', 'USD'] %}
+        <a class="{{ 'btn-ink' if currency == code else 'btn-outline-ink' }}" style="padding:.7rem 1rem;" href="{{ url_for('public_pricing', currency=code, billing=billing) }}">{{ '₹ INR' if code == 'INR' else '$ USD' }}</a>
+        {% endfor %}
+        <a class="{{ 'btn-ink' if billing == 'annual' else 'btn-outline-ink' }}" style="padding:.7rem 1rem;" href="{{ url_for('public_pricing', currency=currency, billing='annual' if billing == 'monthly' else 'monthly') }}">{{ 'Show monthly' if billing == 'annual' else 'Annual: save 2 months' }}</a>
+      </div>
+    </div>
+
+    <div class="row g-0" style="margin-top:3rem; border-top:1px solid var(--line); border-left:1px solid var(--line);">
+      {% for plan in plans %}
+      <div class="col-md-6 col-xl-4">
+        <div style="height:100%; min-height:560px; padding:2rem; border-right:1px solid var(--line); border-bottom:1px solid var(--line); background:{{ 'var(--cream-2)' if plan.popular else 'transparent' }}; display:flex; flex-direction:column;">
+          <div style="min-height:2rem;">
+            {% if plan.popular %}<div class="eyebrow saffron">Most popular</div>{% else %}<div class="eyebrow">{{ '%02d'|format(loop.index) }}</div>{% endif %}
+          </div>
+          <h2 style="margin-top:1rem; font-size:1.8rem;">{{ plan.tier.name }}</h2>
+          <p style="min-height:3.4rem; margin-top:.7rem;">{{ plan.description }}</p>
+          {% if plan.price is not none %}<div class="num-serif" style="margin-top:1.4rem;">{{ currency_symbol }}{{ "%.0f"|format(plan.price) }}<span style="font-family:inherit; font-size:1rem; color:var(--ink-soft);"> / month</span></div>{% else %}<div class="num-serif" style="margin-top:1.4rem; font-size:2.5rem;">Custom</div>{% endif %}
+          {% if billing == 'annual' and plan.annual is not none %}<div class="small saffron" style="margin-top:.4rem;">{{ currency_symbol }}{{ "%.0f"|format(plan.annual) }} billed annually</div>{% endif %}
+          <hr class="divider" style="margin:1.6rem 0;">
+          <div class="small" style="color:var(--ink); margin-bottom:.8rem;">{% if plan.tier.max_seats is not none %}Up to {{ plan.tier.max_seats }} members{% else %}For multi-city operators{% endif %}</div>
+          <ul class="small" style="list-style:none; padding:0; margin:0; color:var(--ink-soft); flex:1;">{% for feature in plan.features %}<li style="margin:.8rem 0; padding-left:1.3rem; position:relative;"><span style="position:absolute; left:0; color:var(--saffron);">+</span>{{ feature }}</li>{% endfor %}</ul>
+          <a class="{{ 'btn-ink' if plan.popular else 'btn-outline-ink' }}" style="margin-top:1.5rem; text-align:center;" href="/auth/register/tenant">Start free trial</a>
+        </div>
+      </div>
+      {% else %}<div class="p-4 text-muted">Pricing is being prepared. Start a free trial to explore the platform.</div>{% endfor %}
+    </div>
+
+    <div class="row g-4" style="margin-top:3rem;">
+      <div class="col-md-7"><p class="small mb-0">Every operator plan includes the core Hub1z workspace: locations, bookings, memberships, reporting, operator roles, and a branded member experience.</p></div>
+      <div class="col-md-5"><p class="small mb-0 text-md-end" style="color:var(--ink-soft);">Prices are for comparison. Final plan and currency are confirmed during onboarding. No card required.</p></div>
+    </div>
+  </div>
+</section>
+{% endblock %}

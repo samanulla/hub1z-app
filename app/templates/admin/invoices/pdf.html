@@ -25,6 +25,13 @@
       Status: {{ invoice.status.value }}
     </td>
     <td style="text-align:right;">
+      {% if invoice.billing_name or invoice.billing_address %}
+      <strong>Business address:</strong><br>
+      {{ invoice.billing_name or '' }}<br>
+      {{ invoice.billing_address or '' }}{% if invoice.billing_city %}, {{ invoice.billing_city }}{% endif %}<br>
+      {{ invoice.billing_state or '' }}{% if invoice.billing_postal_code %} {{ invoice.billing_postal_code }}{% endif %}<br>
+      {{ invoice.billing_country or '' }}<br><br>
+      {% endif %}
       {% if invoice.company %}
       <strong>Bill to:</strong><br>
       {{ invoice.company.name }}<br>

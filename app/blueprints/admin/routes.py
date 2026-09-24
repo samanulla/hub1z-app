@@ -75,6 +75,9 @@ def location_new():
         loc = Location(tenant_id=getattr(g, "tenant_id", None))
         form.populate_obj(loc)
         db.session.add(loc)
+        if getattr(g, "tenant", None) and g.tenant.primary_location_id is None:
+            db.session.flush()
+            g.tenant.primary_location_id = loc.id
         db.session.commit()
         flash("Location created.", "success")
         return redirect(url_for("admin.location_detail", location_id=loc.id))
@@ -109,7 +112,8 @@ def floor_new(location_id: int):
     loc = Location.query.get_or_404(location_id)
     form = FloorForm()
     if form.validate_on_submit():
-        floor = Floor(location_id=loc.id, level=form.level.data, name=form.name.data)
+        floor = Floor(tenant_id=loc.tenant_id, location_id=loc.id,
+                  level=form.level.data, name=form.name.data)
         db.session.add(floor)
         db.session.commit()
         flash("Floor added.", "success")
@@ -139,7 +143,7 @@ def seat_new(location_id: int):
         if not ok:
             flash(msg, "warning")
             return render_template("admin/seats/form.html", form=form, location=loc, title="New seat")
-        seat = Seat(location_id=loc.id)
+        seat = Seat(tenant_id=loc.tenant_id, location_id=loc.id)
         form.populate_obj(seat)
         db.session.add(seat)
         db.session.commit()
@@ -183,7 +187,7 @@ def room_new(location_id: int):
         if not ok:
             flash(msg, "warning")
             return render_template("admin/rooms/form.html", form=form, location=loc, title="New room")
-        room = ConferenceRoom(location_id=loc.id)
+        room = ConferenceRoom(tenant_id=loc.tenant_id, location_id=loc.id)
         form.populate_obj(room)
         db.session.add(room)
         db.session.commit()

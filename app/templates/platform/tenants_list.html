@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Tenants{% endblock %}
+{% block title %}Operators{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between mb-3">
-  <h3>Tenants</h3>
+  <h3>Operators</h3>
   <div class="d-flex gap-2">
-    <a class="btn btn-outline-dark" href="{{ url_for('platform.tenant_invite') }}">+ Invite tenant</a>
-    <a class="btn btn-dark" href="{{ url_for('platform.tenant_new') }}">+ Provision tenant</a>
+    <a class="btn btn-outline-dark" href="{{ url_for('platform.tenant_invite') }}">+ Invite operator</a>
+    <a class="btn btn-dark" href="{{ url_for('platform.tenant_new') }}">+ Provision operator</a>
   </div>
 </div>
 
@@ -82,7 +82,7 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="8" class="text-center text-muted py-4">No tenants yet.</td></tr>
+    <tr><td colspan="8" class="text-center text-muted py-4">No operators yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>
