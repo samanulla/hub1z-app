@@ -26,6 +26,7 @@ class StoredObject:
     key: str
     size_bytes: int
     content_type: str | None
+    bucket: str | None = None
 
 
 class _Backend(ABC):
@@ -88,7 +89,7 @@ class S3Backend(_Backend):
         data = fileobj.read()
         extra = {"ContentType": content_type} if content_type else {}
         self.client.put_object(Bucket=self.bucket, Key=full, Body=data, **extra)
-        return StoredObject("s3", full, len(data), content_type)
+        return StoredObject("s3", full, len(data), content_type, self.bucket)
 
     def get_url(self, key: str, ttl_seconds: int | None = None) -> str:
         return self.client.generate_presigned_url(
@@ -125,7 +126,7 @@ class AzureBlobBackend(_Backend):
             overwrite=True,
             content_settings=ContentSettings(content_type=content_type) if content_type else None,
         )
-        return StoredObject("azure_blob", key, len(data), content_type)
+        return StoredObject("azure_blob", key, len(data), content_type, self.container)
 
     def get_url(self, key: str, ttl_seconds: int | None = None) -> str:
         # For real deployment, generate a SAS token. Placeholder here:
@@ -140,6 +141,7 @@ class StorageService:
 
     def __init__(self, app=None) -> None:
         self._backend: _Backend | None = None
+        self._backends: dict[str, _Backend] = {}
         if app is not None:
             self.init(app)
 
@@ -147,19 +149,28 @@ class StorageService:
         cfg = app.config
         backend = cfg["STORAGE_BACKEND"]
         if backend == "s3":
-            self._backend = S3Backend(
-                bucket=cfg["AWS_S3_BUCKET"],
+            fallback_bucket = cfg["AWS_S3_BUCKET"]
+            platform_bucket = cfg["AWS_S3_PLATFORM_BUCKET"] or fallback_bucket
+            operator_bucket = cfg["AWS_S3_OPERATOR_BUCKET"] or fallback_bucket
+            common = dict(
                 region=cfg["AWS_REGION"],
                 prefix=cfg["AWS_S3_PREFIX"],
                 url_ttl=cfg["AWS_S3_URL_TTL"],
             )
+            self._backends = {
+                "platform": S3Backend(bucket=platform_bucket, **common),
+                "operator": S3Backend(bucket=operator_bucket, **common),
+            }
+            self._backend = self._backends["operator"]
         elif backend == "azure_blob":
             self._backend = AzureBlobBackend(
                 connection_string=cfg["AZURE_STORAGE_CONNECTION_STRING"],
                 container=cfg["AZURE_STORAGE_CONTAINER"],
             )
+            self._backends = {"platform": self._backend, "operator": self._backend}
         else:
             self._backend = LocalBackend(root=cfg["LOCAL_STORAGE_DIR"])
+            self._backends = {"platform": self._backend, "operator": self._backend}
 
     @property
     def backend(self) -> _Backend:
@@ -177,15 +188,24 @@ class StorageService:
 
     # -- public API --
     def upload(self, namespace: str, filename: str, stream: BinaryIO,
-               content_type: str | None = None) -> StoredObject:
+               content_type: str | None = None, scope: str = "operator") -> StoredObject:
         key = self.make_key(namespace, filename)
-        return self.backend.put(key, stream, content_type)
+        backend = self._backends.get(scope) or self.backend
+        return backend.put(key, stream, content_type)
 
-    def signed_url(self, key: str, ttl_seconds: int | None = None) -> str:
-        return self.backend.get_url(key, ttl_seconds)
+    def signed_url(self, key: str, ttl_seconds: int | None = None,
+                   scope: str = "operator", bucket: str | None = None) -> str:
+        backend = self._backends.get(scope) or self.backend
+        if bucket and isinstance(backend, S3Backend):
+            backend = S3Backend(bucket=bucket,
+                                region=current_app.config["AWS_REGION"],
+                                prefix=current_app.config["AWS_S3_PREFIX"],
+                                url_ttl=current_app.config["AWS_S3_URL_TTL"])
+        return backend.get_url(key, ttl_seconds)
 
-    def delete(self, key: str) -> None:
-        self.backend.delete(key)
+    def delete(self, key: str, scope: str = "operator") -> None:
+        backend = self._backends.get(scope) or self.backend
+        backend.delete(key)
 
 
 # Module-level singleton — imported by blueprints

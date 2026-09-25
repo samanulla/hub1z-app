@@ -1,5 +1,6 @@
 """Regression coverage for recurring jobs, invoice snapshots, and tenant scope."""
 import os
+from io import BytesIO
 from datetime import date, datetime, timedelta, time
 from decimal import Decimal
 
@@ -13,6 +14,7 @@ from app.models import (
     Tenant, TenantStatus, User, UserRole, Location, Floor, ConferenceRoom,
     RecurringRoomBooking, RecurrencePattern, RoomBooking,
     PricingPlan, PlanType, BillingCycle, Subscription, SubscriptionStatus,
+    Document,
 )
 
 
@@ -114,3 +116,30 @@ def test_booking_rejects_cross_tenant_resource(app):
         with pytest.raises(BookingError, match="does not belong"):
             create_room_booking(user=other_user, room=room,
                                 start=start, end=start + timedelta(hours=1))
+
+
+def test_operator_document_upload_has_scoped_metadata(app):
+    with app.app_context():
+        tenant, _, _ = _workspace()
+        admin = User(tenant_id=tenant.id, email="owner@acme.example", full_name="Owner",
+                     role=UserRole.SUPER_ADMIN, is_active=True)
+        admin.set_password("password")
+        db.session.add(admin)
+        db.session.commit()
+
+    client = app.test_client()
+    response = client.post("/auth/login", data={
+        "email": "owner@acme.example", "password": "password",
+    }, follow_redirects=False)
+    assert response.status_code == 302
+    response = client.post(
+        "/admin/documents",
+        data={"kind": "other", "file": (BytesIO(b"workspace document"), "terms.pdf")},
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    with app.app_context():
+        document = Document.query.filter_by(owner_type="operator").one()
+        assert document.tenant_id is not None
+        assert document.storage_key.startswith(f"operators/{document.tenant_id}/documents/")

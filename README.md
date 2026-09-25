@@ -30,7 +30,7 @@ in any region.
 | **Employee/Individual** | Book seats and rooms, view bookings, download invoices, manage profile |
 | **Billing** | Auto-generated monthly invoices, per-booking usage charges, credit tracking, downloadable PDFs (stub) |
 | **Scheduled operations** | `flask run-scheduled-jobs` materializes recurring room bookings and generates idempotent monthly invoices; run it from cron, EventBridge, or Azure Scheduler |
-| **Documents** | S3-backed document storage (contracts, KYC, invoices) with cloud-agnostic abstraction (Azure Blob ready) |
+| **Documents** | Platform/operator-scoped document storage for contracts, KYC, invoices, expenses, and floor maps; separate S3 bucket roots with cloud-agnostic local/Azure support |
 | **Notifications** | Booking confirmations & reminders (email hooks; extend with SES/SendGrid) |
 | **Public SaaS website** | Platform features and pricing pages, regional tenant signup defaults, and tenant microsites for spaces, memberships, live availability, and manual UPI/bank payment instructions |
 | **APIs** | REST endpoints for mobile/kiosk clients (JWT stub) |

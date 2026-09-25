@@ -340,6 +340,41 @@ def allocation_end(alloc_id: int):
 
 # ------------------------------------------------------------ documents --
 
+@admin_bp.route("/documents", methods=["GET", "POST"])
+@admin_required
+def operator_documents():
+    form = DocumentUploadForm()
+    if form.validate_on_submit():
+        f = form.file.data
+        tenant_id = getattr(g, "tenant_id", None)
+        stored = storage_service.upload(
+            namespace=f"operators/{tenant_id}/documents",
+            filename=f.filename,
+            stream=f.stream,
+            content_type=f.mimetype,
+            scope="operator",
+        )
+        db.session.add(Document(
+            tenant_id=tenant_id,
+            kind=DocumentKind(form.kind.data),
+            owner_type="operator",
+            owner_id=tenant_id,
+            filename=f.filename,
+            content_type=f.mimetype,
+            size_bytes=stored.size_bytes,
+            storage_backend=stored.backend,
+            storage_bucket=stored.bucket,
+            storage_key=stored.key,
+            uploaded_by_id=current_user.id,
+        ))
+        db.session.commit()
+        flash("Operator document uploaded.", "success")
+        return redirect(url_for("admin.operator_documents"))
+    documents = (Document.query.filter_by(owner_type="operator")
+                 .order_by(Document.created_at.desc()).all())
+    return render_template("admin/documents.html", form=form, documents=documents,
+                           title="Workspace documents")
+
 @admin_bp.route("/companies/<int:company_id>/documents", methods=["GET", "POST"])
 @admin_required
 def company_documents(company_id: int):
@@ -348,17 +383,22 @@ def company_documents(company_id: int):
     if form.validate_on_submit():
         f = form.file.data
         stored = storage_service.upload(
-            namespace=f"companies/{c.id}",
+            namespace=f"operators/{getattr(g, 'tenant_id', 'unscoped')}/companies/{c.id}",
             filename=f.filename,
             stream=f.stream,
             content_type=f.mimetype,
+            scope="operator",
         )
         doc = Document(
+            tenant_id=getattr(g, "tenant_id", None),
             kind=DocumentKind(form.kind.data),
+            owner_type="company",
+            owner_id=c.id,
             filename=f.filename,
             content_type=f.mimetype,
             size_bytes=stored.size_bytes,
             storage_backend=stored.backend,
+            storage_bucket=stored.bucket,
             storage_key=stored.key,
             uploaded_by_id=current_user.id,
         )

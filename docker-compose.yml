@@ -2,9 +2,9 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: coworkhub
-      POSTGRES_PASSWORD: coworkhub
-      POSTGRES_DB: coworkhub
+      POSTGRES_USER: ${POSTGRES_USER:-coworkhub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coworkhub}
+      POSTGRES_DB: ${POSTGRES_DB:-coworkhub}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
@@ -23,17 +23,27 @@ services:
     ports:
       - "8000:8000"
     environment:
-      FLASK_ENV: development
-      SECRET_KEY: change-me
-      APP_BASE_URL: http://localhost:8000
-      DATABASE_URL: postgresql+psycopg2://coworkhub:coworkhub@db:5432/coworkhub
-      STORAGE_BACKEND: local
-      LOCAL_STORAGE_DIR: /app/var/uploads
+      FLASK_ENV: ${FLASK_ENV:-development}
+      APP_NAME: ${APP_NAME:-hub1z}
+      SECRET_KEY: ${SECRET_KEY:-change-me}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8000}
+      PLATFORM_BASE_DOMAIN: ${PLATFORM_BASE_DOMAIN:-hub1z.com}
+      DEPLOY_MODE: ${DEPLOY_MODE:-shared}
+      TENANT_TRIAL_DAYS: ${TENANT_TRIAL_DAYS:-14}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-coworkhub}:${POSTGRES_PASSWORD:-coworkhub}@db:5432/${POSTGRES_DB:-coworkhub}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      LOCAL_STORAGE_DIR: ${LOCAL_STORAGE_DIR:-/app/var/uploads}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      AWS_S3_PLATFORM_BUCKET: ${AWS_S3_PLATFORM_BUCKET:-}
+      AWS_S3_OPERATOR_BUCKET: ${AWS_S3_OPERATOR_BUCKET:-}
+      AWS_S3_URL_TTL: ${AWS_S3_URL_TTL:-3600}
+      SEED_DEMO: ${SEED_DEMO:-true}
     volumes:
       - uploads:/app/var
     command: >-
       sh -c "flask --app wsgi.py db upgrade &&
-      flask --app wsgi.py seed-demo &&
+      if [ \"$${SEED_DEMO}\" = \"true\" ]; then flask --app wsgi.py seed-demo; fi &&
       gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 60 wsgi:app"
 
 volumes:

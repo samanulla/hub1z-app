@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Platform documents{% endblock %}
+{% block content %}
+<h3>Platform documents</h3>
+<p class="text-muted small">Platform-owned files use the platform document bucket root.</p>
+<div class="card mb-3"><div class="card-body"><form method="post" enctype="multipart/form-data" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="row"><div class="col-md-4">{{ field(form.kind) }}</div><div class="col-md-6">{{ field(form.file) }}</div><div class="col-md-2 pt-4"><button class="btn btn-dark">Upload</button></div></div>
+</form></div></div>
+<div class="card"><div class="card-body p-0"><table class="table mb-0"><thead><tr><th>Filename</th><th>Kind</th><th>Size</th><th>Storage</th></tr></thead><tbody>
+{% for document in documents %}<tr><td>{{ document.filename }}</td><td>{{ document.kind.value }}</td><td>{{ (document.size_bytes / 1024) | round(1) }} KB</td><td>{{ document.storage_backend }}{% if document.storage_bucket %} · {{ document.storage_bucket }}{% endif %}</td></tr>{% else %}<tr><td colspan="4" class="text-center text-muted py-4">No platform documents yet.</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% endblock %}

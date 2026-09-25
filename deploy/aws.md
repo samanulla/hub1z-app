@@ -1,39 +1,45 @@
-"""AWS-hosting notes.
+"""Hub1z AWS hosting notes.
 
-Recommended stack:
+## Starting architecture (dev + prod EC2)
 
-1. **ECR** — build & push the Docker image from repo Dockerfile.
-2. **RDS PostgreSQL** — create DB, copy the connection string into
-   Secrets Manager as `coworkhub/DATABASE_URL`.
-3. **S3** — create a private bucket, e.g. `coworkhub-docs-prod`. Set env:
-       STORAGE_BACKEND=s3
-       AWS_S3_BUCKET=coworkhub-docs-prod
-       AWS_REGION=us-east-1
-   Attach an IAM role to the ECS task with `s3:PutObject`, `s3:GetObject`,
-   `s3:DeleteObject` on `arn:aws:s3:::coworkhub-docs-prod/*`.
-4. **ECS Fargate service** — 2 vCPU / 4 GB, gunicorn on port 8000, ALB
-   in front, health check `/healthz`.
-5. **SES** — verified sender for MAIL_DEFAULT_SENDER; use SMTP creds.
-6. **CloudFront** in front of S3 for public assets (optional).
-7. **CloudWatch** for logs/metrics; alarm on 5xx from ALB.
-8. **EventBridge schedule** to hit an internal endpoint that runs monthly
-   billing (or run `flask billing-run` as a scheduled ECS task).
+1. **EC2** — one dev and one prod instance, each running the web and
+   PostgreSQL containers with Docker Compose.
+2. **EBS** — persistent per-instance storage for the PostgreSQL Docker volume.
+3. **S3** — two private document buckets:
+   - `AWS_S3_PLATFORM_BUCKET` for platform-owned files
+   - `AWS_S3_OPERATOR_BUCKET` for operator-owned files
+4. **Nginx + Let's Encrypt (Certbot, Route 53 DNS plugin)** — reverse proxy
+   and wildcard TLS for `hub1z.com` and `*.hub1z.com`, since Hub1z resolves
+   each operator by the request `Host` header.
+5. **Route 53** — hosted zone for `hub1z.com`, including SES DKIM records and
+   a wildcard `A` record for operator subdomains.
+6. **SES** — transactional email; starts in sandbox mode until production
+   access is approved.
+7. **SSM** — manage EC2 instances without opening SSH where possible.
+8. **CloudWatch** — logs, disk alarms, and container health monitoring.
 
-## Suggested Terraform layout
+The detailed procedure, including the dev/prod split, is in
+`deploy/aws-setup.md`.
 
-```
-deploy/
-  terraform/
-    modules/
-      network/         # VPC, subnets
-      db/              # RDS
-      storage/         # S3 + IAM
-      compute/         # ECS + ALB
-    envs/
-      dev/
-      prod/
-```
+## Database trade-off
 
-Left as an exercise — the app itself is 12-factor and reads all config
-from env vars.
+PostgreSQL runs inside Docker on each EC2 host rather than RDS. This avoids
+the RDS monthly cost but makes that EC2 instance a single point of failure
+for its own data. The operator must manage:
+
+- EBS disk capacity
+- PostgreSQL upgrades
+- Daily `pg_dump` backups to S3
+- Restore testing
+- Recovery after EC2 failure
+
+RDS remains a future upgrade path, not a prerequisite for the current setup.
+
+## Future production path
+
+When Hub1z needs high availability or reduced database operations, move the
+PostgreSQL database to RDS, add an ALB in front of multiple EC2 instances,
+move images to ECR, and add CloudWatch alarms. The application continues to
+use `DATABASE_URL`, so the migration is a configuration/deployment change
+rather than a product-model change.
 """

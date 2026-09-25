@@ -25,6 +25,12 @@ class Document(db.Model, PkMixin, TimestampMixin, TenantScoped):
     tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
                        nullable=True, index=True)
 
+    # Polymorphic owner for platform, operator, company, member, location,
+    # staff, invoice, and other document categories. Ownership is enforced by
+    # the application because these entities use different tables.
+    owner_type = Column(String(30), nullable=False, default="operator", index=True)
+    owner_id = Column(Integer, nullable=True, index=True)
+
     kind = Column(Enum(DocumentKind), nullable=False, default=DocumentKind.OTHER, index=True)
     filename = Column(String(255), nullable=False)
     content_type = Column(String(120))
@@ -32,6 +38,7 @@ class Document(db.Model, PkMixin, TimestampMixin, TenantScoped):
 
     # Storage location — cloud-agnostic
     storage_backend = Column(String(20), nullable=False)   # 'local' | 's3' | 'azure_blob'
+    storage_bucket = Column(String(255), nullable=True)
     storage_key = Column(String(500), nullable=False)      # e.g. bucket key or blob path
 
     uploaded_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)

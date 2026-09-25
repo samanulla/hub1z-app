@@ -35,6 +35,8 @@ class BaseConfig:
     LOCAL_STORAGE_DIR = os.getenv("LOCAL_STORAGE_DIR", "./var/uploads")
     AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
     AWS_S3_BUCKET = os.getenv("AWS_S3_BUCKET", "")
+    AWS_S3_PLATFORM_BUCKET = os.getenv("AWS_S3_PLATFORM_BUCKET") or os.getenv("AWS_S3_BUCKET", "")
+    AWS_S3_OPERATOR_BUCKET = os.getenv("AWS_S3_OPERATOR_BUCKET") or os.getenv("AWS_S3_BUCKET", "")
     AWS_S3_PREFIX = os.getenv("AWS_S3_PREFIX", "documents/")
     AWS_S3_URL_TTL = int(os.getenv("AWS_S3_URL_TTL", "3600"))
     AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")

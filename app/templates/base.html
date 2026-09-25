@@ -258,9 +258,15 @@
         {% if current_user.is_authenticated %}
           {% if current_user.is_platform_staff %}
             <li class="nav-item"><a class="nav-link" href="{{ url_for('platform.dashboard') }}">Platform</a></li>
+            {% if current_user.is_platform_owner %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('platform.platform_documents') }}">Platform documents</a></li>
+            {% endif %}
           {% endif %}
           {% if current_user.is_admin %}
             <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.dashboard') }}">Admin</a></li>
+            {% if not current_user.is_platform_staff %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.operator_documents') }}">Documents</a></li>
+            {% endif %}
           {% elif current_user.is_company_admin %}
             <li class="nav-item"><a class="nav-link" href="{{ url_for('company.dashboard') }}">Company</a></li>
           {% else %}

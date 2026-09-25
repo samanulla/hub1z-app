@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from flask import render_template, redirect, url_for, flash
+from flask import render_template, redirect, url_for, flash, g
 from flask_login import current_user
 
 from ...extensions import db
@@ -92,14 +92,18 @@ def register_expense_routes(bp):
             if form.receipt.data:
                 f = form.receipt.data
                 stored = storage_service.upload(
-                    namespace="expenses", filename=f.filename,
-                    stream=f.stream, content_type=f.mimetype,
+                    namespace=f"operators/{getattr(g, 'tenant_id', 'unscoped')}/expenses",
+                    filename=f.filename, stream=f.stream, content_type=f.mimetype,
+                    scope="operator",
                 )
                 doc = Document(
+                    tenant_id=getattr(g, "tenant_id", None),
                     kind=DocumentKind.OTHER,
+                    owner_type="expense",
                     filename=f.filename, content_type=f.mimetype,
                     size_bytes=stored.size_bytes,
-                    storage_backend=stored.backend, storage_key=stored.key,
+                    storage_backend=stored.backend, storage_bucket=stored.bucket,
+                    storage_key=stored.key,
                     uploaded_by_id=current_user.id,
                 )
                 db.session.add(doc)
