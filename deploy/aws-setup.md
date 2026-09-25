@@ -243,9 +243,8 @@ BOOKING_CANCEL_WINDOW_MINUTES=60
 DEFAULT_ROOM_SLOT_MINUTES=30
 TIMEZONE=Asia/Kolkata
 
-# Used only if you intentionally run seed-demo=true for a demo environment.
-BOOTSTRAP_ADMIN_EMAIL=admin@adyarspace.com
-BOOTSTRAP_ADMIN_PASSWORD=<DEMO_ONLY_PASSWORD>
+# Fresh installs seed only the platform owner; operator credentials are supplied
+# explicitly when an operator is provisioned.
 SEED_DEMO=false
 ```
 Do not set `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY` on EC2 when the

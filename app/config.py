@@ -20,7 +20,7 @@ class BaseConfig:
 
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "DATABASE_URL",
-        "postgresql+psycopg2://coworkhub:coworkhub@localhost:5432/coworkhub",
+        "postgresql+psycopg2://coworkhub:coworkhub@localhost:5432/hub1z_db",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 300}
@@ -57,10 +57,8 @@ class BaseConfig:
     BOOKING_CANCEL_WINDOW_MINUTES = int(os.getenv("BOOKING_CANCEL_WINDOW_MINUTES", "60"))
     DEFAULT_ROOM_SLOT_MINUTES = int(os.getenv("DEFAULT_ROOM_SLOT_MINUTES", "30"))
 
-    # Bootstrap admin — this is the sample TENANT's admin (seed-demo), not the
-    # platform super admin. It must use a tenant domain, never hub1z.com.
-    BOOTSTRAP_ADMIN_EMAIL = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "admin@adyarspace.com")
-    BOOTSTRAP_ADMIN_PASSWORD = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "ChangeMe123!")
+    PLATFORM_OWNER_EMAIL = os.getenv("PLATFORM_OWNER_EMAIL", "platform@hub1z.com")
+    PLATFORM_OWNER_PASSWORD = os.getenv("PLATFORM_OWNER_PASSWORD", "ChangeMe123!")
 
     # Multi-tenancy
     DEPLOY_MODE = os.getenv("DEPLOY_MODE", "shared").lower()  # 'shared' | 'dedicated'

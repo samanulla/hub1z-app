@@ -89,10 +89,10 @@ Build the app, start PostgreSQL, apply migrations, and seed the demo accounts:
 docker compose up --build -d
 ```
 
-Open <http://localhost:8000/auth/login> and sign in as the platform super
-admin, `platform@hub1z.com` / `ChangeMe123!` (lands on `/platform/`), or as
-the sample tenant's admin, `admin@adyarspace.com` / `ChangeMe123!` (lands on
-`/admin/`). See [Seeded demo accounts](#seeded-demo-accounts) below.
+Open <http://localhost:8000/auth/login> and sign in as the platform owner,
+`platform@hub1z.com` / `ChangeMe123!` (lands on `/platform/`). Run
+`flask --app wsgi.py create-tenant ...` or provision an operator from
+`/platform/` before using operator and member workflows.
 
 Useful commands:
 
@@ -132,51 +132,21 @@ cp .env.example .env
 # 4. Initialize DB schema
 flask --app wsgi.py db upgrade
 
-# 5. Seed sample data + super admin
+# 5. Seed the platform owner only
 flask --app wsgi.py seed-demo
 
 # 6. Run
 flask --app wsgi.py run --debug
 ```
 
-Default platform super admin: `platform@hub1z.com` / `ChangeMe123!`.
-A sample tenant (Adyar Space) admin is also seeded — see the table below.
+Default platform owner: `platform@hub1z.com` / `ChangeMe123!`.
+`flask seed-demo` creates only this platform account; it does not create an
+operator, company, member, location, inventory, or sample billing data.
+**Change the password before promoting this environment.**
 
-## Seeded demo accounts
-
-`flask seed-demo` creates exactly one account per level — platform, tenant,
-company — and prints them in a clean summary block at the end of the
-command. **Change all passwords before promoting this environment.**
-
-Two separate worlds get seeded: the **platform** (hub1z.com, the SaaS
-operator) and one **tenant** (Adyar Space, a coworking business running on
-the platform, seeded on the `growth` pricing tier). A tenant's people always
-use the tenant's own domain — never a `hub1z.com` address, which is reserved
-for platform accounts.
-
-| Role | Email | Password | Lands on | What they can do |
-|------|-------|----------|----------|------------------|
-| **Platform Super Admin** | `platform@hub1z.com` | `ChangeMe123!` | `/platform/` | Provision/invite/approve/hold tenants; suspend/deactivate them; define pricing tiers; create Platform Managers. Does not touch per-tenant business data. |
-| Tenant Super Admin (Adyar Space) | `admin@adyarspace.com` | `ChangeMe123!` | `/admin/` (via `adyarspace.hub1z.com`) | Full access to the Adyar Space tenant. Locations, pricing plans, staff terminations, payroll approvals, invoice voids, credit-note cancellations, refund settlements, email-template deletion, inviting tenant Managers/Location Managers. |
-| Company Admin (Acme Robotics) | `jane@acme.example` | `ChangeMe123!` | `/company/` | Manage Acme's employees (capped by both Acme's own `max_employees` and the tenant's tier-wide people cap, see below), view invoices/allocations/subscriptions. Subscriptions themselves are tenant-set (`/admin/companies/<id>/subscriptions`), not company self-serve. |
-
-Not seeded, but available from the UI: **Tenant Manager** / **Location
-Manager** (Tenant Super Admin invites from `/admin/invites/team/new` — a
-Location Manager is scoped to one of the tenant's locations, picked at
-invite time) and **Platform Manager** (Platform Super Admin invites from
-`/platform/team/new`).
-
-Platform Managers and tenant Managers/Location Managers are never delegable
-to create — only a Platform/Tenant Super Admin can create one or edit its
-permissions, even one already holding every feature grant, so nobody can
-escalate their own access.
-
-Sign in at `/auth/login`. Individual and company self-registration
-(`/auth/register`, `/auth/register/company`) are **tenant-scoped**: they only
-work when reached via that tenant's own subdomain or custom domain, never the
-platform apex. A tenant can also invite a specific person, company, or team
-member directly from `/admin/invites` — the invitee sets their own password
-via an emailed link, same mechanism as the existing employee invite.
+After the platform owner signs in, provision an operator from `/platform/` or
+use `create-tenant`. The operator owner then creates locations, plans,
+companies, members, and operator staff from that workspace.
 
 A business can try hub1z itself, free, at `/auth/register/tenant` — no
 platform staff involved. It lands as a `TRIAL` tenant with a
@@ -205,7 +175,7 @@ These env vars control app startup (see `.env.example` for the full list):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DATABASE_URL` | `postgresql+psycopg2://coworkhub:coworkhub@localhost:5432/coworkhub` | Postgres connection string. |
+| `DATABASE_URL` | `postgresql+psycopg2://coworkhub:coworkhub@localhost:5432/hub1z_db` | Postgres connection string. |
 | `SECRET_KEY` | *(required)* | Flask session signing key. Generate a fresh one for prod. |
 | `BOOTSTRAP_ADMIN_EMAIL` | `admin@adyarspace.com` | Email of the sample **tenant's** Super Admin that `seed-demo` creates (not the platform super admin — that's always `platform@hub1z.com`). |
 | `BOOTSTRAP_ADMIN_PASSWORD` | `ChangeMe123!` | Password for the seeded tenant Super Admin. |
@@ -230,12 +200,12 @@ state — including test tenants, users, bookings, invoices, etc. — do this:
 
 ```powershell
 # 1) drop and recreate the DB (fastest and 100% clean)
-docker compose exec db psql -U coworkhub -d postgres -c "DROP DATABASE coworkhub;"
-docker compose exec db psql -U coworkhub -d postgres -c "CREATE DATABASE coworkhub;"
+docker compose exec db psql -U coworkhub -d postgres -c "DROP DATABASE hub1z_db;"
+docker compose exec db psql -U coworkhub -d postgres -c "CREATE DATABASE hub1z_db;"
 
 # 2) rerun migrations
 Remove-Item Env:\FLASK_ENV -ErrorAction SilentlyContinue
-$env:DATABASE_URL = "postgresql+psycopg2://coworkhub:coworkhub@localhost:5432/coworkhub"
+$env:DATABASE_URL = "postgresql+psycopg2://coworkhub:coworkhub@localhost:5432/hub1z_db"
 flask --app wsgi.py db upgrade
 
 # 3) reseed the default tenant + demo accounts

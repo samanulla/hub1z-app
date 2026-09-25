@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-coworkhub}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-coworkhub}
-      POSTGRES_DB: ${POSTGRES_DB:-coworkhub}
+      POSTGRES_DB: ${POSTGRES_DB:-hub1z_db}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
@@ -30,7 +30,7 @@ services:
       PLATFORM_BASE_DOMAIN: ${PLATFORM_BASE_DOMAIN:-hub1z.com}
       DEPLOY_MODE: ${DEPLOY_MODE:-shared}
       TENANT_TRIAL_DAYS: ${TENANT_TRIAL_DAYS:-14}
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-coworkhub}:${POSTGRES_PASSWORD:-coworkhub}@db:5432/${POSTGRES_DB:-coworkhub}
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-coworkhub}:${POSTGRES_PASSWORD:-coworkhub}@db:5432/${POSTGRES_DB:-hub1z_db}
       STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
       LOCAL_STORAGE_DIR: ${LOCAL_STORAGE_DIR:-/app/var/uploads}
       AWS_REGION: ${AWS_REGION:-us-east-1}
