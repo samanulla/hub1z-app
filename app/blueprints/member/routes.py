@@ -12,10 +12,10 @@ from flask_login import current_user, login_required
 from ...extensions import db
 from ...models import (
     SeatBooking, RoomBooking, BookingStatus, Invoice, Subscription, SubscriptionStatus,
-    Location, DayPass, DayPassStatus,
+    Location, DayPass, DayPassStatus, User, UserRole,
 )
 from ...services.booking_service import cancel_booking, BookingError
-from ...utils.decorators import member_required
+from ...utils.decorators import member_required, member_or_admin_required
 
 member_bp = Blueprint("member", __name__, template_folder="../../templates")
 
@@ -91,16 +91,24 @@ def cancel_room_booking(booking_id: int):
 # ------- day passes -------
 
 @member_bp.route("/day-passes")
-@member_required
+@member_or_admin_required
 def day_passes():
-    passes = (DayPass.query.filter_by(user_id=current_user.id)
-                            .order_by(DayPass.pass_date.desc()).limit(60).all())
+    if current_user.is_admin:
+        passes = (DayPass.query.order_by(DayPass.pass_date.desc()).limit(100).all())
+        recipients = (User.query
+                     .filter(User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL]), User.is_active.is_(True))
+                     .order_by(User.full_name).all())
+    else:
+        passes = (DayPass.query.filter_by(user_id=current_user.id)
+                                .order_by(DayPass.pass_date.desc()).limit(60).all())
+        recipients = []
     locations = Location.query.filter_by(is_active=True).order_by(Location.name).all()
-    return render_template("member/day_passes.html", passes=passes, locations=locations)
+    return render_template("member/day_passes.html", passes=passes, locations=locations,
+                           recipients=recipients, today=date.today().isoformat())
 
 
 @member_bp.route("/day-passes/new", methods=["POST"])
-@member_required
+@member_or_admin_required
 def day_pass_new():
     location_id = int(request.form.get("location_id", 0))
     loc = Location.query.get_or_404(location_id)
@@ -109,30 +117,51 @@ def day_pass_new():
         pd = date.fromisoformat(pass_date_str) if pass_date_str else date.today()
     except ValueError:
         pd = date.today()
+
+    recipient_id = request.form.get("user_id", type=int)
+    recipient = current_user
+    if current_user.is_admin and recipient_id:
+        # Operators can issue a day pass on behalf of any individual/employee
+        # in their own workspace — never someone else's tenant.
+        recipient = User.query.filter(
+            User.id == recipient_id,
+            User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL]),
+        ).first()
+        if recipient is None:
+            flash("Pick a valid recipient for the day pass.", "warning")
+            return redirect(url_for("member.day_passes"))
+
     dp = DayPass(
         tenant_id=getattr(g, "tenant_id", None),
-        user_id=current_user.id,
+        user_id=recipient.id,
         location_id=loc.id,
         pass_date=pd,
         code=DayPass.new_code(),
         status=DayPassStatus.ISSUED,
     )
     db.session.add(dp); db.session.commit()
-    flash(f"Day pass issued for {loc.name} on {pd.isoformat()}.", "success")
+    flash(f"Day pass issued for {recipient.full_name if recipient.id != current_user.id else 'you'} "
+         f"at {loc.name} on {pd.isoformat()}.", "success")
     return redirect(url_for("member.day_pass_detail", pass_id=dp.id))
 
 
 @member_bp.route("/day-passes/<int:pass_id>")
-@member_required
+@member_or_admin_required
 def day_pass_detail(pass_id: int):
-    dp = DayPass.query.filter_by(id=pass_id, user_id=current_user.id).first_or_404()
+    q = DayPass.query.filter_by(id=pass_id)
+    if not current_user.is_admin:
+        q = q.filter_by(user_id=current_user.id)
+    dp = q.first_or_404()
     return render_template("member/day_pass_detail.html", dp=dp)
 
 
 @member_bp.route("/day-passes/<int:pass_id>/qr.png")
-@member_required
+@member_or_admin_required
 def day_pass_qr(pass_id: int):
-    dp = DayPass.query.filter_by(id=pass_id, user_id=current_user.id).first_or_404()
+    q = DayPass.query.filter_by(id=pass_id)
+    if not current_user.is_admin:
+        q = q.filter_by(user_id=current_user.id)
+    dp = q.first_or_404()
     img = qrcode.make(dp.code)
     buf = BytesIO()
     img.save(buf, format="PNG")

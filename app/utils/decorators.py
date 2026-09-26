@@ -77,3 +77,12 @@ def company_admin_required(view):
 
 def member_required(view):
     return roles_required(UserRole.EMPLOYEE, UserRole.INDIVIDUAL, UserRole.COMPANY_ADMIN)(view)
+
+
+def member_or_admin_required(view):
+    """Members (employee/individual/company admin) AND operator staff
+    (super admin/manager/location manager) — used for calendar, booking, and
+    day-pass views operators also need direct access to, but not platform
+    staff (who have no workspace of their own to book in)."""
+    return roles_required(UserRole.EMPLOYEE, UserRole.INDIVIDUAL, UserRole.COMPANY_ADMIN,
+                          UserRole.SUPER_ADMIN, UserRole.MANAGER, UserRole.LOCATION_MANAGER)(view)

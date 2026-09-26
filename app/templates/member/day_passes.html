@@ -6,10 +6,22 @@
 </div>
 
 <div class="card mb-4"><div class="card-body">
-  <h6>Get a day pass</h6>
+  <h6>{{ "Issue a day pass" if current_user.is_admin else "Get a day pass" }}</h6>
   <form method="post" action="{{ url_for('member.day_pass_new') }}" class="row g-2">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if current_user.is_admin %}
+    <div class="col-md-4">
+      <label class="form-label small">Recipient</label>
+      <select name="user_id" class="form-select" required>
+        {% for u in recipients %}
+          <option value="{{ u.id }}">{{ u.full_name }} ({{ u.email }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+    {% else %}
     <div class="col-md-5">
+    {% endif %}
       <label class="form-label small">Location</label>
       <select name="location_id" class="form-select" required>
         {% for l in locations %}
@@ -21,17 +33,18 @@
       <label class="form-label small">Date</label>
       <input type="date" name="pass_date" class="form-control" value="{{ today }}">
     </div>
-    <div class="col-md-4 d-flex align-items-end">
+    <div class="col-md-{{ 2 if current_user.is_admin else 4 }} d-flex align-items-end">
       <button class="btn btn-dark">Issue day pass</button>
     </div>
   </form>
 </div></div>
 
 <table class="table">
-  <thead><tr><th>Date</th><th>Location</th><th>Code</th><th>Status</th><th></th></tr></thead>
+  <thead><tr>{% if current_user.is_admin %}<th>Person</th>{% endif %}<th>Date</th><th>Location</th><th>Code</th><th>Status</th><th></th></tr></thead>
   <tbody>
     {% for p in passes %}
     <tr>
+      {% if current_user.is_admin %}<td>{{ p.user.full_name if p.user else "\u2014" }}</td>{% endif %}
       <td>{{ p.pass_date }}</td>
       <td>{{ p.location.name }}</td>
       <td><code>{{ p.code }}</code></td>
@@ -39,7 +52,7 @@
       <td><a href="{{ url_for('member.day_pass_detail', pass_id=p.id) }}">View</a></td>
     </tr>
     {% else %}
-    <tr><td colspan="5" class="text-muted">No day passes yet.</td></tr>
+    <tr><td colspan="{{ 6 if current_user.is_admin else 5 }}" class="text-muted">No day passes yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>

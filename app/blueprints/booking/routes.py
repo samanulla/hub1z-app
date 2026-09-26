@@ -17,7 +17,7 @@ from ...services.booking_service import (
     BookingError, check_seat_conflict, check_room_conflict,
 )
 from ...services.formatting import format_money, now_local, parse_local_naive_to_utc
-from ...utils.decorators import member_required
+from ...utils.decorators import member_or_admin_required
 
 booking_bp = Blueprint("book", __name__, template_folder="../../templates")
 
@@ -49,7 +49,7 @@ def location_home(location_id: int):
 
 
 @booking_bp.route("/calendar")
-@member_required
+@member_or_admin_required
 def calendar():
     """Default entry point for the top-nav Calendar link — picks a sensible
     location (tenant's primary, else the first active one) and redirects."""
@@ -67,7 +67,7 @@ def calendar():
 
 
 @booking_bp.route("/locations/<int:location_id>/calendar")
-@member_required
+@member_or_admin_required
 def location_calendar(location_id: int):
     """A day view of conference-room availability for this location —
     click an open slot to book it (subject to available credits)."""
@@ -158,7 +158,7 @@ def location_calendar(location_id: int):
 
 
 @booking_bp.route("/rooms/<int:room_id>/check-conflict")
-@member_required
+@member_or_admin_required
 def room_check_conflict(room_id: int):
     """Live conflict check for the calendar's Outlook-style 'Add meeting'
     modal — called via fetch() as the user adjusts room/start/end."""
@@ -178,7 +178,7 @@ def room_check_conflict(room_id: int):
 
 
 @booking_bp.route("/locations/<int:location_id>/calendar/quick-book", methods=["POST"])
-@member_required
+@member_or_admin_required
 def location_calendar_quick_book(location_id: int):
     """Create a meeting directly from the calendar's 'Add meeting' modal.
     The room may belong to this location, or to another of the operator's
@@ -222,7 +222,7 @@ def location_calendar_quick_book(location_id: int):
 # ---------------------------------------------------------------- seats --
 
 @booking_bp.route("/seats/<int:seat_id>", methods=["GET", "POST"])
-@member_required
+@member_or_admin_required
 def seat_book(seat_id: int):
     seat = Seat.query.get_or_404(seat_id)
 
@@ -265,7 +265,7 @@ def seat_book(seat_id: int):
 # ----------------------------------------------------- conference rooms --
 
 @booking_bp.route("/rooms/<int:room_id>", methods=["GET", "POST"])
-@member_required
+@member_or_admin_required
 def room_book(room_id: int):
     room = ConferenceRoom.query.get_or_404(room_id)
 
@@ -315,7 +315,7 @@ def room_book(room_id: int):
 # --------- waitlist + recurring room bookings ----------
 
 @booking_bp.route("/rooms/<int:room_id>/waitlist", methods=["POST"])
-@member_required
+@member_or_admin_required
 def room_waitlist_join(room_id: int):
     from flask import g
     room = ConferenceRoom.query.get_or_404(room_id)
@@ -337,7 +337,7 @@ def room_waitlist_join(room_id: int):
 
 
 @booking_bp.route("/rooms/<int:room_id>/recurring", methods=["POST"])
-@member_required
+@member_or_admin_required
 def room_recurring_create(room_id: int):
     from flask import g
     from datetime import date as _date, time as _time
