@@ -83,7 +83,10 @@ def location_calendar(location_id: int):
                                    ConferenceRoom.cross_location_bookable.is_(True))
                             .order_by(ConferenceRoom.name).all())
     bookable_rooms = rooms + cross_location_rooms
-    tz = ZoneInfo(loc.timezone or "UTC")
+    try:
+        tz = ZoneInfo(loc.timezone or "UTC")
+    except Exception:  # noqa: BLE001 - bad/legacy timezone data shouldn't 500 the calendar
+        tz = ZoneInfo("UTC")
 
     date_str = request.args.get("date")
     try:

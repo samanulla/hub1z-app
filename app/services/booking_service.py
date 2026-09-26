@@ -63,7 +63,10 @@ def _validate_location_hours(location: Location, start: datetime, end: datetime)
         from zoneinfo import ZoneInfo
     except ImportError:  # pragma: no cover
         return
-    tz = ZoneInfo(location.timezone or "UTC")
+    try:
+        tz = ZoneInfo(location.timezone or "UTC")
+    except Exception:  # noqa: BLE001 - bad/legacy timezone data shouldn't break booking
+        tz = ZoneInfo("UTC")
     local_start = start.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
     local_end = end.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
     if local_start.time() < location.open_time or local_end.time() > location.close_time:
@@ -306,7 +309,10 @@ def materialize_recurring_room_bookings(as_of: datetime | None = None,
             if matches:
                 local_start = datetime.combine(current, series.start_time)
                 local_end = datetime.combine(current, series.end_time)
-                tz = ZoneInfo(series.room.location.timezone or "UTC")
+                try:
+                    tz = ZoneInfo(series.room.location.timezone or "UTC")
+                except Exception:  # noqa: BLE001 - bad/legacy timezone data shouldn't break materialization
+                    tz = ZoneInfo("UTC")
                 start = local_start.replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
                 end = local_end.replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
                 exists = RoomBooking.query.filter_by(

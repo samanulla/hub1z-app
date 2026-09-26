@@ -11,6 +11,7 @@ from ...models import (
     EmploymentType, StaffStatus, Department, PayFrequency,
     ExpenseStatus, EmailKind,
 )
+from ...services.locale_data import TIMEZONE_CHOICES
 
 
 def _enum_choices(enum_cls):
@@ -27,7 +28,8 @@ class LocationForm(FlaskForm):
     state = StringField("State", validators=[Optional(), Length(max=80)])
     country = StringField("Country", validators=[DataRequired(), Length(max=80)], default="US")
     postal_code = StringField("Postal code", validators=[Optional(), Length(max=20)])
-    timezone = StringField("Timezone", default="UTC", validators=[DataRequired(), Length(max=64)])
+    timezone = SelectField("Timezone", choices=TIMEZONE_CHOICES, default="Asia/Kolkata",
+                           validators=[DataRequired()])
     open_time = TimeField("Opens", validators=[Optional()])
     close_time = TimeField("Closes", validators=[Optional()])
     is_247 = BooleanField("Open 24/7")
