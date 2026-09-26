@@ -23,6 +23,17 @@ from .forms import TenantForm, NewTenantForm
 platform_bp = Blueprint("platform", __name__, template_folder="../../templates")
 
 
+def _normalize_primary_domain(raw: str | None, slug: str, base: str) -> str:
+    """A bare slug/subdomain (no base domain) silently breaks tenant
+    resolution by Host header, so always ensure the full domain is stored."""
+    domain = (raw or "").strip().lower()
+    if not domain:
+        return f"{slug}.{base}"
+    if domain != base and not domain.endswith(f".{base}"):
+        return f"{domain}.{base}"
+    return domain
+
+
 def _seed_tenant_defaults(tenant: Tenant) -> None:
     """Seed a fresh tenant with sensible starter data — pricing plans + email templates."""
     plans_seed = [
@@ -91,10 +102,8 @@ def tenant_new():
                               PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all()]
     if form.validate_on_submit():
         slug = form.slug.data.lower().strip()
-        # Auto-fill primary_domain if the operator left it blank
-        if not (form.primary_domain.data or "").strip():
-            base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
-            form.primary_domain.data = f"{slug}.{base}"
+        base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
+        form.primary_domain.data = _normalize_primary_domain(form.primary_domain.data, slug, base)
 
         existing = (Tenant.query
                     .execution_options(skip_tenant_filter=True)
@@ -148,6 +157,8 @@ def tenant_edit(tenant_id: int):
         choices.append((t.plan_tier, f"{t.plan_tier} (retired)"))
     form.plan_tier.choices = choices
     if form.validate_on_submit():
+        base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
+        form.primary_domain.data = _normalize_primary_domain(form.primary_domain.data, t.slug, base)
         form.populate_obj(t)
         t.currency_symbol = CURRENCY_SYMBOLS.get(t.currency_code, t.currency_symbol)
         db.session.commit()
