@@ -103,7 +103,9 @@ def tenant_new():
 
         t = Tenant()
         for f in TenantForm.__dict__:
-            if hasattr(t, f) and hasattr(form, f) and f not in ("submit", "seed_defaults"):
+            if f.startswith("_") or f in ("submit", "seed_defaults"):
+                continue
+            if hasattr(t, f) and hasattr(form, f):
                 val = getattr(form, f).data
                 setattr(t, f, val)
         db.session.add(t)
