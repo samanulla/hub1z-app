@@ -63,7 +63,18 @@ def login():
 
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data.lower().strip()).first()
+        # Bypass the ambient tenant-scoping filter here and check the
+        # boundary explicitly and strictly: that listener intentionally lets
+        # tenant_id IS NULL rows (shared/global data) through on any tenant
+        # subdomain, and skips filtering entirely on the platform apex — both
+        # are fine for ordinary data, but wrong for login. A platform-staff
+        # account (tenant_id is None) must only sign in on the apex; a
+        # tenant account must only sign in on its own subdomain.
+        user = (User.query.execution_options(skip_tenant_filter=True)
+               .filter_by(email=form.email.data.lower().strip()).first())
+        resolved_tenant_id = getattr(g, "tenant_id", None)
+        if user and user.tenant_id != resolved_tenant_id:
+            user = None
         if user and user.check_password(form.password.data) and user.is_active:
             if user.tenant_id and user.tenant and user.tenant.is_trial_expired:
                 flash(f"This workspace's trial ended on "
