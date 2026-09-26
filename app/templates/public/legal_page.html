@@ -1,0 +1,25 @@
+{% extends "public/base_marketing.html" %}
+{% block title %}{{ title }} | {{ app_name }}{% endblock %}
+{% block body %}
+<nav class="marketing-nav solid"><a class="brand" href="/"><span class="brand-dot"></span> {{ app_name }}</a><div class="nav-links"><a class="nav-link" href="/features">Features</a><a class="nav-link" href="/pricing">Pricing</a><a class="nav-link btn-nav-cta" href="/auth/register/tenant">Start free</a></div></nav>
+<section class="section" style="padding-top: 10rem; padding-bottom: 2rem;">
+  <div class="container-x">
+    <div class="eyebrow">{{ eyebrow }}</div>
+    <h1 style="max-width: 780px; margin-top: 1rem;">{{ title }}</h1>
+    <p style="max-width: 650px; margin-top: 1rem;">Last updated: {{ updated }}</p>
+    {% if intro %}<p style="max-width: 700px; margin-top: 1.5rem;">{{ intro }}</p>{% endif %}
+  </div>
+</section>
+<section class="section" style="padding-top: 0;">
+  <div class="container-x" style="max-width: 780px;">
+    {% for heading, paragraphs in sections %}
+    <div class="flat-card" style="margin-bottom: 1.5rem;">
+      <h3>{{ heading }}</h3>
+      {% for para in paragraphs %}
+      <p style="margin-top: .75rem;">{{ para }}</p>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

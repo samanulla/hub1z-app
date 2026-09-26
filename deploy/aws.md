@@ -4,6 +4,8 @@
 
 1. **EC2** — one dev and one prod instance, each running the web and
    PostgreSQL containers with Docker Compose.
+   The current deployment builds the image directly on EC2; no ECR repository
+   or image registry is required yet.
 2. **EBS** — persistent per-instance storage for the PostgreSQL Docker volume.
 3. **S3** — two private document buckets:
    - `AWS_S3_PLATFORM_BUCKET` for platform-owned files

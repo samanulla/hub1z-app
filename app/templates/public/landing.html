@@ -238,8 +238,13 @@
         </p>
       </div>
     </div>
-    <div style="border-top: 1px solid rgba(251,247,240,.15); padding-top: 2rem; color: rgba(251,247,240,.5); font-size: .85rem;">
-      © {{ tenant.name if tenant else app_name }} · Made in India · <a href="/healthz" style="color: rgba(251,247,240,.6);">health</a>
+    <div style="border-top: 1px solid rgba(251,247,240,.15); padding-top: 2rem; color: rgba(251,247,240,.5); font-size: .85rem; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; align-items: center;">
+      <span>© {{ tenant.name if tenant else app_name }} · Made in India</span>
+      <a href="{{ url_for('public_legal_imprint') }}" style="color: rgba(251,247,240,.6);">Legal</a>
+      <a href="{{ url_for('public_terms') }}" style="color: rgba(251,247,240,.6);">Terms of Service</a>
+      <a href="{{ url_for('public_privacy') }}" style="color: rgba(251,247,240,.6);">Privacy Policy</a>
+      <a href="{{ url_for('public_cookies') }}" style="color: rgba(251,247,240,.6);">Cookies</a>
+      <a href="/healthz" style="color: rgba(251,247,240,.6);">health</a>
     </div>
   </div>
 </footer>

@@ -168,6 +168,16 @@ curl -SL https://github.com/docker/compose/releases/latest/download/docker-compo
 chmod +x "$HOME/.docker/cli-plugins/docker-compose"
 ```
 
+Install Buildx as well. Compose uses Buildx for `docker compose build`, even
+when the image is built locally on EC2:
+```bash
+BUILDX_VERSION=$(curl -fsSL https://api.github.com/repos/docker/buildx/releases/latest \
+  | sed -n 's/.*"tag_name": "\(v[^"]*\)".*/\1/p' | head -1)
+curl -fL "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64" \
+  -o "$HOME/.docker/cli-plugins/docker-buildx"
+chmod +x "$HOME/.docker/cli-plugins/docker-buildx"
+```
+
 If `docker.service` still fails to enable with "Unit file docker.service does
 not exist", the package install above did not complete — rerun it and check
 for errors before continuing. Reconnect after the `usermod` command so the
@@ -176,6 +186,7 @@ Docker group membership applies, then verify:
 ```bash
 docker version
 docker compose version
+docker buildx version
 ```
 
 ### 4.4 Clone Repository
@@ -210,7 +221,9 @@ this deployment:
 ```env
 FLASK_ENV=production
 APP_NAME=hub1z
-# Use the temporary EC2 URL until Nginx and HTTPS are configured; then change it to https://hub1z.com.
+# Docker Compose runs Gunicorn on port 8000 (not the Flask dev-server default
+# of 5000). Use the EC2 public IP/DNS with :8000 until Nginx is configured in
+# section 5, then drop the port once Nginx proxies port 80/443 to 8000.
 APP_BASE_URL=http://<EC2_PUBLIC_DNS_OR_DOMAIN>:8000
 SECRET_KEY=<LONG_RANDOM_SECRET>
 PLATFORM_BASE_DOMAIN=hub1z.com
@@ -291,6 +304,46 @@ Hub1z resolves the tenant/operator from the `Host` header
 covered by the TLS certificate. This means a **wildcard certificate** is
 required, not just the apex and `www`.
 
+### 5.0 Nginx for IP-Only Access (No Domain Yet)
+
+If `hub1z.com` isn't pointed at this instance yet, use this interim step to
+put Nginx in front of the app on the EC2 public/Elastic IP now, then swap in
+the wildcard `hub1z.com` server block from section 5.5 once DNS is ready.
+Let's Encrypt cannot issue a certificate for a bare IP address, so this step
+is HTTP-only.
+```bash
+sudo dnf install -y nginx
+sudo nano /etc/nginx/conf.d/hub1z.conf
+```
+```nginx
+server {
+    listen 80;
+    server_name 43.204.37.219;  # replace with this instance's public/Elastic IP
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+```bash
+sudo nginx -t
+sudo systemctl enable --now nginx
+```
+Update `.env` so `APP_BASE_URL` matches the public port Nginx now serves
+(80), not the internal container port (8000):
+```env
+APP_BASE_URL=http://43.204.37.219
+```
+```bash
+docker compose up -d
+```
+Open `http://43.204.37.219/auth/login` — no `:8000` needed once Nginx is
+listening on port 80.
+
 ### 5.1 Route 53 Hosted Zone
 1. Route 53 > Hosted zones > Create hosted zone
 2. Domain name: `hub1z.com` (Public hosted zone)
@@ -348,16 +401,58 @@ sudo systemctl enable --now nginx
 
 ### 5.6 Wildcard SSL with Let's Encrypt
 A wildcard certificate needs DNS-01 validation, so use the Route 53 Certbot
-plugin instead of the `--nginx` HTTP-01 flow:
+plugin instead of the `--nginx` HTTP-01 flow. This requires the EC2 instance
+to have an IAM role with Route 53 permissions — `certbot` reads credentials
+from the instance metadata service, not from `aws configure`.
+
+Check whether the instance already has a role attached:
+```bash
+curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/
+```
+An empty response means no role is attached yet — create/attach one:
+
+1. **IAM → Roles → Create role**
+   - Trusted entity type: `AWS service`
+   - Use case: `EC2` → Next
+   - Skip attaching managed policies for now → Next
+   - Role name: `hub1z-ec2-role` → Create role
+   - (If the instance already has a role from section 6.4/7.2, reuse it —
+     skip to step 2 and add the inline policy below to that existing role.)
+2. Open the role → **Add permissions → Create inline policy → JSON tab**,
+   paste (replace `<HOSTED_ZONE_ID>` with the ID from **Route 53 → Hosted
+   zones → hub1z.com**, shown as `Z0123456ABCDEFG`):
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Sid": "Hub1zRoute53Certbot",
+         "Effect": "Allow",
+         "Action": "route53:ChangeResourceRecordSets",
+         "Resource": "arn:aws:route53:::hostedzone/<HOSTED_ZONE_ID>"
+       },
+       {
+         "Sid": "Hub1zRoute53ListAndGetChange",
+         "Effect": "Allow",
+         "Action": ["route53:ListHostedZones", "route53:GetChange"],
+         "Resource": "*"
+       }
+     ]
+   }
+   ```
+   Name it `hub1z-route53-certbot` → Create policy
+3. **EC2 → Instances → select the instance → Actions → Security → Modify
+   IAM role**, choose `hub1z-ec2-role`, **Update IAM role**
+4. Re-run the check from above — it should now list a role name instead of
+   an empty response. Wait a few seconds for the metadata cache to refresh,
+   then retry certbot.
+
 ```bash
 sudo dnf install -y certbot python3-certbot-dns-route53
 sudo certbot certonly --dns-route53 \
   -d hub1z.com -d '*.hub1z.com' \
-  --non-interactive --agree-tos -m you@hub1z.com
+  --non-interactive --agree-tos -m admin@hub1z.com
 ```
-This requires the EC2 instance role (or configured AWS credentials) to have
-`route53:ChangeResourceRecordSets`, `route53:GetChange`, and
-`route53:ListHostedZones` permissions for the `hub1z.com` zone.
 
 Point Nginx at the issued certificate:
 ```nginx
