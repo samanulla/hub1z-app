@@ -14,6 +14,7 @@ def register_cli(app: Flask) -> None:
     app.cli.add_command(seed_demo_cmd)
     app.cli.add_command(create_tenant_cmd)
     app.cli.add_command(run_scheduled_jobs_cmd)
+    app.cli.add_command(update_platform_owner_email_cmd)
 
 
 @click.command("run-scheduled-jobs")
@@ -72,6 +73,30 @@ def create_tenant_cmd(slug, name, primary_domain, admin_email, admin_password, a
     db.session.add(u)
     db.session.commit()
     click.echo(f"Provisioned tenant '{name}' ({slug}). Admin: {admin_email}")
+
+
+@click.command("update-platform-owner-email")
+@click.option("--new-email", required=True, help="Email address to move the Platform Owner account to.")
+@click.option("--old-email", default=None,
+              help="Existing Platform Owner email to rename. Defaults to PLATFORM_OWNER_EMAIL config.")
+@with_appcontext
+def update_platform_owner_email_cmd(new_email: str, old_email: str | None) -> None:
+    """Rename an existing Platform Owner's login email in place."""
+    from flask import current_app
+
+    old_email = old_email or current_app.config["PLATFORM_OWNER_EMAIL"]
+    user = (User.query.execution_options(skip_tenant_filter=True)
+            .filter_by(email=old_email, role=UserRole.PLATFORM_OWNER).first())
+    if not user:
+        click.echo(f"No Platform Owner found with email {old_email}.")
+        return
+    if User.query.execution_options(skip_tenant_filter=True).filter_by(email=new_email).first():
+        click.echo(f"A user with email {new_email} already exists.")
+        return
+    user.email = new_email
+    db.session.commit()
+    click.echo(f"Platform Owner email updated: {old_email} -> {new_email}")
+    click.echo("Remember to set PLATFORM_OWNER_EMAIL in .env to the new address.")
 
 
 @click.command("seed-demo")

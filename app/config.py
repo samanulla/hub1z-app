@@ -57,7 +57,7 @@ class BaseConfig:
     BOOKING_CANCEL_WINDOW_MINUTES = int(os.getenv("BOOKING_CANCEL_WINDOW_MINUTES", "60"))
     DEFAULT_ROOM_SLOT_MINUTES = int(os.getenv("DEFAULT_ROOM_SLOT_MINUTES", "30"))
 
-    PLATFORM_OWNER_EMAIL = os.getenv("PLATFORM_OWNER_EMAIL", "platform@hub1z.com")
+    PLATFORM_OWNER_EMAIL = os.getenv("PLATFORM_OWNER_EMAIL", "admin@hub1z.com")
     PLATFORM_OWNER_PASSWORD = os.getenv("PLATFORM_OWNER_PASSWORD", "ChangeMe123!")
 
     # Multi-tenancy

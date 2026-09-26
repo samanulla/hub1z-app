@@ -273,9 +273,19 @@ migrations, and (only when `SEED_DEMO=true`) seeds demo data — leave
 `SEED_DEMO=false` on dev/prod servers you intend to use for real operators.
 
 ### 4.8 Create the Platform Owner and (Optionally) a Tenant
+`seed-demo` (section 4.7) already creates a Platform Owner using
+`PLATFORM_OWNER_EMAIL`/`PLATFORM_OWNER_PASSWORD` from `.env` (default
+`admin@hub1z.com`). To create an additional platform admin instead:
 ```bash
 docker compose exec web flask --app wsgi.py create-admin \
   --email you@hub1z.com --password '<STRONG_PASSWORD>' --platform-owner
+```
+To change the email of an existing Platform Owner (e.g. after renaming
+`PLATFORM_OWNER_EMAIL` in `.env`), rename the account in place instead of
+creating a duplicate:
+```bash
+docker compose exec web flask --app wsgi.py update-platform-owner-email \
+  --old-email platform@hub1z.com --new-email admin@hub1z.com
 ```
 Provision an operator/tenant directly from the CLI, or invite/provision one
 later from `/platform/` in the browser:
