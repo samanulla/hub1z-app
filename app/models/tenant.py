@@ -75,6 +75,10 @@ class Tenant(db.Model, PkMixin, TimestampMixin):
     payment_upi_id = Column(String(120))
     payment_gpay = Column(String(120))
     payment_bank_details = Column(String(500))
+    payment_bank_account_name = Column(String(200))
+    payment_bank_account_number = Column(String(60))
+    payment_bank_account_type = Column(String(20))
+    payment_bank_ifsc_or_routing = Column(String(30))
 
     primary_location_id = Column(Integer, ForeignKey("locations.id", ondelete="SET NULL"),
                                  nullable=True, index=True)

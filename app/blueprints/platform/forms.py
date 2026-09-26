@@ -1,11 +1,15 @@
 """Platform Owner forms (tenant CRUD)."""
 from flask_wtf import FlaskForm
 from wtforms import (StringField, DecimalField, SelectField, TextAreaField,
-                     BooleanField, SubmitField, PasswordField, IntegerField)
+                     BooleanField, SubmitField, PasswordField, IntegerField, DateField)
 from wtforms.validators import (DataRequired, Length, Optional, Email,
                                 NumberRange, Regexp)
 
-from ...models import TenantStatus, PLATFORM_FEATURES
+from ...models import TenantStatus, PLATFORM_FEATURES, PlatformInvoiceStatus
+from ...services.locale_data import (
+    CURRENCY_CHOICES, COUNTRY_CHOICES, LOCALE_CHOICES, TIMEZONE_CHOICES,
+    BANK_ACCOUNT_TYPE_CHOICES,
+)
 
 
 class TenantForm(FlaskForm):
@@ -31,25 +35,24 @@ class TenantForm(FlaskForm):
     status = SelectField("Status", choices=[(s.value, s.value.title()) for s in TenantStatus],
                          validators=[DataRequired()])
 
-    primary_domain = StringField("Primary domain", validators=[DataRequired(), Length(max=255)],
-                                 description="e.g. adyarspace.hub1z.com")
+    primary_domain = StringField("Primary domain", validators=[Optional(), Length(max=255)],
+                                 description="Leave blank to auto-generate from the slug, e.g. adyarspace.hub1z.com")
     custom_domain = StringField("Custom domain", validators=[Optional(), Length(max=255)],
                                 description="Optional. e.g. portal.adyarspace.com")
 
-    # Localisation
-    currency_code = StringField("Currency code", default="INR",
-                                validators=[DataRequired(), Length(min=3, max=3)])
-    currency_symbol = StringField("Currency symbol", default="₹",
-                                  validators=[DataRequired(), Length(max=4)])
-    country_code = StringField("Country code", default="IN",
-                               validators=[DataRequired(), Length(min=2, max=2)])
-    locale = StringField("Locale", default="en_IN", validators=[DataRequired(), Length(max=10)])
+    # Localisation — currency symbol is derived from currency_code, not user-entered.
+    currency_code = SelectField("Currency", choices=CURRENCY_CHOICES, default="INR",
+                                validators=[DataRequired()])
+    country_code = SelectField("Country", choices=COUNTRY_CHOICES, default="IN",
+                               validators=[DataRequired()])
+    locale = SelectField("Locale", choices=LOCALE_CHOICES, default="en_IN",
+                         validators=[DataRequired()])
     number_grouping = SelectField("Number grouping", choices=[
         ("indian", "Indian (12,34,56,789)"),
         ("western", "Western (123,456,789)"),
     ], validators=[DataRequired()])
-    timezone = StringField("Timezone (IANA)", default="Asia/Kolkata",
-                           validators=[DataRequired(), Length(max=64)])
+    timezone = SelectField("Timezone", choices=TIMEZONE_CHOICES, default="Asia/Kolkata",
+                           validators=[DataRequired()])
     date_format = StringField("Date format", default="%d-%b-%Y",
                               validators=[DataRequired(), Length(max=30)])
     datetime_format = StringField("Datetime format", default="%d-%b-%Y %H:%M",
@@ -71,7 +74,13 @@ class TenantForm(FlaskForm):
     payment_instructions = StringField("Payment instructions", validators=[Optional(), Length(max=500)])
     payment_upi_id = StringField("UPI ID", validators=[Optional(), Length(max=120)])
     payment_gpay = StringField("Google Pay", validators=[Optional(), Length(max=120)])
-    payment_bank_details = StringField("Bank account details", validators=[Optional(), Length(max=500)])
+    payment_bank_details = StringField("Bank name / branch / notes", validators=[Optional(), Length(max=500)])
+    payment_bank_account_name = StringField("Account holder name", validators=[Optional(), Length(max=200)])
+    payment_bank_account_number = StringField("Account number", validators=[Optional(), Length(max=60)])
+    payment_bank_account_type = SelectField("Account type", choices=[("", "—")] + BANK_ACCOUNT_TYPE_CHOICES,
+                                            validators=[Optional()])
+    payment_bank_ifsc_or_routing = StringField("IFSC (India) / Routing number (US)",
+                                               validators=[Optional(), Length(max=30)])
 
     submit = SubmitField("Save tenant")
 
@@ -126,12 +135,15 @@ class PricingTierForm(FlaskForm):
     )
     name = StringField("Display name", validators=[DataRequired(), Length(max=80)])
     monthly_price = DecimalField("Monthly price (₹)", validators=[Optional(), NumberRange(min=0)],
-                                 description="Leave blank for 'custom / contact us'.")
+                                 description="Priced for the locations + seats caps below. Leave blank for 'custom / contact us'.")
     is_active = BooleanField("Active (offered to new/edited tenants)", default=True)
     max_locations = IntegerField("Max locations", validators=[Optional(), NumberRange(min=0)])
     max_seats = IntegerField("Max seats (hot + dedicated desks)", validators=[Optional(), NumberRange(min=0)])
-    max_private_offices = IntegerField("Max private offices (manager cabins)", validators=[Optional(), NumberRange(min=0)])
-    max_rooms = IntegerField("Max conference rooms", validators=[Optional(), NumberRange(min=0)])
+    max_private_offices = IntegerField("Max private offices (manager cabins)",
+                                       validators=[Optional(), NumberRange(min=0)],
+                                       description="Optional cap — does not affect price.")
+    max_rooms = IntegerField("Max conference rooms", validators=[Optional(), NumberRange(min=0)],
+                             description="Optional cap — does not affect price.")
     submit = SubmitField("Save tier")
 
 
@@ -148,3 +160,47 @@ class NewTenantForm(TenantForm):
         "Seed default pricing plans + email templates for this tenant", default=True,
     )
     submit = SubmitField("Provision operator")
+
+
+class PlatformInvoiceForm(FlaskForm):
+    """An invoice the platform issues to an operator for their subscription."""
+    tenant_id = SelectField("Operator", coerce=int, validators=[DataRequired()])
+    number = StringField("Invoice number", validators=[DataRequired(), Length(max=30)])
+    period_start = DateField("Period start", validators=[DataRequired()])
+    period_end = DateField("Period end", validators=[DataRequired()])
+    due_date = DateField("Due date", validators=[DataRequired()])
+    amount = DecimalField("Amount", validators=[DataRequired(), NumberRange(min=0)])
+    currency = SelectField("Currency", choices=CURRENCY_CHOICES, default="INR",
+                           validators=[DataRequired()])
+    status = SelectField("Status", choices=[(s.value, s.value.title()) for s in PlatformInvoiceStatus],
+                         validators=[DataRequired()])
+    notes = TextAreaField("Notes", validators=[Optional(), Length(max=2000)])
+    submit = SubmitField("Save invoice")
+
+
+class PlatformCreditNoteForm(FlaskForm):
+    tenant_id = SelectField("Operator", coerce=int, validators=[DataRequired()])
+    invoice_id = SelectField("Against invoice (optional)", coerce=int, validators=[Optional()])
+    number = StringField("Credit note number", validators=[DataRequired(), Length(max=30)])
+    amount = DecimalField("Amount", validators=[DataRequired(), NumberRange(min=0)])
+    reason = StringField("Reason", validators=[DataRequired(), Length(max=255)])
+    submit = SubmitField("Save credit note")
+
+
+class PlatformRefundForm(FlaskForm):
+    tenant_id = SelectField("Operator", coerce=int, validators=[DataRequired()])
+    invoice_id = SelectField("Against invoice (optional)", coerce=int, validators=[Optional()])
+    number = StringField("Refund reference", validators=[DataRequired(), Length(max=30)])
+    amount = DecimalField("Amount", validators=[DataRequired(), NumberRange(min=0)])
+    reason = StringField("Reason", validators=[DataRequired(), Length(max=255)])
+    submit = SubmitField("Save refund")
+
+
+class PlatformExpenseForm(FlaskForm):
+    category = StringField("Category", validators=[DataRequired(), Length(max=60)],
+                           description="e.g. Hosting, Support, Payment gateway fees")
+    description = StringField("Description", validators=[DataRequired(), Length(max=255)])
+    amount = DecimalField("Amount", validators=[DataRequired(), NumberRange(min=0)])
+    incurred_on = DateField("Date incurred", validators=[DataRequired()])
+    notes = TextAreaField("Notes", validators=[Optional(), Length(max=2000)])
+    submit = SubmitField("Save expense")

@@ -17,13 +17,11 @@
         </form>
         <hr>
         <div class="d-flex justify-content-between small">
-          <a href="{{ url_for('auth.register_individual') }}">New member? Sign up</a>
-          <a href="{{ url_for('auth.register_company') }}">Register a company</a>
+          <a href="{{ url_for('auth.register_tenant') }}">Register Operator</a>
+          <a href="{{ url_for('auth.pick_workspace') }}">Find your workspace</a>
         </div>
         <div class="text-center small mt-2">
           <a href="{{ url_for('auth.forgot_password') }}">Forgot password?</a>
-          &nbsp;·&nbsp;
-          <a href="{{ url_for('auth.pick_workspace') }}">Find your workspace</a>
         </div>
       </div>
     </div>

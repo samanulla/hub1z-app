@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Platform finance{% endblock %}
+
+{% block content %}
+<h3>Invoices, credit notes, refunds &amp; expenses</h3>
+<p class="text-muted small">The platform's own commercial relationship with its operators &mdash;
+  separate from what each operator charges their own companies/members.</p>
+
+<div class="d-flex gap-2 mb-4">
+  <a class="btn btn-dark btn-sm" href="{{ url_for('platform.finance_invoice_new') }}">+ Invoice</a>
+  <a class="btn btn-outline-dark btn-sm" href="{{ url_for('platform.finance_credit_note_new') }}">+ Credit note</a>
+  <a class="btn btn-outline-dark btn-sm" href="{{ url_for('platform.finance_refund_new') }}">+ Refund</a>
+  <a class="btn btn-outline-dark btn-sm" href="{{ url_for('platform.finance_expense_new') }}">+ Expense</a>
+</div>
+
+<div class="card mb-4"><div class="card-body">
+  <h6>Invoices</h6>
+  <table class="table table-sm">
+    <thead><tr><th>Number</th><th>Operator</th><th>Period</th><th>Due</th><th>Amount</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for i in invoices %}
+      <tr>
+        <td>{{ i.number }}</td><td>{{ i.tenant.name if i.tenant else "\u2014" }}</td>
+        <td>{{ i.period_start }} &ndash; {{ i.period_end }}</td><td>{{ i.due_date }}</td>
+        <td>{{ i.currency }} {{ "%.2f"|format(i.amount) }}</td><td>{{ i.status.value }}</td>
+      </tr>
+      {% else %}<tr><td colspan="6" class="text-center text-muted py-3">No platform invoices yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="card mb-4"><div class="card-body">
+  <h6>Credit notes</h6>
+  <table class="table table-sm">
+    <thead><tr><th>Number</th><th>Operator</th><th>Invoice</th><th>Amount</th><th>Reason</th></tr></thead>
+    <tbody>
+      {% for cn in credit_notes %}
+      <tr>
+        <td>{{ cn.number }}</td><td>{{ cn.tenant.name if cn.tenant else "\u2014" }}</td>
+        <td>{{ cn.invoice.number if cn.invoice else "\u2014" }}</td>
+        <td>{{ "%.2f"|format(cn.amount) }}</td><td>{{ cn.reason }}</td>
+      </tr>
+      {% else %}<tr><td colspan="5" class="text-center text-muted py-3">No credit notes yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="card mb-4"><div class="card-body">
+  <h6>Refunds</h6>
+  <table class="table table-sm">
+    <thead><tr><th>Reference</th><th>Operator</th><th>Invoice</th><th>Amount</th><th>Reason</th></tr></thead>
+    <tbody>
+      {% for r in refunds %}
+      <tr>
+        <td>{{ r.number }}</td><td>{{ r.tenant.name if r.tenant else "\u2014" }}</td>
+        <td>{{ r.invoice.number if r.invoice else "\u2014" }}</td>
+        <td>{{ "%.2f"|format(r.amount) }}</td><td>{{ r.reason }}</td>
+      </tr>
+      {% else %}<tr><td colspan="5" class="text-center text-muted py-3">No refunds yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="card"><div class="card-body">
+  <h6>Platform expenses</h6>
+  <table class="table table-sm">
+    <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead>
+    <tbody>
+      {% for e in expenses %}
+      <tr>
+        <td>{{ e.incurred_on }}</td><td>{{ e.category }}</td><td>{{ e.description }}</td>
+        <td>{{ "%.2f"|format(e.amount) }}</td>
+      </tr>
+      {% else %}<tr><td colspan="4" class="text-center text-muted py-3">No platform expenses recorded yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endblock %}

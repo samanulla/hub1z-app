@@ -37,10 +37,15 @@ def register_invite_routes(bp):
                         .filter(User.role.in_([UserRole.MANAGER, UserRole.LOCATION_MANAGER]),
                                User.is_active.is_(False))
                         .order_by(User.created_at.desc()).all())
+        active_team = (User.query
+                       .filter(User.role.in_([UserRole.MANAGER, UserRole.LOCATION_MANAGER]),
+                              User.is_active.is_(True))
+                       .order_by(User.full_name).all())
         return render_template("admin/invites/list.html",
                                pending_individuals=pending_individuals,
                                pending_companies=pending_companies,
-                               pending_team=pending_team)
+                               pending_team=pending_team,
+                               active_team=active_team)
 
     # ------------------------------------------------------------ individual --
 
@@ -303,4 +308,24 @@ def register_invite_routes(bp):
         db.session.delete(u)
         db.session.commit()
         flash("Invitation revoked.", "info")
+        return redirect(url_for("admin.invites_list"))
+
+    @bp.route("/invites/team/<int:user_id>/reset-password", methods=["POST"])
+    @super_admin_required
+    def invite_team_reset_password(user_id: int):
+        """Email a self-service password-reset link to one of our own
+        Manager/Location Manager team members who's locked out."""
+        u = User.query.filter_by(
+            id=user_id, is_active=True,
+        ).filter(User.role.in_([UserRole.MANAGER, UserRole.LOCATION_MANAGER])).first_or_404()
+        token = mail_service.make_token(u.id, "password-reset")
+        reset_url = url_for("auth.reset_password", token=token, _external=True)
+        tenant_name = getattr(g.tenant, "name", None) if getattr(g, "tenant", None) else current_app.config.get("APP_NAME")
+        mail_service.send(
+            subject=f"Reset your {tenant_name} password",
+            recipient=u.email,
+            template="password_reset",
+            user=u, reset_url=reset_url, ttl_hours=2,
+        )
+        flash(f"Password reset link sent to {u.email}.", "success")
         return redirect(url_for("admin.invites_list"))

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import current_user
-from jinja2 import Environment, BaseLoader, TemplateSyntaxError
+from jinja2 import Environment, BaseLoader, TemplateSyntaxError, DebugUndefined
 
 from ...extensions import db
 from ...models import EmailTemplate, EmailKind
@@ -13,21 +13,32 @@ from .forms import EmailTemplateForm
 
 _SAMPLE_CONTEXT = {
     "user": {"full_name": "Jane Doe", "email": "jane@example.com"},
+    "tenant": {"name": "Adyar Coworks", "support_email": "support@adyar-coworks.hub1z.com"},
     "company": {"name": "Acme Robotics"},
     "booking": {"room_name": "Hudson", "start_at": "2026-01-15 14:00",
                 "end_at": "2026-01-15 15:00", "credits_used": 1,
                 "total_amount": "0.00"},
     "invoice": {"number": "INV-202601-00042", "total_amount": "1299.00",
                 "due_date": "2026-02-15"},
+    "credit_note": {"number": "CN-202601-00007", "total_amount": "500.00"},
+    "refund": {"amount": "1299.00", "reason": "Booking cancelled"},
+    "payslip": {"month": "January 2026", "net_pay": "45000.00"},
     "app": {"name": "hub1z", "base_url": "https://hub1z.example.com"},
     "temp_password": "S3cure!Temp",
+    "accept_url": "https://adyar-coworks.hub1z.com/invites/accept/sample-token",
+    "reset_url": "https://adyar-coworks.hub1z.com/auth/reset-password/sample-token",
 }
 
 
 def _render_sample(template_source: str) -> tuple[str, str | None]:
-    """Render a template with sample context. Returns (output, error)."""
+    """Render a template with sample context. Returns (output, error).
+
+    Uses DebugUndefined so a variable missing from the sample context shows
+    up visibly as e.g. ``{{ foo.bar }}`` in the preview instead of silently
+    disappearing, making template typos/mismatches obvious.
+    """
     try:
-        env = Environment(loader=BaseLoader(), autoescape=True)
+        env = Environment(loader=BaseLoader(), autoescape=True, undefined=DebugUndefined)
         tpl = env.from_string(template_source)
         return tpl.render(**_SAMPLE_CONTEXT), None
     except TemplateSyntaxError as e:

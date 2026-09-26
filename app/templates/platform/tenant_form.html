@@ -35,16 +35,17 @@
   <hr>
   <h6>Localisation</h6>
   <div class="row">
-    <div class="col-md-2">{{ field(form.currency_code) }}</div>
-    <div class="col-md-2">{{ field(form.currency_symbol) }}</div>
-    <div class="col-md-2">{{ field(form.country_code) }}</div>
-    <div class="col-md-2">{{ field(form.locale) }}</div>
-    <div class="col-md-2">{{ field(form.number_grouping) }}</div>
-    <div class="col-md-2">{{ field(form.timezone) }}</div>
+    <div class="col-md-3">{{ field(form.currency_code) }}</div>
+    <div class="col-md-3">{{ field(form.country_code) }}</div>
+    <div class="col-md-3">{{ field(form.locale) }}</div>
+    <div class="col-md-3">{{ field(form.number_grouping) }}</div>
   </div>
   <div class="row">
+    <div class="col-md-4">{{ field(form.timezone) }}</div>
     <div class="col-md-4">{{ field(form.date_format) }}</div>
     <div class="col-md-4">{{ field(form.datetime_format) }}</div>
+  </div>
+  <div class="row">
     <div class="col-md-4">{{ field(form.time_format) }}</div>
   </div>
 
@@ -68,6 +69,12 @@
     <div class="col-md-3">{{ field(form.payment_gpay) }}</div>
     <div class="col-md-6">{{ field(form.payment_bank_details) }}</div>
   </div>
+  <div class="row">
+    <div class="col-md-4">{{ field(form.payment_bank_account_name) }}</div>
+    <div class="col-md-3">{{ field(form.payment_bank_account_number) }}</div>
+    <div class="col-md-2">{{ field(form.payment_bank_account_type) }}</div>
+    <div class="col-md-3">{{ field(form.payment_bank_ifsc_or_routing) }}</div>
+  </div>
   {{ field(form.payment_instructions) }}
 
   {% if form.admin_name is defined %}
@@ -84,5 +91,16 @@
   <button class="btn btn-dark">Save</button>
   <a class="btn btn-link" href="{{ url_for('platform.tenants_list') }}">Cancel</a>
 </form>
+
+{% if tenant %}
+<hr>
+<h6>Locked out?</h6>
+<p class="text-muted small">Sends a password-reset link to this operator's Super Admin(s) &mdash;
+  use this if they can't get in and can't use self-service Forgot Password.</p>
+<form method="post" action="{{ url_for('platform.tenant_send_password_reset', tenant_id=tenant.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn btn-outline-dark btn-sm" type="submit">Send password reset link</button>
+</form>
+{% endif %}
 </div></div>
 {% endblock %}

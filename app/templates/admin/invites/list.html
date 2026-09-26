@@ -97,5 +97,30 @@
     </tbody>
   </table>
 </div></div>
+
+<div class="card mt-3"><div class="card-body">
+  <h6>Team</h6>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Location</th><th></th></tr></thead>
+    <tbody>
+      {% for u in active_team %}
+      <tr>
+        <td>{{ u.full_name }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ "Location Manager" if u.role.value == "location_manager" else "Manager" }}</td>
+        <td>{{ u.managed_location.name if u.managed_location else "— workspace-wide —" }}</td>
+        <td class="text-end">
+          <form method="post" action="{{ url_for('admin.invite_team_reset_password', user_id=u.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-dark">Reset password</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-muted text-center py-3">No team members yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
 {% endif %}
 {% endblock %}

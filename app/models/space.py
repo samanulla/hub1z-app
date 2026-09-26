@@ -62,6 +62,7 @@ class ConferenceRoom(db.Model, PkMixin, TimestampMixin, TenantScoped):
     hourly_rate = Column(Numeric(10, 2), default=0)
     credit_cost_per_hour = Column(Integer, default=1, nullable=False)  # meeting-room credits
     is_active = Column(Boolean, default=True, nullable=False)
+    cross_location_bookable = Column(Boolean, default=False, nullable=False)
     description = Column(Text)
 
     location = relationship("Location", back_populates="rooms")

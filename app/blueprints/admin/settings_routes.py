@@ -24,19 +24,27 @@ def register_settings_routes(bp):
                 for loc in Location.query.filter_by(is_active=True).order_by(Location.name).all()
             ]
             if not form.is_submitted():
+                form.tagline.data = tenant.tagline
+                form.logo_url.data = tenant.logo_url
+                form.brand_color.data = tenant.brand_color
+                form.support_email.data = tenant.support_email
                 form.primary_location_id.data = tenant.primary_location_id or 0
                 form.payment_instructions.data = tenant.payment_instructions
                 form.payment_upi_id.data = tenant.payment_upi_id
                 form.payment_gpay.data = tenant.payment_gpay
                 form.payment_bank_details.data = tenant.payment_bank_details
             if form.validate_on_submit():
+                tenant.tagline = form.tagline.data
+                tenant.logo_url = form.logo_url.data
+                tenant.brand_color = form.brand_color.data or tenant.brand_color
+                tenant.support_email = form.support_email.data
                 tenant.primary_location_id = form.primary_location_id.data or None
                 tenant.payment_instructions = form.payment_instructions.data
                 tenant.payment_upi_id = form.payment_upi_id.data
                 tenant.payment_gpay = form.payment_gpay.data
                 tenant.payment_bank_details = form.payment_bank_details.data
                 db.session.commit()
-                flash("Primary billing location saved.", "success")
+                flash("Workspace settings saved.", "success")
                 return redirect(url_for("admin.settings"))
             return render_template("admin/tenant_settings.html", form=form, tenant=tenant)
 

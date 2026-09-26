@@ -1,0 +1,8 @@
+A new support ticket was submitted{% if tenant %} on {{ tenant.name }}{% endif %}.
+
+From: {{ submitter.full_name }} ({{ submitter.email }})
+Priority: {{ ticket.priority.value }}
+
+{{ ticket.body }}
+
+— {{ app_name }}

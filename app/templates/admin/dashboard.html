@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Admin dashboard{% endblock %}
+{% block title %}Manage{% endblock %}
 
 {% block content %}
-<h3 class="mb-4">Platform overview</h3>
+<h3 class="mb-4">{{ tenant.name if tenant else "Operator" }} overview</h3>
 
 <div class="row g-3 mb-4">
   {% for label, value, icon in [
@@ -41,66 +41,105 @@
 
 <div class="row g-3">
   <div class="col-md-6">
-    <div class="card"><div class="card-body">
-      <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="card h-100"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="mb-0">Workspace</h5>
         <a class="btn btn-sm btn-dark" href="{{ url_for('admin.location_new') }}">+ New location</a>
       </div>
-      <ul class="list-unstyled mb-0">
-        <li><a href="{{ url_for('admin.locations_list') }}"><i class="bi bi-building"></i> Locations, floors, seats, rooms →</a></li>
-        <li><a href="{{ url_for('admin.plans_list') }}"><i class="bi bi-tags"></i> Pricing plans →</a></li>
-        <li><a href="{{ url_for('admin.companies_list') }}"><i class="bi bi-briefcase"></i> Companies →</a></li>
-        <li><a href="{{ url_for('admin.invites_list') }}"><i class="bi bi-envelope-paper"></i> Invites →</a></li>
-        <li><a href="{{ url_for('admin.allocations') }}"><i class="bi bi-diagram-3"></i> Seat allocations →</a></li>
-      </ul>
+      <div class="row g-2">
+        {% for label, sub, icon, tint, href in [
+          ("Locations, floors, seats, rooms", "Physical layout & resources", "building", "", url_for('admin.locations_list')),
+          ("Pricing plans", "Plans members can subscribe to", "tags", "amber", url_for('admin.plans_list')),
+          ("Companies", "Member companies on this workspace", "briefcase", "purple", url_for('admin.companies_list')),
+          ("Invites", "Bring on members, companies & team", "envelope-paper", "teal", url_for('admin.invites_list')),
+          ("Seat allocations", "Assign desks to people", "diagram-3", "orange", url_for('admin.allocations')),
+          ("Documents", "Contracts, KYC, floor maps & more", "file-earmark-text", "amber", url_for('admin.operator_documents')),
+        ] %}
+        <div class="col-12">
+          <a class="d-flex align-items-center gap-3 p-2 rounded-3 text-body" style="background: color-mix(in srgb, var(--brand) 6%, transparent); text-decoration: none;" href="{{ href }}">
+            <span class="stat-icon {{ tint }} m-0" style="width:36px;height:36px;"><i class="bi bi-{{ icon }}"></i></span>
+            <div><div class="fw-semibold small">{{ label }}</div><small class="text-muted">{{ sub }}</small></div>
+          </a>
+        </div>
+        {% endfor %}
+      </div>
     </div></div>
   </div>
 
   <div class="col-md-6">
-    <div class="card"><div class="card-body">
-      <h5>Billing & finance</h5>
-      <ul class="list-unstyled mb-0">
-        <li><a href="{{ url_for('admin.invoices_list') }}"><i class="bi bi-receipt"></i> Invoices →</a></li>
-        <li><a href="{{ url_for('admin.credit_notes') }}"><i class="bi bi-file-earmark-minus"></i> Credit notes →</a></li>
-        <li><a href="{{ url_for('admin.refunds') }}"><i class="bi bi-arrow-counterclockwise"></i> Refunds →</a></li>
-        <li><a href="{{ url_for('admin.expenses_list') }}"><i class="bi bi-cash-stack"></i> Expenses →</a></li>
-        <li><a href="{{ url_for('admin.expense_categories') }}"><i class="bi bi-list-nested"></i> Expense categories →</a></li>
-      </ul>
+    <div class="card h-100"><div class="card-body">
+      <h5 class="mb-3">Billing &amp; finance</h5>
+      <div class="row g-2">
+        {% for label, sub, icon, tint, href in [
+          ("Invoices", "Bill companies & members", "receipt", "amber", url_for('admin.invoices_list')),
+          ("Credit notes", "Adjustments against invoices", "file-earmark-minus", "", url_for('admin.credit_notes')),
+          ("Refunds", "Money returned to a customer", "arrow-counterclockwise", "teal", url_for('admin.refunds')),
+          ("Expenses", "Track your own operating costs", "cash-stack", "purple", url_for('admin.expenses_list')),
+          ("Expense categories", "Organise expense tracking", "list-nested", "orange", url_for('admin.expense_categories')),
+        ] %}
+        <div class="col-12">
+          <a class="d-flex align-items-center gap-3 p-2 rounded-3 text-body" style="background: rgba(217,119,6,.06); text-decoration: none;" href="{{ href }}">
+            <span class="stat-icon {{ tint }} m-0" style="width:36px;height:36px;"><i class="bi bi-{{ icon }}"></i></span>
+            <div><div class="fw-semibold small">{{ label }}</div><small class="text-muted">{{ sub }}</small></div>
+          </a>
+        </div>
+        {% endfor %}
+      </div>
     </div></div>
   </div>
 
   <div class="col-md-6">
-    <div class="card"><div class="card-body">
-      <h5>People</h5>
-      <ul class="list-unstyled mb-0">
-        <li><a href="{{ url_for('admin.staff_list') }}"><i class="bi bi-people"></i> Staff members →</a></li>
-        <li><a href="{{ url_for('admin.payroll_list') }}"><i class="bi bi-wallet2"></i> Payroll runs →</a></li>
-      </ul>
+    <div class="card h-100"><div class="card-body">
+      <h5 class="mb-3">People</h5>
+      <div class="row g-2">
+        {% for label, sub, icon, tint, href in [
+          ("Staff members", "Your own employees, not members", "people", "purple", url_for('admin.staff_list')),
+          ("Payroll runs", "Salaries & payslips", "wallet2", "teal", url_for('admin.payroll_list')),
+        ] %}
+        <div class="col-12">
+          <a class="d-flex align-items-center gap-3 p-2 rounded-3 text-body" style="background: rgba(124,58,237,.06); text-decoration: none;" href="{{ href }}">
+            <span class="stat-icon {{ tint }} m-0" style="width:36px;height:36px;"><i class="bi bi-{{ icon }}"></i></span>
+            <div><div class="fw-semibold small">{{ label }}</div><small class="text-muted">{{ sub }}</small></div>
+          </a>
+        </div>
+        {% endfor %}
+      </div>
     </div></div>
   </div>
 
   <div class="col-md-6">
-    <div class="card"><div class="card-body">
-      <h5>Notifications</h5>
-      <ul class="list-unstyled mb-0">
-        <li><a href="{{ url_for('admin.email_templates') }}"><i class="bi bi-envelope"></i> Email templates →</a></li>
+    <div class="card h-100"><div class="card-body">
+      <h5 class="mb-3">Notifications &amp; reports</h5>
+      <div class="row g-2">
+        {% for label, sub, icon, tint, href in [
+          ("Email templates", "What members receive", "envelope", "", url_for('admin.email_templates')),
+          ("Occupancy", "Utilisation across locations", "graph-up", "teal", url_for('admin.report_occupancy')),
+          ("Financials", "Revenue & collections", "cash-coin", "amber", url_for('admin.report_financials')),
+          ("Subscriptions", "Plan mix & churn", "arrow-repeat", "purple", url_for('admin.report_subscriptions')),
+          ("People", "Members, companies, staff", "people-fill", "orange", url_for('admin.report_people')),
+        ] %}
+        <div class="col-12">
+          <a class="d-flex align-items-center gap-3 p-2 rounded-3 text-body" style="background: rgba(15,118,110,.06); text-decoration: none;" href="{{ href }}">
+            <span class="stat-icon {{ tint }} m-0" style="width:36px;height:36px;"><i class="bi bi-{{ icon }}"></i></span>
+            <div><div class="fw-semibold small">{{ label }}</div><small class="text-muted">{{ sub }}</small></div>
+          </a>
+        </div>
+        {% endfor %}
         {% if current_user.is_super_admin %}
-        <li><a href="{{ url_for('admin.settings') }}"><i class="bi bi-gear"></i> System settings →</a></li>
-        <li><a href="{{ url_for('admin.audit_log') }}"><i class="bi bi-shield-check"></i> Audit log →</a></li>
+        <div class="col-12">
+          <a class="d-flex align-items-center gap-3 p-2 rounded-3 text-body" style="background: rgba(15,118,110,.06); text-decoration: none;" href="{{ url_for('admin.settings') }}">
+            <span class="stat-icon m-0" style="width:36px;height:36px;"><i class="bi bi-gear"></i></span>
+            <div><div class="fw-semibold small">System settings</div><small class="text-muted">Localisation, tax, formats</small></div>
+          </a>
+        </div>
+        <div class="col-12">
+          <a class="d-flex align-items-center gap-3 p-2 rounded-3 text-body" style="background: rgba(15,118,110,.06); text-decoration: none;" href="{{ url_for('admin.audit_log') }}">
+            <span class="stat-icon m-0" style="width:36px;height:36px;"><i class="bi bi-shield-check"></i></span>
+            <div><div class="fw-semibold small">Audit log</div><small class="text-muted">Every sensitive action</small></div>
+          </a>
+        </div>
         {% endif %}
-      </ul>
-    </div></div>
-  </div>
-
-  <div class="col-md-6">
-    <div class="card"><div class="card-body">
-      <h5>Reports</h5>
-      <ul class="list-unstyled mb-0">
-        <li><a href="{{ url_for('admin.report_occupancy') }}"><i class="bi bi-graph-up"></i> Occupancy →</a></li>
-        <li><a href="{{ url_for('admin.report_financials') }}"><i class="bi bi-cash-coin"></i> Financials →</a></li>
-        <li><a href="{{ url_for('admin.report_subscriptions') }}"><i class="bi bi-arrow-repeat"></i> Subscriptions →</a></li>
-        <li><a href="{{ url_for('admin.report_people') }}"><i class="bi bi-people-fill"></i> People →</a></li>
-      </ul>
+      </div>
     </div></div>
   </div>
 

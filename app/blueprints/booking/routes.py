@@ -1,12 +1,17 @@
 """Public booking blueprint — members choose a location and reserve a seat/room."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date as date_cls, time as time_cls
+from zoneinfo import ZoneInfo
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import current_user, login_required
 
-from ...models import Location, Seat, ConferenceRoom, SeatType, RoomWaitlist, WaitlistStatus, RecurringRoomBooking, RecurrencePattern
+from ...models import (
+    Location, Seat, ConferenceRoom, SeatType, RoomWaitlist, WaitlistStatus,
+    RecurringRoomBooking, RecurrencePattern, RoomBooking, SeatBooking, BookingStatus,
+    Subscription, SubscriptionStatus,
+)
 from ...services.booking_service import (
     create_seat_booking, create_room_booking, quote_seat, quote_room,
     BookingError, check_seat_conflict, check_room_conflict,
@@ -15,6 +20,15 @@ from ...services.formatting import format_money, now_local, parse_local_naive_to
 from ...utils.decorators import member_required
 
 booking_bp = Blueprint("book", __name__, template_folder="../../templates")
+
+
+def _current_user_credits() -> int:
+    subs = Subscription.query.filter(
+        (Subscription.user_id == current_user.id) |
+        (Subscription.company_id == current_user.company_id),
+        Subscription.status == SubscriptionStatus.ACTIVE,
+    ).all()
+    return sum(s.meeting_credits_balance for s in subs)
 
 
 @booking_bp.route("/")
@@ -32,6 +46,177 @@ def location_home(location_id: int):
     rooms = [r for r in loc.rooms if r.is_active]
     return render_template("booking/location_home.html",
                            location=loc, hot_desks=hot_desks, rooms=rooms)
+
+
+@booking_bp.route("/calendar")
+@member_required
+def calendar():
+    """Default entry point for the top-nav Calendar link — picks a sensible
+    location (tenant's primary, else the first active one) and redirects."""
+    from flask import g
+    tenant = getattr(g, "tenant", None)
+    loc = None
+    if tenant and tenant.primary_location_id:
+        loc = Location.query.filter_by(id=tenant.primary_location_id, is_active=True).first()
+    if loc is None:
+        loc = Location.query.filter_by(is_active=True).order_by(Location.name).first()
+    if loc is None:
+        flash("No active locations yet.", "info")
+        return redirect(url_for("member.dashboard"))
+    return redirect(url_for("book.location_calendar", location_id=loc.id))
+
+
+@booking_bp.route("/locations/<int:location_id>/calendar")
+@member_required
+def location_calendar(location_id: int):
+    """A day view of conference-room availability for this location —
+    click an open slot to book it (subject to available credits)."""
+    loc = Location.query.get_or_404(location_id)
+    rooms = [r for r in loc.rooms if r.is_active]
+
+    # Rooms an operator has opted to make bookable from any of their
+    # locations' calendars, not just their own.
+    cross_location_rooms = (ConferenceRoom.query
+                            .filter(ConferenceRoom.location_id != loc.id,
+                                   ConferenceRoom.tenant_id == loc.tenant_id,
+                                   ConferenceRoom.is_active.is_(True),
+                                   ConferenceRoom.cross_location_bookable.is_(True))
+                            .order_by(ConferenceRoom.name).all())
+    bookable_rooms = rooms + cross_location_rooms
+    tz = ZoneInfo(loc.timezone or "UTC")
+
+    date_str = request.args.get("date")
+    try:
+        day = datetime.strptime(date_str, "%Y-%m-%d").date() if date_str else datetime.now(tz).date()
+    except ValueError:
+        day = datetime.now(tz).date()
+
+    if loc.is_247:
+        open_t, close_t = time_cls(0, 0), time_cls(23, 0)
+    else:
+        open_t = loc.open_time or time_cls(7, 0)
+        close_t = loc.close_time or time_cls(21, 0)
+
+    slot_times = []
+    cur = datetime.combine(day, open_t)
+    day_end = datetime.combine(day, close_t)
+    while cur < day_end:
+        slot_times.append(cur.time())
+        cur += timedelta(hours=1)
+
+    day_start_local = datetime.combine(day, time_cls.min).replace(tzinfo=tz)
+    day_end_local = day_start_local + timedelta(days=1)
+    day_start_utc = day_start_local.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    day_end_utc = day_end_local.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+
+    room_ids = [r.id for r in rooms]
+    bookings = []
+    if room_ids:
+        bookings = (RoomBooking.query
+                   .filter(RoomBooking.room_id.in_(room_ids))
+                   .filter(RoomBooking.status.in_([BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN]))
+                   .filter(RoomBooking.start_at < day_end_utc, RoomBooking.end_at > day_start_utc)
+                   .order_by(RoomBooking.start_at).all())
+
+    bookings_by_room: dict[int, list] = {r.id: [] for r in rooms}
+    for b in bookings:
+        local_start = b.start_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+        local_end = b.end_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+        bookings_by_room.setdefault(b.room_id, []).append((local_start, local_end, b))
+
+    def _booking_at(room_id: int, slot_time):
+        slot_start = datetime.combine(day, slot_time)
+        slot_end = slot_start + timedelta(hours=1)
+        for local_start, local_end, b in bookings_by_room.get(room_id, []):
+            if local_start.replace(tzinfo=None) < slot_end and local_end.replace(tzinfo=None) > slot_start:
+                return b
+        return None
+
+    grid = []
+    for slot_time in slot_times:
+        slot_start_dt = datetime.combine(day, slot_time)
+        slot_end_dt = slot_start_dt + timedelta(hours=1)
+        row = {"time": slot_time, "cells": []}
+        for room in rooms:
+            row["cells"].append({
+                "room": room,
+                "booking": _booking_at(room.id, slot_time),
+                "start": slot_start_dt.strftime("%Y-%m-%dT%H:%M"),
+                "end": slot_end_dt.strftime("%Y-%m-%dT%H:%M"),
+            })
+        grid.append(row)
+
+    locations = Location.query.filter_by(is_active=True).order_by(Location.name).all()
+
+    return render_template(
+        "booking/calendar.html", location=loc, locations=locations, rooms=rooms,
+        bookable_rooms=bookable_rooms, grid=grid,
+        day=day, prev_day=day - timedelta(days=1), next_day=day + timedelta(days=1),
+        today=datetime.now(tz).date(), credits_available=_current_user_credits(),
+        day_bookings=bookings,
+    )
+
+
+@booking_bp.route("/rooms/<int:room_id>/check-conflict")
+@member_required
+def room_check_conflict(room_id: int):
+    """Live conflict check for the calendar's Outlook-style 'Add meeting'
+    modal — called via fetch() as the user adjusts room/start/end."""
+    from flask import jsonify
+    room = ConferenceRoom.query.get_or_404(room_id)
+    if room.tenant_id and current_user.tenant_id and room.tenant_id != current_user.tenant_id:
+        return jsonify({"error": "Room does not belong to your workspace."}), 403
+    try:
+        start = parse_local_naive_to_utc(request.args["start"])
+        end = parse_local_naive_to_utc(request.args["end"])
+    except (KeyError, ValueError):
+        return jsonify({"error": "Invalid start or end time."}), 400
+    if end <= start:
+        return jsonify({"error": "End must be after start."}), 400
+    conflict = check_room_conflict(room.id, start, end)
+    return jsonify({"conflict": conflict})
+
+
+@booking_bp.route("/locations/<int:location_id>/calendar/quick-book", methods=["POST"])
+@member_required
+def location_calendar_quick_book(location_id: int):
+    """Create a meeting directly from the calendar's 'Add meeting' modal.
+    The room may belong to this location, or to another of the operator's
+    locations if that room was opted into cross-location booking."""
+    loc = Location.query.get_or_404(location_id)
+    room_id = request.form.get("room_id", type=int)
+    room = ConferenceRoom.query.filter(
+        ConferenceRoom.id == room_id, ConferenceRoom.tenant_id == loc.tenant_id,
+        ConferenceRoom.is_active.is_(True),
+        (ConferenceRoom.location_id == loc.id) | (ConferenceRoom.cross_location_bookable.is_(True)),
+    ).first()
+    if room is None:
+        flash("Pick a valid room.", "warning")
+        return redirect(url_for("book.location_calendar", location_id=loc.id))
+    try:
+        start = parse_local_naive_to_utc(request.form["start"])
+        end = parse_local_naive_to_utc(request.form["end"])
+    except (KeyError, ValueError):
+        flash("Invalid start or end time.", "danger")
+        return redirect(url_for("book.location_calendar", location_id=loc.id))
+
+    day_param = start.strftime("%Y-%m-%d")
+    try:
+        b = create_room_booking(
+            user=current_user, room=room, start=start, end=end,
+            title=request.form.get("title"),
+            attendees=request.form.get("attendees", 1, type=int),
+            notes=request.form.get("notes"),
+        )
+        msg = "Meeting booked."
+        if b.credits_used:
+            msg += f" Used {b.credits_used} credit(s)."
+        if b.total_amount and b.total_amount > 0:
+            msg += f" Charge {format_money(b.total_amount)}."
+        flash(msg, "success")
+    except BookingError as e:
+        flash(str(e), "danger")
+    return redirect(url_for("book.location_calendar", location_id=loc.id, date=day_param))
 
 
 # ---------------------------------------------------------------- seats --
@@ -88,8 +273,8 @@ def room_book(room_id: int):
     default_end = default_start + timedelta(hours=1)
 
     ctx = {"room": room, "quote": None, "error": None,
-           "start": default_start.strftime("%Y-%m-%dT%H:%M"),
-           "end": default_end.strftime("%Y-%m-%dT%H:%M")}
+           "start": request.args.get("start") or default_start.strftime("%Y-%m-%dT%H:%M"),
+           "end": request.args.get("end") or default_end.strftime("%Y-%m-%dT%H:%M")}
 
     if request.method == "POST":
         action = request.form.get("action", "quote")

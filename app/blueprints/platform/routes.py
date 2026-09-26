@@ -12,6 +12,8 @@ from ...models import (
     AuditLog, Invoice, PricingTier,
 )
 from ...services import audit_service
+from ...services import mail_service
+from ...services.locale_data import CURRENCY_SYMBOLS
 from ...utils.decorators import (
     platform_staff_required, platform_permission_required, platform_owner_required,
 )
@@ -108,6 +110,7 @@ def tenant_new():
             if hasattr(t, f) and hasattr(form, f):
                 val = getattr(form, f).data
                 setattr(t, f, val)
+        t.currency_symbol = CURRENCY_SYMBOLS.get(t.currency_code, t.currency_symbol)
         db.session.add(t)
         db.session.flush()
 
@@ -146,12 +149,40 @@ def tenant_edit(tenant_id: int):
     form.plan_tier.choices = choices
     if form.validate_on_submit():
         form.populate_obj(t)
+        t.currency_symbol = CURRENCY_SYMBOLS.get(t.currency_code, t.currency_symbol)
         db.session.commit()
         audit_service.record("tenant.updated", "tenant", t.id, {"slug": t.slug})
         flash("Operator workspace updated.", "success")
         return redirect(url_for("platform.tenants_list"))
     return render_template("platform/tenant_form.html", form=form,
                            title=f"Edit {t.name}", tenant=t)
+
+
+@platform_bp.route("/tenants/<int:tenant_id>/send-password-reset", methods=["POST"])
+@platform_permission_required("tenants")
+def tenant_send_password_reset(tenant_id: int):
+    """Email a password-reset link to the operator's Super Admin(s) — for
+    when an operator is locked out and can't use self-service Forgot
+    Password (e.g. they no longer have access to that inbox)."""
+    t = (Tenant.query.execution_options(skip_tenant_filter=True)
+                     .filter_by(id=tenant_id).first_or_404())
+    admins = (User.query.execution_options(skip_tenant_filter=True)
+              .filter_by(tenant_id=t.id, role=UserRole.SUPER_ADMIN, is_active=True).all())
+    if not admins:
+        flash(f"{t.name} has no active Super Admin to send a reset link to.", "warning")
+        return redirect(url_for("platform.tenant_edit", tenant_id=t.id))
+    for admin in admins:
+        token = mail_service.make_token(admin.id, "password-reset")
+        reset_url = url_for("auth.reset_password", token=token, _external=True)
+        mail_service.send(
+            subject=f"Reset your {current_app.config['APP_NAME']} password",
+            recipient=admin.email,
+            template="password_reset",
+            user=admin, reset_url=reset_url, ttl_hours=2,
+        )
+    audit_service.record("tenant.password_reset_sent", "tenant", t.id, {"slug": t.slug})
+    flash(f"Password reset link sent to: {', '.join(a.email for a in admins)}.", "success")
+    return redirect(url_for("platform.tenant_edit", tenant_id=t.id))
 
 
 @platform_bp.route("/tenants/<int:tenant_id>/approve", methods=["POST"])

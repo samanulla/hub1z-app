@@ -59,6 +59,7 @@ class BaseConfig:
 
     PLATFORM_OWNER_EMAIL = os.getenv("PLATFORM_OWNER_EMAIL", "admin@hub1z.com")
     PLATFORM_OWNER_PASSWORD = os.getenv("PLATFORM_OWNER_PASSWORD", "ChangeMe123!")
+    PLATFORM_SUPPORT_EMAIL = os.getenv("PLATFORM_SUPPORT_EMAIL", "support@hub1z.com")
 
     # Multi-tenancy
     DEPLOY_MODE = os.getenv("DEPLOY_MODE", "shared").lower()  # 'shared' | 'dedicated'

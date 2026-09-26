@@ -26,7 +26,7 @@ from ...models import (
 from ...utils.decorators import (
     member_required, admin_required, company_admin_required,
 )
-from ...services import audit_service
+from ...services import audit_service, mail_service
 
 
 community_bp = Blueprint("community", __name__,
@@ -249,6 +249,23 @@ def printing_adjust():
 
 # ================== Support tickets ==================
 
+def _notify_support(ticket) -> None:
+    """Route a new ticket's notification to the operator's own support
+    email if they've set one, otherwise the platform's fallback address."""
+    from flask import current_app
+    tenant = getattr(g, "tenant", None)
+    recipient = (tenant.support_email if tenant and tenant.support_email
+                else current_app.config["PLATFORM_SUPPORT_EMAIL"])
+    try:
+        mail_service.send(
+            subject=f"New support ticket: {ticket.subject}",
+            recipient=recipient,
+            template="support_ticket_notify",
+            ticket=ticket, submitter=current_user,
+        )
+    except Exception as e:  # noqa: BLE001
+        current_app.logger.warning("support ticket notify failed: %s", e)
+
 @community_bp.route("/tickets", methods=["GET", "POST"])
 @login_required
 def tickets():
@@ -267,6 +284,7 @@ def tickets():
             flash("Subject and description are required.", "warning")
             return redirect(url_for("community.tickets"))
         db.session.add(t); db.session.commit()
+        _notify_support(t)
         flash("Ticket submitted.", "success")
         return redirect(url_for("community.tickets"))
 

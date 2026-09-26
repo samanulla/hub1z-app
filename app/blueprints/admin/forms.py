@@ -19,7 +19,8 @@ def _enum_choices(enum_cls):
 
 class LocationForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired(), Length(max=150)])
-    code = StringField("Short code", validators=[DataRequired(), Length(max=20)])
+    code = StringField("Location code", validators=[DataRequired(), Length(max=20)],
+                       description="A short, friendly code for this location — handy once you run more than one, e.g. 'ADYAR', 'BLR-01'.")
     address_line1 = StringField("Address", validators=[DataRequired(), Length(max=255)])
     address_line2 = StringField("Address line 2", validators=[Optional(), Length(max=255)])
     city = StringField("City", validators=[DataRequired(), Length(max=80)])
@@ -62,6 +63,12 @@ class RoomForm(FlaskForm):
     hourly_rate = DecimalField("Hourly $", default=0, validators=[NumberRange(min=0)])
     credit_cost_per_hour = IntegerField("Credits / hour", default=1, validators=[NumberRange(min=0)])
     is_active = BooleanField("Active", default=True)
+    cross_location_bookable = BooleanField(
+        "Allow members from other locations to book this room",
+        default=False,
+        description="If your operator runs multiple locations, members can pick this room "
+                    "from any location's calendar, not just its own.",
+    )
     description = TextAreaField("Description", validators=[Optional()])
     submit = SubmitField("Save")
 
@@ -321,6 +328,12 @@ class SystemSettingsForm(FlaskForm):
 
 
 class TenantSettingsForm(FlaskForm):
+    tagline = StringField("Tagline", validators=[Optional(), Length(max=200)])
+    logo_url = StringField("Logo URL", validators=[Optional(), Length(max=500)],
+                           description="Leave blank to show your workspace name only, with no logo image.")
+    brand_color = StringField("Brand color (hex)", validators=[Optional(), Length(max=20)])
+    support_email = StringField("Support email", validators=[Optional(), Email(), Length(max=255)],
+                                description="Where member support requests for this workspace should go.")
     primary_location_id = SelectField("Primary / billing location", coerce=int,
                                       validators=[Optional()])
     payment_instructions = TextAreaField("Payment instructions", validators=[Optional(), Length(max=500)])

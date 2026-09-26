@@ -17,6 +17,10 @@ from .payroll import (
 )
 from .expense import Expense, ExpenseCategory, ExpenseStatus
 from .finance import CreditNote, CreditNoteStatus, Refund, RefundStatus
+from .platform_billing import (
+    PlatformInvoice, PlatformInvoiceStatus,
+    PlatformCreditNote, PlatformRefund, PlatformExpense,
+)
 from .email_template import EmailTemplate, EmailKind
 from .settings import SystemSettings
 from .audit import AuditLog
@@ -51,6 +55,8 @@ __all__ = [
     "SalaryStructure", "PayrollRun", "Payslip", "PayrollStatus", "PayFrequency",
     "Expense", "ExpenseCategory", "ExpenseStatus",
     "CreditNote", "CreditNoteStatus", "Refund", "RefundStatus",
+    "PlatformInvoice", "PlatformInvoiceStatus",
+    "PlatformCreditNote", "PlatformRefund", "PlatformExpense",
     "EmailTemplate", "EmailKind",
     "SystemSettings",
     "AuditLog",

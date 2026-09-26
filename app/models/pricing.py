@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import enum
-from sqlalchemy import Column, String, Integer, Numeric, Enum, Text, Boolean, ForeignKey
+from sqlalchemy import Column, String, Integer, Numeric, Enum, Text, Boolean, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from ..extensions import db
@@ -28,11 +28,15 @@ class BillingCycle(str, enum.Enum):
 
 class PricingPlan(db.Model, PkMixin, TimestampMixin, TenantScoped):
     __tablename__ = "pricing_plans"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_pricing_plans_tenant_name"),
+    )
 
     tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
                        nullable=True, index=True)
 
-    name = Column(String(120), nullable=False, unique=True)
+    name = Column(String(120), nullable=False)
+
     plan_type = Column(Enum(PlanType), nullable=False, default=PlanType.HOT_DESK)
     billing_cycle = Column(Enum(BillingCycle), nullable=False, default=BillingCycle.MONTHLY)
     base_price = Column(Numeric(10, 2), nullable=False)

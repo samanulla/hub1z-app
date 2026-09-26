@@ -258,15 +258,10 @@ def companies_list():
 @admin_bp.route("/companies/new", methods=["GET", "POST"])
 @manager_or_super_required
 def company_new():
-    form = CompanyForm()
-    if form.validate_on_submit():
-        c = Company(tenant_id=getattr(g, "tenant_id", None))
-        form.populate_obj(c)
-        db.session.add(c)
-        db.session.commit()
-        flash("Company created.", "success")
-        return redirect(url_for("admin.company_detail", company_id=c.id))
-    return render_template("admin/companies/form.html", form=form, title="New company")
+    # Creating a company here alone leaves it with no admin login. Use the
+    # invite flow instead, which creates the company + a pending admin user
+    # and emails them a signup link.
+    return redirect(url_for("admin.invite_company_new"))
 
 
 @admin_bp.route("/companies/<int:company_id>")

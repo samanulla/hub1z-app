@@ -54,6 +54,12 @@
         <div><div class="fw-semibold">Billing</div><small class="text-muted">Operator plans &amp; custom-domain surcharge</small></div>
       </a>
     </div>
+    <div class="col-md-6">
+      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(217,119,6,.06); text-decoration: none;" href="{{ url_for('platform.finance_dashboard') }}">
+        <span class="stat-icon amber m-0" style="width:40px;height:40px;"><i class="bi bi-receipt"></i></span>
+        <div><div class="fw-semibold">Invoices, credit notes &amp; refunds</div><small class="text-muted">Operator payments &amp; platform expenses</small></div>
+      </a>
+    </div>
     {% endif %}
     {% if current_user.has_platform_permission("reports") %}
     <div class="col-md-6">
@@ -80,6 +86,12 @@
       <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(124,58,237,.06); text-decoration: none;" href="{{ url_for('admin.audit_log') }}">
         <span class="stat-icon purple m-0" style="width:40px;height:40px;"><i class="bi bi-journal-text"></i></span>
         <div><div class="fw-semibold">Global audit log</div><small class="text-muted">Every sensitive action, filterable + CSV</small></div>
+      </a>
+    </div>
+    <div class="col-md-6">
+      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(15,118,110,.06); text-decoration: none;" href="{{ url_for('platform.platform_documents') }}">
+        <span class="stat-icon teal m-0" style="width:40px;height:40px;"><i class="bi bi-file-earmark-text"></i></span>
+        <div><div class="fw-semibold">Platform documents</div><small class="text-muted">Files owned by the platform itself</small></div>
       </a>
     </div>
     {% endif %}

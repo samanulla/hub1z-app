@@ -534,14 +534,53 @@ MAIL_PASSWORD=<SES_SMTP_PASSWORD>
 MAIL_DEFAULT_SENDER=no-reply@hub1z.com
 ```
 
-### 6.5 Request Production Access
+### 6.5 Bounce and Complaint Notifications
+AWS expects a working bounce/complaint process before granting production
+access. Use two separate SNS topics (one for bounces, one for complaints)
+that both email `support@hub1z.com` — this mirrors the pattern AWS has
+already approved for other properties we run. SES's built-in account-level
+suppression list (on by default) already stops future sends to
+bouncing/complaining addresses automatically, so this step is about
+visibility/monitoring for your team, not suppression itself.
+
+1. **SNS → Topics → Create topic** (repeat for both):
+   - Type: Standard
+   - Name: `ses-bounces-hub1z` → Create topic
+   - Name: `ses-complaints-hub1z` → Create topic
+2. Open each topic → **Create subscription**
+   - Protocol: Email
+   - Endpoint: `support@hub1z.com`
+   - Create subscription, then click the confirmation link AWS emails to
+     `support@hub1z.com` (one link per topic — confirm both)
+3. **SES → Identities → hub1z.com → Notifications** tab
+   - Bounce feedback → Edit → SNS topic: `ses-bounces-hub1z` → Save
+   - Complaint feedback → Edit → SNS topic: `ses-complaints-hub1z` → Save
+   - (Leave "Delivery" notifications off — high volume, low value)
+4. Send a test email and confirm `support@hub1z.com` is subscribed and
+   confirmed on both topics; use the SES mailbox simulator
+   (`bounce@simulator.amazonses.com`, `complaint@simulator.amazonses.com`)
+   to verify a notification actually arrives on each topic before relying
+   on it.
+5. Note both topic ARNs (`arn:aws:sns:ap-south-1:<ACCOUNT_ID>:ses-bounces-hub1z`,
+   `arn:aws:sns:ap-south-1:<ACCOUNT_ID>:ses-complaints-hub1z`) — AWS support
+   requests for production access typically ask you to state these
+   explicitly.
+
+This satisfies AWS's requirement to describe bounce/complaint handling in
+the production-access request: SES suppresses the address automatically,
+and `support@hub1z.com` receives a copy of every bounce/complaint so a
+human can follow up (e.g. correct a typo'd address, or investigate a
+pattern of complaints).
+
+### 6.6 Request Production Access
 1. SES → Account dashboard → Request production access
 2. Mail type: Transactional
 3. Website URL: `https://hub1z.com`
 4. Use case: describe transactional emails for signup, invites, invoices, and password resets; note expected low daily volume
-5. AWS typically approves within 24 hours
+5. Mention the bounce/complaint handling from section 6.5 if asked to elaborate
+6. AWS typically approves within 24 hours
 
-### 6.6 Update `.env` and Restart
+### 6.7 Update `.env` and Restart
 ```env
 MAIL_SUPPRESS_SEND=false
 ```
