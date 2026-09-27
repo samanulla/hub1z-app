@@ -137,6 +137,9 @@ def test_team_invite_appears_in_invites_list_and_can_be_revoked():
     r = c.get("/admin/invites")
     assert r.status_code == 200
     assert b"lee@multiloc.com" in r.data
+    assert b"Invite to workspace" in r.data
+    assert b"Operator team" in r.data
+    assert b"Add operator team member" in r.data
 
     with app.app_context():
         uid = User.query.filter_by(email="lee@multiloc.com").first().id
