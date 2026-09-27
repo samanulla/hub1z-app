@@ -26,7 +26,11 @@
 </div>
 
 <div class="mb-4">
+  {% if current_user.role.value in ["employee", "individual"] %}
+  <a class="btn btn-dark" href="{{ url_for('book.calendar') }}">Open calendar</a>
+  {% else %}
   <a class="btn btn-dark" href="{{ url_for('book.index') }}">Book workspace</a>
+  {% endif %}
   <a class="btn btn-outline-dark" href="{{ url_for('member.bookings') }}">My bookings</a>
 </div>
 

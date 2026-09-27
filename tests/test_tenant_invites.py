@@ -176,3 +176,34 @@ def test_self_serve_registration_is_tenant_scoped():
                        .execution_options(skip_tenant_filter=True).first()
         assert u is not None
         assert u.tenant_id is not None
+
+
+def test_member_navigation_is_limited_to_calendar_and_essentials():
+    app = _app()
+    _seed_tenant_admin(app)
+    with app.app_context():
+        tenant = Tenant.query.first()
+        members = (
+            ("employee@example.com", "Employee", UserRole.EMPLOYEE, "EmployeePass123!"),
+            ("individual@example.com", "Individual", UserRole.INDIVIDUAL, "IndividualPass123!"),
+        )
+        for email, full_name, role, password in members:
+            member = User(tenant_id=tenant.id, email=email, full_name=full_name,
+                          role=role, is_active=True)
+            member.set_password(password)
+            db.session.add(member)
+        db.session.commit()
+
+    for email, _, _, password in members:
+        client = app.test_client()
+        _login(client, email, password)
+        response = client.get("/me/")
+
+        assert response.status_code == 200
+        assert b">Calendar<" in response.data
+        assert b">Announcements<" in response.data
+        assert b">Guest passes<" in response.data
+        assert b">Hub<" not in response.data
+        assert b">Book<" not in response.data
+        assert b">Day pass<" not in response.data
+        assert b"Open calendar" in response.data
