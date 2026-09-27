@@ -5,7 +5,7 @@ from wtforms import (StringField, DecimalField, SelectField, TextAreaField,
 from wtforms.validators import (DataRequired, Length, Optional, Email,
                                 NumberRange, Regexp)
 
-from ...models import TenantStatus, PLATFORM_FEATURES, PlatformInvoiceStatus
+from ...models import TenantStatus, PLATFORM_FEATURES, PlatformInvoiceStatus, TierStatus
 from ...services.locale_data import (
     CURRENCY_CHOICES, COUNTRY_CHOICES, LOCALE_CHOICES, TIMEZONE_CHOICES,
     BANK_ACCOUNT_TYPE_CHOICES,
@@ -126,25 +126,43 @@ class InviteTenantForm(FlaskForm):
 
 
 class PricingTierForm(FlaskForm):
-    """Owner-only: define/edit a tier's price and resource caps. Leave a cap
-    blank for unlimited."""
     key = StringField(
         "Key", validators=[DataRequired(), Length(max=30), Regexp(r"^[a-z0-9_-]+$",
         message="Lowercase letters, digits, hyphens/underscores only")],
         description="Stable identifier stored on tenants — don't change this after tenants are on it.",
     )
-    name = StringField("Display name", validators=[DataRequired(), Length(max=80)])
+    name = StringField("Tier name", validators=[DataRequired(), Length(max=80)])
     monthly_price = DecimalField("Monthly price (₹)", validators=[Optional(), NumberRange(min=0)],
-                                 description="Priced for the locations + seats caps below. Leave blank for 'custom / contact us'.")
-    is_active = BooleanField("Active (offered to new/edited tenants)", default=True)
-    max_locations = IntegerField("Max locations", validators=[Optional(), NumberRange(min=0)])
-    max_seats = IntegerField("Max seats (hot + dedicated desks)", validators=[Optional(), NumberRange(min=0)])
-    max_private_offices = IntegerField("Max private offices (manager cabins)",
-                                       validators=[Optional(), NumberRange(min=0)],
-                                       description="Optional cap — does not affect price.")
-    max_rooms = IntegerField("Max conference rooms", validators=[Optional(), NumberRange(min=0)],
-                             description="Optional cap — does not affect price.")
+                                 description="Leave blank for negotiated Enterprise pricing.")
+    annual_price = DecimalField("Annual price (₹)", validators=[Optional(), NumberRange(min=0)])
+    annual_discount = DecimalField("Annual discount", default=0, validators=[NumberRange(min=0)])
+    max_locations = IntegerField("Included locations", validators=[Optional(), NumberRange(min=0)])
+    included_active_contracted_seats = IntegerField("Included active contracted seats", validators=[Optional(), NumberRange(min=0)])
+    additional_seat_rate = DecimalField("Additional seat rate", default=0, validators=[NumberRange(min=0)])
+    additional_location_rate = DecimalField("Additional location rate", default=0, validators=[NumberRange(min=0)])
+    included_features = TextAreaField("Included features", validators=[Optional(), Length(max=4000)])
+    premium_modules = TextAreaField("Premium modules", validators=[Optional(), Length(max=4000)])
+    trial_period_days = IntegerField("Trial period (days)", default=0, validators=[NumberRange(min=0)])
+    status = SelectField("Status", choices=[(s.value, s.value.title()) for s in TierStatus], validators=[DataRequired()])
     submit = SubmitField("Save tier")
+
+
+class OperatorSubscriptionForm(FlaskForm):
+    tier_id = SelectField("Tier", coerce=int, validators=[Optional()])
+    billing_cycle = SelectField("Billing cycle", choices=[("monthly", "Monthly"), ("annual", "Annual")])
+    negotiated_base_price = DecimalField("Negotiated base price", validators=[Optional(), NumberRange(min=0)])
+    additional_free_seats = IntegerField("Additional free seats", default=0, validators=[NumberRange(min=0)])
+    additional_free_locations = IntegerField("Additional free locations", default=0, validators=[NumberRange(min=0)])
+    custom_additional_seat_rate = DecimalField("Custom additional seat rate", validators=[Optional(), NumberRange(min=0)])
+    custom_additional_location_rate = DecimalField("Custom additional location rate", validators=[Optional(), NumberRange(min=0)])
+    discount_amount = DecimalField("Discount", default=0, validators=[NumberRange(min=0)])
+    premium_modules_amount = DecimalField("Premium modules amount", default=0, validators=[NumberRange(min=0)])
+    implementation_charge = DecimalField("One-time implementation charge", default=0, validators=[NumberRange(min=0)])
+    tax_rate = DecimalField("Tax rate (%)", default=0, validators=[NumberRange(min=0)])
+    negotiated_features = TextAreaField("Negotiated features", validators=[Optional(), Length(max=4000)])
+    contract_start_date = DateField("Contract start", validators=[Optional()])
+    contract_end_date = DateField("Contract end", validators=[Optional()])
+    submit = SubmitField("Save operator subscription")
 
 
 class NewTenantForm(TenantForm):

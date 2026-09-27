@@ -1,10 +1,12 @@
-"""Pricing tiers: Owner-only CRUD, and resource-cap enforcement on tenants."""
+"""Hub1 SaaS tiers: catalog configuration and location-only enforcement."""
 import os
 os.environ.setdefault("FLASK_ENV", "testing")
 
 from app import create_app
 from app.extensions import db
-from app.models import User, UserRole, Tenant, TenantStatus, PricingTier, Location, Floor
+from app.models import (
+    User, UserRole, Tenant, TenantStatus, PricingTier, TierStatus, Location, Floor,
+)
 
 
 def _app():
@@ -37,26 +39,29 @@ def test_owner_can_create_and_edit_tier():
 
     r = c.post("/platform/tiers/new", data={
         "key": "starter", "name": "Starter", "monthly_price": "4999",
-        "is_active": "y", "max_locations": "1", "max_seats": "30",
-        "max_private_offices": "3", "max_rooms": "2",
+        "annual_price": "49990", "status": "active", "max_locations": "1",
+        "included_active_contracted_seats": "50", "additional_seat_rate": "50",
+        "additional_location_rate": "1000", "trial_period_days": "14",
     }, follow_redirects=False)
     assert r.status_code == 302
     with app.app_context():
         tier = PricingTier.query.filter_by(key="starter").first()
         assert tier is not None
-        assert tier.max_seats == 30
+        assert tier.included_active_contracted_seats == 50
+        assert tier.status == TierStatus.ACTIVE
         tid = tier.id
 
     r = c.post(f"/platform/tiers/{tid}/edit", data={
         "key": "renamed-should-be-ignored", "name": "Starter Plus", "monthly_price": "5999",
-        "is_active": "y", "max_locations": "1", "max_seats": "40",
-        "max_private_offices": "3", "max_rooms": "2",
+        "annual_price": "59990", "status": "active", "max_locations": "1",
+        "included_active_contracted_seats": "60", "additional_seat_rate": "50",
+        "additional_location_rate": "1000", "trial_period_days": "14",
     }, follow_redirects=False)
     assert r.status_code == 302
     with app.app_context():
         tier = db.session.get(PricingTier, tid)
         assert tier.name == "Starter Plus"
-        assert tier.max_seats == 40
+        assert tier.included_active_contracted_seats == 60
         assert tier.key == "starter"  # immutable once created
 
 
@@ -95,7 +100,7 @@ def _seed_tenant_with_tier(app, max_seats=1, max_locations=1, max_rooms=1, max_p
         return loc.id, fl.id
 
 
-def test_seat_creation_blocked_at_tier_cap():
+def test_physical_seat_creation_is_not_a_saas_tier_cap():
     app = _app()
     loc_id, fl_id = _seed_tenant_with_tier(app, max_seats=1)
     c = app.test_client()
@@ -109,13 +114,13 @@ def test_seat_creation_blocked_at_tier_cap():
     assert b"Seat created" in r1.data
 
     r2 = c.post(f"/admin/locations/{loc_id}/seats/new", data=seat_data("HD-02"), follow_redirects=True)
-    assert b"plan allows up to 1 seat" in r2.data
+    assert b"Seat created" in r2.data
     with app.app_context():
         from app.models import Seat
-        assert Seat.query.filter_by(code="HD-02").first() is None
+        assert Seat.query.filter_by(code="HD-02").first() is not None
 
 
-def test_private_office_and_seat_limits_are_independent():
+def test_private_offices_are_operational_inventory_not_saas_caps():
     app = _app()
     loc_id, fl_id = _seed_tenant_with_tier(app, max_seats=1, max_private_offices=1)
     c = app.test_client()
@@ -131,12 +136,10 @@ def test_private_office_and_seat_limits_are_independent():
     # Private office is a separate bucket, so this should still succeed even
     # though the desk bucket is already full.
     assert b"Seat created" in add("PO-01", "private_office").data
-    # But a second private office should now be blocked.
-    r = add("PO-02", "private_office")
-    assert b"plan allows up to 1 private office" in r.data
+    assert b"Seat created" in add("PO-02", "private_office").data
 
 
-def test_room_and_location_limits_enforced():
+def test_rooms_are_not_capped_but_locations_are_enforced():
     app = _app()
     loc_id, fl_id = _seed_tenant_with_tier(app, max_rooms=0, max_locations=1)
     c = app.test_client()
@@ -146,7 +149,7 @@ def test_room_and_location_limits_enforced():
         "floor_id": fl_id, "code": "R1", "name": "Room 1", "capacity": 4,
         "hourly_rate": 0, "credit_cost_per_hour": 1,
     }, follow_redirects=True)
-    assert b"plan allows up to 0 room" in r.data
+    assert b"Room created" in r.data
 
     r = c.post("/admin/locations/new", data={
         "name": "Branch", "code": "BR", "address_line1": "y",

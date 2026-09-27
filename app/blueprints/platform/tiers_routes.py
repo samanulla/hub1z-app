@@ -6,7 +6,7 @@ from __future__ import annotations
 from flask import render_template, redirect, url_for, flash
 
 from ...extensions import db
-from ...models import PricingTier
+from ...models import PricingTier, TierStatus
 from ...services import audit_service
 from ...utils.decorators import platform_owner_required
 from .forms import PricingTierForm
@@ -32,6 +32,7 @@ def register_tiers_routes(bp):
             tier = PricingTier(key=key)
             form.populate_obj(tier)
             tier.key = key
+            tier.is_active = tier.status == TierStatus.ACTIVE
             db.session.add(tier)
             db.session.commit()
             audit_service.record("pricing_tier.created", "pricing_tier", tier.id, {"key": tier.key})
@@ -48,6 +49,7 @@ def register_tiers_routes(bp):
             original_key = tier.key
             form.populate_obj(tier)
             tier.key = original_key  # key is immutable once tenants may reference it
+            tier.is_active = tier.status == TierStatus.ACTIVE
             db.session.commit()
             audit_service.record("pricing_tier.updated", "pricing_tier", tier.id, {"key": tier.key})
             flash(f"Tier {tier.name} updated.", "success")

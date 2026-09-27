@@ -5,8 +5,8 @@
 <div class="d-flex justify-content-between mb-3">
   <div>
     <h3 class="mb-1">Pricing tiers</h3>
-    <div class="text-muted small">Owner-only. Defines what {{ app_name }} charges each operator and how much
-      inventory (locations, seats, private offices, rooms) their plan allows.</div>
+    <div class="text-muted small">Owner-only. Defines Hub1 subscription pricing, contracted-seat overages,
+      locations, features and operator trial terms.</div>
   </div>
   <a class="btn btn-dark" href="{{ url_for('platform.tier_new') }}">+ New tier</a>
 </div>
@@ -16,10 +16,11 @@
     <tr>
       <th>Tier</th>
       <th>Monthly price</th>
-      <th>Locations</th>
-      <th>Seats</th>
-      <th>Private offices</th>
-      <th>Rooms</th>
+      <th>Annual price</th>
+      <th>Included locations</th>
+      <th>Included active seats</th>
+      <th>Additional seat rate</th>
+      <th>Additional location rate</th>
       <th>Status</th>
       <th></th>
     </tr>
@@ -29,20 +30,20 @@
     <tr>
       <td><strong>{{ t.name }}</strong> <code class="text-muted">{{ t.key }}</code></td>
       <td>{{ "₹%.0f"|format(t.monthly_price) if t.monthly_price is not none else "Custom" }}</td>
-      <td>{{ t.max_locations if t.max_locations is not none else "Unlimited" }}</td>
-      <td>{{ t.max_seats if t.max_seats is not none else "Unlimited" }}</td>
-      <td>{{ t.max_private_offices if t.max_private_offices is not none else "Unlimited" }}</td>
-      <td>{{ t.max_rooms if t.max_rooms is not none else "Unlimited" }}</td>
+      <td>{{ "₹%.0f"|format(t.annual_price) if t.annual_price is not none else "Custom" }}</td>
+      <td>{{ t.max_locations if t.max_locations is not none else "Custom" }}</td>
+      <td>{{ t.included_active_contracted_seats if t.included_active_contracted_seats is not none else "Custom" }}</td>
+      <td>{{ t.additional_seat_rate | money }}</td>
+      <td>{{ t.additional_location_rate | money }}</td>
       <td>
-        {% if t.is_active %}<span class="badge bg-success">Active</span>
-        {% else %}<span class="badge bg-secondary">Retired</span>{% endif %}
+        <span class="badge bg-secondary">{{ t.status.value }}</span>
       </td>
       <td class="text-end">
         <a class="btn btn-sm btn-outline-dark" href="{{ url_for('platform.tier_edit', tier_id=t.id) }}">Edit</a>
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="8" class="text-center text-muted py-4">No tiers yet.</td></tr>
+    <tr><td colspan="9" class="text-center text-muted py-4">No tiers yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>

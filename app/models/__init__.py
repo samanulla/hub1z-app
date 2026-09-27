@@ -1,12 +1,15 @@
 """SQLAlchemy models re-exported from a single package for convenience."""
 from .tenant import Tenant, TenantScoped, TenantStatus
-from .pricing_tier import PricingTier
+from .pricing_tier import PricingTier, TierStatus, OperatorSubscription
 from .user import User, UserRole, PLATFORM_FEATURES, PLATFORM_FEATURE_KEYS
 from .company import Company, CompanyStatus, CompanyDocument
 from .location import Location, Floor, Amenity
 from .space import Seat, SeatType, ConferenceRoom, RoomAmenity
 from .allocation import SeatAllocation, AllocationStatus
-from .pricing import PricingPlan, PlanType, BillingCycle
+from .pricing import (
+    PricingPlan, PlanType, BillingCycle, PlanScope, BillingUnit, LocationScope,
+    PlanStatus, PlanAddon,
+)
 from .subscription import Subscription, SubscriptionStatus, SubscriptionChangeRequest, SubscriptionRequestStatus
 from .booking import SeatBooking, RoomBooking, BookingStatus
 from .invoice import Invoice, InvoiceLineItem, InvoiceStatus, Payment, PaymentSubmission, PaymentSubmissionStatus
@@ -46,7 +49,8 @@ __all__ = [
     "Location", "Floor", "Amenity",
     "Seat", "SeatType", "ConferenceRoom", "RoomAmenity",
     "SeatAllocation", "AllocationStatus",
-    "PricingPlan", "PlanType", "BillingCycle",
+    "PricingPlan", "PlanType", "BillingCycle", "PlanScope", "BillingUnit", "LocationScope",
+    "PlanStatus", "PlanAddon",
     "Subscription", "SubscriptionStatus", "SubscriptionChangeRequest", "SubscriptionRequestStatus",
     "SeatBooking", "RoomBooking", "BookingStatus",
     "Invoice", "InvoiceLineItem", "InvoiceStatus", "Payment", "PaymentSubmission", "PaymentSubmissionStatus",
@@ -60,7 +64,7 @@ __all__ = [
     "EmailTemplate", "EmailKind",
     "SystemSettings",
     "AuditLog",
-    "Tenant", "TenantScoped", "TenantStatus", "PricingTier",
+    "Tenant", "TenantScoped", "TenantStatus", "PricingTier", "TierStatus", "OperatorSubscription",
     "DayPass", "DayPassStatus",
     "RoomWaitlist", "WaitlistStatus",
     "RecurringRoomBooking", "RecurrencePattern",

@@ -224,9 +224,14 @@ def plans_list():
 @super_admin_required
 def plan_new():
     form = PricingPlanForm()
+    form.company_id.choices = [(0, "— any company —")] + [(c.id, c.name) for c in Company.query.order_by(Company.name).all()]
+    form.location_ids.choices = [(l.id, l.name) for l in Location.query.order_by(Location.name).all()]
     if form.validate_on_submit():
         plan = PricingPlan()
         form.populate_obj(plan)
+        plan.company_id = form.company_id.data or None
+        plan.locations = Location.query.filter(Location.id.in_(form.location_ids.data)).all()
+        plan.is_active = plan.status.value == "active"
         db.session.add(plan)
         db.session.commit()
         flash("Plan created.", "success")
@@ -239,8 +244,16 @@ def plan_new():
 def plan_edit(plan_id: int):
     plan = PricingPlan.query.get_or_404(plan_id)
     form = PricingPlanForm(obj=plan)
+    form.company_id.choices = [(0, "— any company —")] + [(c.id, c.name) for c in Company.query.order_by(Company.name).all()]
+    form.location_ids.choices = [(l.id, l.name) for l in Location.query.order_by(Location.name).all()]
+    if not form.is_submitted():
+        form.company_id.data = plan.company_id or 0
+        form.location_ids.data = [location.id for location in plan.locations]
     if form.validate_on_submit():
         form.populate_obj(plan)
+        plan.company_id = form.company_id.data or None
+        plan.locations = Location.query.filter(Location.id.in_(form.location_ids.data)).all()
+        plan.is_active = plan.status.value == "active"
         db.session.commit()
         flash("Plan updated.", "success")
         return redirect(url_for("admin.plans_list"))

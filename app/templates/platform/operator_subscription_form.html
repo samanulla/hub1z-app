@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Operator subscription{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div><h3 class="mb-0">{{ tenant.name }}</h3><div class="text-muted">Hub1 SaaS subscription and negotiated terms</div></div>
+  <a class="btn btn-outline-dark" href="{{ url_for('platform.billing') }}">Back to billing</a>
+</div>
+<div class="card"><div class="card-body">
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="row"><div class="col-md-4">{{ field(form.tier_id) }}</div><div class="col-md-4">{{ field(form.billing_cycle) }}</div><div class="col-md-4">{{ field(form.negotiated_base_price) }}</div></div>
+    <div class="row"><div class="col-md-3">{{ field(form.additional_free_seats) }}</div><div class="col-md-3">{{ field(form.additional_free_locations) }}</div><div class="col-md-3">{{ field(form.custom_additional_seat_rate) }}</div><div class="col-md-3">{{ field(form.custom_additional_location_rate) }}</div></div>
+    <div class="row"><div class="col-md-3">{{ field(form.discount_amount) }}</div><div class="col-md-3">{{ field(form.premium_modules_amount) }}</div><div class="col-md-3">{{ field(form.implementation_charge) }}</div><div class="col-md-3">{{ field(form.tax_rate) }}</div></div>
+    <div class="row"><div class="col-md-6">{{ field(form.contract_start_date) }}</div><div class="col-md-6">{{ field(form.contract_end_date) }}</div></div>
+    {{ field(form.negotiated_features) }}
+    <button class="btn btn-dark">Save operator subscription</button>
+  </form>
+</div></div>
+{% endblock %}

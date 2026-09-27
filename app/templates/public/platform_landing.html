@@ -162,10 +162,10 @@
           </div>
           <hr class="divider" style="margin: 1.5rem 0;">
           <ul class="small mb-0" style="list-style: none; padding: 0; color: var(--ink-soft);">
-            <li style="margin-bottom: .5rem;">{{ t.max_locations if t.max_locations is not none else "Unlimited" }} location(s)</li>
-            <li style="margin-bottom: .5rem;">{{ t.max_seats if t.max_seats is not none else "Unlimited" }} seats</li>
-            <li style="margin-bottom: .5rem;">{{ t.max_private_offices if t.max_private_offices is not none else "Unlimited" }} private offices</li>
-            <li style="margin-bottom: .5rem;">{{ t.max_rooms if t.max_rooms is not none else "Unlimited" }} conference rooms</li>
+            <li style="margin-bottom: .5rem;">{{ t.max_locations if t.max_locations is not none else "Custom" }} location(s)</li>
+            <li style="margin-bottom: .5rem;">{{ t.included_active_contracted_seats if t.included_active_contracted_seats is not none else "Custom" }} active contracted seats</li>
+            <li style="margin-bottom: .5rem;">Custom operational inventory</li>
+            <li style="margin-bottom: .5rem;">{{ t.premium_modules or "Custom features, integrations and support" }}</li>
           </ul>
           <a class="btn-ink" style="margin-top: 1.5rem;" href="{{ url_for('auth.register_tenant') }}">Start free trial</a>
         </div>

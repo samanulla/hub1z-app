@@ -243,7 +243,7 @@ def _register_root_routes(app: Flask) -> None:
                 "price": annual / 12 if billing == "annual" and annual is not None else monthly,
                 "description": descriptions.get(tier.key, "A flexible plan for growing operators."),
                 "features": feature_sets.get(tier.key, [
-                    f"{tier.max_locations if tier.max_locations is not None else 'Unlimited'} locations",
+                    f"{tier.max_locations if tier.max_locations is not None else 'Custom'} locations",
                     "Bookings, memberships and billing", "Operator reports and member portal",
                 ]),
                 "popular": tier.key == "growth",

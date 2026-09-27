@@ -9,19 +9,18 @@
     {{ form.hidden_tag() }}
     <div class="row">
       <div class="col-md-6">{{ field(form.name) }}</div>
-      <div class="col-md-3">{{ field(form.plan_type) }}</div>
-      <div class="col-md-3">{{ field(form.billing_cycle) }}</div>
+      <div class="col-md-3">{{ field(form.scope) }}</div><div class="col-md-3">{{ field(form.company_id) }}</div>
     </div>
     <div class="row">
-      <div class="col-md-3">{{ field(form.base_price) }}</div>
-      <div class="col-md-3">{{ field(form.included_meeting_credits) }}</div>
-      <div class="col-md-3">{{ field(form.included_print_credits) }}</div>
-      <div class="col-md-3">{{ field(form.guest_passes) }}</div>
+      <div class="col-md-3">{{ field(form.plan_type) }}</div><div class="col-md-3">{{ field(form.billing_unit) }}</div><div class="col-md-3">{{ field(form.billing_cycle) }}</div><div class="col-md-3">{{ field(form.status) }}</div>
     </div>
     <div class="row">
-      <div class="col-md-3">{{ field(form.max_locations) }}</div>
-      <div class="col-md-3 pt-4">{{ field(form.is_active) }}</div>
+      <div class="col-md-3">{{ field(form.base_price) }}</div><div class="col-md-3">{{ field(form.included_seat_quantity) }}</div><div class="col-md-3">{{ field(form.included_meeting_credits) }}</div><div class="col-md-3">{{ field(form.office_capacity) }}</div>
     </div>
+    <div class="row"><div class="col-md-4">{{ field(form.additional_seat_rate) }}</div><div class="col-md-4">{{ field(form.meeting_room_overage_rate) }}</div><div class="col-md-4">{{ field(form.refundable_deposit) }}</div></div>
+    <div class="row"><div class="col-md-4">{{ field(form.location_scope) }}</div><div class="col-md-4">{{ field(form.location_ids) }}</div><div class="col-md-4">{{ field(form.minimum_contract_months) }}</div></div>
+    {{ field(form.tax_applicable) }}
+    <p class="text-muted small">Parking, lockers, printing, additional meeting credits and after-hours access are plan add-ons and are kept separate from the base plan.</p>
     {{ field(form.description) }}
     <button class="btn btn-dark">Save</button>
     <a class="btn btn-link" href="{{ url_for('admin.plans_list') }}">Cancel</a>

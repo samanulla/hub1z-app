@@ -11,25 +11,25 @@
   <div class="row">
     <div class="col-md-4">{{ field(form.key) }}</div>
     <div class="col-md-4">{{ field(form.name) }}</div>
-    <div class="col-md-4">{{ field(form.monthly_price) }}</div>
+    <div class="col-md-2">{{ field(form.monthly_price) }}</div>
+    <div class="col-md-2">{{ field(form.annual_price) }}</div>
   </div>
-  {{ field(form.is_active) }}
+  <div class="row">
+    <div class="col-md-3">{{ field(form.annual_discount) }}</div>
+    <div class="col-md-3">{{ field(form.status) }}</div>
+    <div class="col-md-3">{{ field(form.trial_period_days) }}</div>
+  </div>
 
   <hr>
-  <h6>Pricing basis</h6>
-  <p class="text-muted small">Price is set per location and seats above &mdash; these two caps
-    are what this tier's price is actually for.</p>
+  <h6>Included use and overages</h6>
   <div class="row">
     <div class="col-md-3">{{ field(form.max_locations) }}</div>
-    <div class="col-md-3">{{ field(form.max_seats) }}</div>
+    <div class="col-md-3">{{ field(form.included_active_contracted_seats) }}</div>
+    <div class="col-md-3">{{ field(form.additional_seat_rate) }}</div>
+    <div class="col-md-3">{{ field(form.additional_location_rate) }}</div>
   </div>
-
-  <hr>
-  <h6>Included resource caps <span class="text-muted small">(optional &mdash; blank = unlimited, no effect on price)</span></h6>
-  <div class="row">
-    <div class="col-md-3">{{ field(form.max_private_offices) }}</div>
-    <div class="col-md-3">{{ field(form.max_rooms) }}</div>
-  </div>
+  {{ field(form.included_features) }}
+  {{ field(form.premium_modules) }}
 
   <button class="btn btn-dark">Save</button>
   <a class="btn btn-link" href="{{ url_for('platform.tiers_list') }}">Cancel</a>

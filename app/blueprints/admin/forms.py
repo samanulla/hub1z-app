@@ -3,11 +3,11 @@ from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from wtforms import (StringField, IntegerField, DecimalField, SelectField,
                      TextAreaField, TimeField, BooleanField, SubmitField, DateField,
-                     PasswordField)
+                     PasswordField, SelectMultipleField)
 from wtforms.validators import DataRequired, Length, Optional, NumberRange, Email, EqualTo
 
 from ...models import (
-    SeatType, PlanType, BillingCycle, CompanyStatus,
+    SeatType, PlanType, BillingCycle, PlanScope, BillingUnit, LocationScope, PlanStatus, CompanyStatus,
     EmploymentType, StaffStatus, Department, PayFrequency,
     ExpenseStatus, EmailKind,
 )
@@ -77,14 +77,23 @@ class RoomForm(FlaskForm):
 
 class PricingPlanForm(FlaskForm):
     name = StringField("Plan name", validators=[DataRequired(), Length(max=120)])
-    plan_type = SelectField("Type", choices=_enum_choices(PlanType), validators=[DataRequired()])
+    scope = SelectField("Plan scope", choices=_enum_choices(PlanScope), validators=[DataRequired()])
+    company_id = SelectField("Company-specific plan for", coerce=int, validators=[Optional()])
+    plan_type = SelectField("Workspace type", choices=_enum_choices(PlanType), validators=[DataRequired()])
+    billing_unit = SelectField("Billing unit", choices=_enum_choices(BillingUnit), validators=[DataRequired()])
     billing_cycle = SelectField("Billing cycle", choices=_enum_choices(BillingCycle), validators=[DataRequired()])
     base_price = DecimalField("Base price", validators=[DataRequired(), NumberRange(min=0)])
-    included_meeting_credits = IntegerField("Meeting credits included", default=0)
-    included_print_credits = IntegerField("Print credits included", default=0)
-    guest_passes = IntegerField("Guest passes", default=0)
-    max_locations = IntegerField("Max locations (0 = unlimited)", default=1)
-    is_active = BooleanField("Active", default=True)
+    included_seat_quantity = IntegerField("Included seat quantity", default=1, validators=[NumberRange(min=0)])
+    included_meeting_credits = IntegerField("Meeting room credits", default=0, validators=[NumberRange(min=0)])
+    additional_seat_rate = DecimalField("Additional seat rate", default=0, validators=[NumberRange(min=0)])
+    meeting_room_overage_rate = DecimalField("Meeting room overage rate", default=0, validators=[NumberRange(min=0)])
+    location_scope = SelectField("Applicable locations", choices=_enum_choices(LocationScope), validators=[DataRequired()])
+    location_ids = SelectMultipleField("Locations", coerce=int, validators=[Optional()])
+    minimum_contract_months = IntegerField("Minimum contract duration (months)", default=0, validators=[NumberRange(min=0)])
+    refundable_deposit = DecimalField("Refundable deposit", default=0, validators=[NumberRange(min=0)])
+    tax_applicable = BooleanField("Tax applicable", default=True)
+    office_capacity = IntegerField("Office capacity", validators=[Optional(), NumberRange(min=1)])
+    status = SelectField("Plan status", choices=_enum_choices(PlanStatus), validators=[DataRequired()])
     description = TextAreaField("Description", validators=[Optional()])
     submit = SubmitField("Save")
 
