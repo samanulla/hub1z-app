@@ -20,7 +20,7 @@ they're doing.
 """
 from __future__ import annotations
 
-from flask import Flask, g, request, has_request_context
+from flask import Flask, g, request, has_request_context, abort
 from sqlalchemy import event, or_
 from sqlalchemy.orm import Session, with_loader_criteria
 
@@ -63,6 +63,14 @@ def install(app: Flask) -> None:
             # must resolve to no tenant — that's what tells index() to show
             # the platform's own marketing page instead of a tenant's.
             t = Tenant.default()
+        elif t is None:
+            base = (app.config.get("PLATFORM_BASE_DOMAIN") or "hub1z.com").lower()
+            if host != base and host != f"www.{base}":
+                # Any other unmatched host — including a *.hub1z.com
+                # subdomain that isn't a real operator, or a stray custom
+                # domain — must 404, not silently fall through to the
+                # platform's own marketing page.
+                abort(404)
         g.tenant = t
         g.tenant_id = t.id if t is not None else None
 
