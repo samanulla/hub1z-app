@@ -5,12 +5,13 @@ from __future__ import annotations
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 
-from flask import render_template, redirect, url_for, flash, g
+from flask import render_template, redirect, url_for, flash, g, request
 from flask_login import current_user
 
 from ...extensions import db
 from ...models import (
     Invoice, InvoiceLineItem, InvoiceStatus, Payment,
+    PaymentSubmission, PaymentSubmissionStatus,
     CreditNote, CreditNoteStatus, Refund, RefundStatus,
     Company, User, UserRole,
 )
@@ -99,11 +100,14 @@ def register_billing_routes(bp):
         # Credit notes issued against this invoice
         credit_notes = (CreditNote.query.filter_by(invoice_id=inv.id)
                         .order_by(CreditNote.created_at.desc()).all())
+        payment_submissions = (PaymentSubmission.query.filter_by(invoice_id=inv.id)
+                       .order_by(PaymentSubmission.created_at.desc()).all())
         return render_template("admin/invoices/detail.html",
                                invoice=inv,
                                line_form=line_form,
                                payment_form=payment_form,
-                               credit_notes=credit_notes)
+                       credit_notes=credit_notes,
+                       payment_submissions=payment_submissions)
 
     @bp.route("/invoices/<int:invoice_id>/lines/add", methods=["POST"])
     @admin_required
@@ -186,6 +190,46 @@ def register_billing_routes(bp):
         db.session.commit()
         flash(f"Recorded {format_money(form.amount.data)} payment.", "success")
         return redirect(url_for("admin.invoice_detail", invoice_id=inv.id))
+
+    @bp.route("/payment-submissions/<int:submission_id>/<decision>", methods=["POST"])
+    @admin_required
+    def payment_submission_review(submission_id: int, decision: str):
+        submission = PaymentSubmission.query.filter_by(
+            id=submission_id, status=PaymentSubmissionStatus.PENDING,
+        ).first_or_404()
+        operator_message = (request.form.get("operator_message") or "").strip() or None
+        invoice = submission.invoice
+        if decision == "accept":
+            if Decimal(submission.amount) > Decimal(invoice.balance_due):
+                flash("Reported payment exceeds the invoice balance.", "warning")
+                return redirect(url_for("admin.invoice_detail", invoice_id=invoice.id))
+            db.session.add(Payment(
+                invoice_id=invoice.id,
+                amount=submission.amount,
+                method="company_reported",
+                reference=submission.reference,
+                paid_at=datetime.combine(submission.paid_on, datetime.min.time()),
+            ))
+            invoice.amount_paid = Decimal(invoice.amount_paid or 0) + Decimal(submission.amount)
+            _refresh_invoice_status(invoice)
+            submission.status = PaymentSubmissionStatus.ACCEPTED
+            flash("Reported payment accepted and recorded.", "success")
+        elif decision == "reject":
+            if not operator_message:
+                flash("Add a message explaining why the payment report was rejected.", "warning")
+                return redirect(url_for("admin.invoice_detail", invoice_id=invoice.id))
+            submission.status = PaymentSubmissionStatus.REJECTED
+            flash("Payment report rejected.", "info")
+        else:
+            flash("Invalid payment report decision.", "warning")
+            return redirect(url_for("admin.invoice_detail", invoice_id=invoice.id))
+        submission.operator_message = operator_message
+        submission.reviewed_by_id = current_user.id
+        submission.reviewed_at = datetime.utcnow()
+        db.session.commit()
+        audit_service.record(f"payment_submission.{decision}", "payment_submission", submission.id,
+                             {"invoice_id": invoice.id, "amount": str(submission.amount)})
+        return redirect(url_for("admin.invoice_detail", invoice_id=invoice.id))
 
     # ----------------------------------------------------- credit notes --
     @bp.route("/credit-notes")

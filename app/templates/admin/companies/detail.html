@@ -70,6 +70,41 @@
 </div></div>
 
 <div class="card mt-3"><div class="card-body">
+  <h6>Subscription change requests</h6>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Plan</th><th>Seats</th><th>Company message</th><th>Status</th><th>Operator decision</th></tr></thead>
+    <tbody>
+      {% for request in subscription_requests %}
+      <tr>
+        <td>{{ request.requested_plan.name }}</td>
+        <td>{{ request.requested_quantity }}</td>
+        <td>{{ request.company_message or "—" }}</td>
+        <td><span class="badge bg-secondary">{{ request.status.value }}</span></td>
+        <td>
+          {% if request.status.value == 'pending' %}
+          <form method="post" action="{{ url_for('admin.company_subscription_request_review', company_id=company.id, request_id=request.id, decision='approve') }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input class="form-control form-control-sm d-inline-block" style="width:180px" name="operator_message" placeholder="Optional message">
+            <button class="btn btn-sm btn-dark">Approve</button>
+          </form>
+          <form method="post" action="{{ url_for('admin.company_subscription_request_review', company_id=company.id, request_id=request.id, decision='deny') }}" class="d-inline ms-1">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input class="form-control form-control-sm d-inline-block" style="width:180px" name="operator_message" placeholder="Reason required">
+            <button class="btn btn-sm btn-outline-danger">Deny</button>
+          </form>
+          {% else %}
+          {{ request.operator_message or "—" }}
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-muted text-center py-3">No subscription change requests.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="card mt-3"><div class="card-body">
   <h6>Users</h6>
   <table class="table mb-0">
     <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Active</th></tr></thead>

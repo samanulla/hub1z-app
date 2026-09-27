@@ -5,13 +5,17 @@ inventory). Subscribing is now tenant-controlled, same as seat allocations.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
-from flask import render_template, redirect, url_for, flash
+from flask import render_template, redirect, url_for, flash, request
+from flask_login import current_user
 
 from ...extensions import db
-from ...models import Company, PricingPlan, Subscription, SubscriptionStatus
+from ...models import (
+    Company, PricingPlan, Subscription, SubscriptionStatus,
+    SubscriptionChangeRequest, SubscriptionRequestStatus,
+)
 from ...utils.decorators import manager_or_super_required
 from ...services import audit_service
 from .forms import AdminSubscribeForm
@@ -58,4 +62,59 @@ def register_subscription_routes(bp):
         db.session.commit()
         audit_service.record("subscription.cancelled", "subscription", sub.id, {"company_id": company_id})
         flash("Subscription cancelled.", "info")
+        return redirect(url_for("admin.company_detail", company_id=company_id))
+
+    @bp.route("/companies/<int:company_id>/subscription-requests/<int:request_id>/<decision>", methods=["POST"])
+    @manager_or_super_required
+    def company_subscription_request_review(company_id: int, request_id: int, decision: str):
+        change = SubscriptionChangeRequest.query.filter_by(
+            id=request_id, company_id=company_id,
+            status=SubscriptionRequestStatus.PENDING,
+        ).first_or_404()
+        operator_message = (request.form.get("operator_message") or "").strip() or None
+        if decision == "approve":
+            plan = change.requested_plan
+            subscription = change.subscription
+            if subscription is None:
+                subscription = Subscription(
+                    tenant_id=change.tenant_id,
+                    company_id=change.company_id,
+                    plan_id=plan.id,
+                    quantity=change.requested_quantity,
+                    unit_price=Decimal(plan.base_price),
+                    start_date=date.today(),
+                    status=SubscriptionStatus.ACTIVE,
+                    meeting_credits_balance=(plan.included_meeting_credits or 0) * change.requested_quantity,
+                )
+                db.session.add(subscription)
+                db.session.flush()
+                change.subscription_id = subscription.id
+            else:
+                subscription.plan_id = plan.id
+                subscription.quantity = change.requested_quantity
+                subscription.unit_price = Decimal(plan.base_price)
+                subscription.status = SubscriptionStatus.ACTIVE
+                subscription.meeting_credits_balance = (
+                    (plan.included_meeting_credits or 0) * change.requested_quantity
+                )
+            change.status = SubscriptionRequestStatus.APPROVED
+            action = "approved"
+        elif decision == "deny":
+            if not operator_message:
+                flash("Add a message explaining why the request cannot be approved.", "warning")
+                return redirect(url_for("admin.company_detail", company_id=company_id))
+            change.status = SubscriptionRequestStatus.DENIED
+            action = "denied"
+        else:
+            flash("Invalid subscription request decision.", "warning")
+            return redirect(url_for("admin.company_detail", company_id=company_id))
+
+        change.operator_message = operator_message
+        change.reviewed_by_id = current_user.id
+        change.reviewed_at = datetime.utcnow()
+        db.session.commit()
+        audit_service.record(f"subscription_request.{action}", "subscription_change_request", change.id,
+                             {"company_id": company_id, "plan_id": change.requested_plan_id,
+                              "quantity": change.requested_quantity})
+        flash(f"Subscription request {action}.", "success" if decision == "approve" else "info")
         return redirect(url_for("admin.company_detail", company_id=company_id))

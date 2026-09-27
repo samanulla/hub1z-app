@@ -85,3 +85,30 @@ class Payment(db.Model, PkMixin, TimestampMixin):
     paid_at = Column(DateTime, nullable=False)
 
     invoice = relationship("Invoice", back_populates="payments")
+
+
+class PaymentSubmissionStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+
+class PaymentSubmission(db.Model, PkMixin, TimestampMixin):
+    __tablename__ = "payment_submissions"
+
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    amount = Column(Numeric(10, 2), nullable=False)
+    paid_on = Column(Date, nullable=False)
+    reference = Column(String(120))
+    notes = Column(Text)
+    status = Column(Enum(PaymentSubmissionStatus), default=PaymentSubmissionStatus.PENDING,
+                    nullable=False, index=True)
+    operator_message = Column(Text)
+    reviewed_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_at = Column(DateTime)
+
+    invoice = relationship("Invoice", foreign_keys=[invoice_id])
+    company = relationship("Company", foreign_keys=[company_id])
+    reviewed_by = relationship("User", foreign_keys=[reviewed_by_id])

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Company profile{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div><h3 class="mb-0">Company profile</h3><div class="text-muted">{{ company.name }}</div></div>
+  <a class="btn btn-outline-dark" href="{{ url_for('company.dashboard') }}">Back to manage</a>
+</div>
+<div class="card"><div class="card-body">
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="row"><div class="col-md-6">{{ field(form.legal_name) }}</div><div class="col-md-6">{{ field(form.industry) }}</div></div>
+    <div class="row"><div class="col-md-6">{{ field(form.website) }}</div><div class="col-md-6">{{ field(form.contact_phone) }}</div></div>
+    {{ field(form.billing_email) }}
+    {{ field(form.billing_address) }}
+    <button class="btn btn-dark">Save profile</button>
+  </form>
+</div></div>
+{% endblock %}

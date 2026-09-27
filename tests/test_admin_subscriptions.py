@@ -1,9 +1,4 @@
-"""Subscriptions are tenant-controlled, not a company self-checkout.
-
-Previously /company/plans let a Company Admin instantly subscribe to any
-plan/quantity, fully disconnected from actual seat inventory the tenant
-manages. Moved to /admin/companies/<id>/subscriptions/*, mirroring how seat
-allocations already work (tenant-controlled)."""
+"""Companies request subscription changes; workspace operators approve them."""
 import os
 os.environ.setdefault("FLASK_ENV", "testing")
 
@@ -11,7 +6,8 @@ from app import create_app
 from app.extensions import db
 from app.models import (
     User, UserRole, Tenant, TenantStatus, Company, CompanyStatus,
-    PricingPlan, PlanType, BillingCycle, Subscription, SubscriptionStatus,
+    PricingPlan, PlanType, BillingCycle, Subscription, SubscriptionChangeRequest,
+    SubscriptionRequestStatus, SubscriptionStatus,
 )
 
 
@@ -53,7 +49,7 @@ def _login(client, email, password):
     return client.post("/auth/login", data={"email": email, "password": password})
 
 
-def test_company_admin_cannot_self_subscribe():
+def test_company_admin_can_request_but_not_self_subscribe():
     app = _app()
     company_id, plan_id = _seed(app)
     c = app.test_client()
@@ -61,12 +57,15 @@ def test_company_admin_cannot_self_subscribe():
 
     r = c.get("/company/plans")
     assert r.status_code == 200
-    assert b"Subscribe</button>" not in r.data  # no self-serve action
+    assert b"Request change" in r.data
 
-    r = c.post("/company/plans", data={"plan_id": plan_id, "quantity": 5}, follow_redirects=False)
-    assert r.status_code == 405  # route no longer accepts POST
+    r = c.post("/company/plans", data={"plan_id": plan_id, "quantity": 5,
+                                        "company_message": "Please review."}, follow_redirects=False)
+    assert r.status_code == 302
     with app.app_context():
         assert Subscription.query.filter_by(company_id=company_id).first() is None
+        request = SubscriptionChangeRequest.query.filter_by(company_id=company_id).one()
+        assert request.status == SubscriptionRequestStatus.PENDING
 
 
 def test_tenant_admin_can_create_subscription_for_company():

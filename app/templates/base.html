@@ -261,7 +261,7 @@
           {% elif current_user.is_admin %}
             <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.dashboard') }}">Manage</a></li>
           {% elif current_user.is_company_admin %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('company.dashboard') }}">Company</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('company.dashboard') }}">Manage</a></li>
           {% else %}
             <li class="nav-item"><a class="nav-link" href="{{ url_for('member.dashboard') }}">Dashboard</a></li>
           {% endif %}

@@ -105,6 +105,42 @@
       {% endif %}
     </div></div>
 
+    <div class="card mt-3"><div class="card-body">
+      <h6>Company payment reports</h6>
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Amount</th><th>Paid on</th><th>Reference</th><th>Note</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          {% for submission in payment_submissions %}
+          <tr>
+            <td>{{ submission.amount | money }}</td>
+            <td>{{ submission.paid_on }}</td>
+            <td>{{ submission.reference or "—" }}</td>
+            <td>{{ submission.notes or "—" }}</td>
+            <td><span class="badge bg-secondary">{{ submission.status.value }}</span></td>
+            <td class="text-end">
+              {% if submission.status.value == 'pending' %}
+              <form method="post" action="{{ url_for('admin.payment_submission_review', submission_id=submission.id, decision='accept') }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="operator_message" value="">
+                <button class="btn btn-sm btn-dark">Accept</button>
+              </form>
+              <form method="post" action="{{ url_for('admin.payment_submission_review', submission_id=submission.id, decision='reject') }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input class="form-control form-control-sm d-inline-block" style="width:150px" name="operator_message" placeholder="Reason required">
+                <button class="btn btn-sm btn-outline-danger">Reject</button>
+              </form>
+              {% else %}
+              {{ submission.operator_message or "—" }}
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-muted text-center py-3">No company payment reports.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+
   </div>
 
   <div class="col-md-4">

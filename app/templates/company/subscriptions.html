@@ -24,4 +24,24 @@
     {% endfor %}
   </tbody>
 </table>
+
+<div class="card mt-4"><div class="card-body">
+  <h5>Change requests</h5>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Requested plan</th><th>Seats</th><th>Status</th><th>Operator message</th><th>Requested</th></tr></thead>
+    <tbody>
+      {% for request in requests %}
+      <tr>
+        <td>{{ request.requested_plan.name }}</td>
+        <td>{{ request.requested_quantity }}</td>
+        <td><span class="badge bg-secondary">{{ request.status.value }}</span></td>
+        <td>{{ request.operator_message or "—" }}</td>
+        <td>{{ request.created_at | date }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-muted text-center py-3">No change requests yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
 {% endblock %}

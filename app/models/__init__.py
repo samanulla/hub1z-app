@@ -7,9 +7,9 @@ from .location import Location, Floor, Amenity
 from .space import Seat, SeatType, ConferenceRoom, RoomAmenity
 from .allocation import SeatAllocation, AllocationStatus
 from .pricing import PricingPlan, PlanType, BillingCycle
-from .subscription import Subscription, SubscriptionStatus
+from .subscription import Subscription, SubscriptionStatus, SubscriptionChangeRequest, SubscriptionRequestStatus
 from .booking import SeatBooking, RoomBooking, BookingStatus
-from .invoice import Invoice, InvoiceLineItem, InvoiceStatus, Payment
+from .invoice import Invoice, InvoiceLineItem, InvoiceStatus, Payment, PaymentSubmission, PaymentSubmissionStatus
 from .document import Document, DocumentKind
 from .staff import StaffMember, EmploymentType, StaffStatus, Department
 from .payroll import (
@@ -47,9 +47,9 @@ __all__ = [
     "Seat", "SeatType", "ConferenceRoom", "RoomAmenity",
     "SeatAllocation", "AllocationStatus",
     "PricingPlan", "PlanType", "BillingCycle",
-    "Subscription", "SubscriptionStatus",
+    "Subscription", "SubscriptionStatus", "SubscriptionChangeRequest", "SubscriptionRequestStatus",
     "SeatBooking", "RoomBooking", "BookingStatus",
-    "Invoice", "InvoiceLineItem", "InvoiceStatus", "Payment",
+    "Invoice", "InvoiceLineItem", "InvoiceStatus", "Payment", "PaymentSubmission", "PaymentSubmissionStatus",
     "Document", "DocumentKind",
     "StaffMember", "EmploymentType", "StaffStatus", "Department",
     "SalaryStructure", "PayrollRun", "Payslip", "PayrollStatus", "PayFrequency",

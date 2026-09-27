@@ -1,12 +1,25 @@
 {% extends "base.html" %}
+{% from "_macros.html" import field %}
 {% block title %}Invoices{% endblock %}
 
 {% block content %}
 <h3>Invoices</h3>
 
+{% if tenant and (tenant.payment_instructions or tenant.payment_upi_id or tenant.payment_gpay or tenant.payment_bank_details) %}
+<div class="card mb-3"><div class="card-body">
+  <h6>Payment options from {{ tenant.name }}</h6>
+  {% if tenant.payment_instructions %}<p class="mb-2">{{ tenant.payment_instructions }}</p>{% endif %}
+  <ul class="small mb-0">
+    {% if tenant.payment_upi_id %}<li>UPI: {{ tenant.payment_upi_id }}</li>{% endif %}
+    {% if tenant.payment_gpay %}<li>Google Pay: {{ tenant.payment_gpay }}</li>{% endif %}
+    {% if tenant.payment_bank_details %}<li>Bank transfer: {{ tenant.payment_bank_details }}</li>{% endif %}
+  </ul>
+</div></div>
+{% endif %}
+
 <table class="table bg-white shadow-sm">
   <thead>
-    <tr><th>Number</th><th>Period</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Due</th></tr>
+    <tr><th>Number</th><th>Period</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Due</th><th></th></tr>
   </thead>
   <tbody>
     {% for i in invoices %}
@@ -18,10 +31,41 @@
       <td>{{ i.balance_due | money }}</td>
       <td><span class="badge bg-secondary">{{ i.status.value }}</span></td>
       <td>{{ i.due_date }}</td>
+      <td class="text-end">
+        {% if i.balance_due > 0 %}
+        <button class="btn btn-sm btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#payment-{{ i.id }}">Report payment</button>
+        {% endif %}
+      </td>
     </tr>
+    {% if i.balance_due > 0 %}
+    <tr class="collapse" id="payment-{{ i.id }}"><td colspan="8">
+      <form method="post" action="{{ url_for('company.payment_submission_new', invoice_id=i.id) }}" class="row g-2 align-items-end">
+        {{ payment_form.hidden_tag() }}
+        <div class="col-md-3">{{ payment_form.amount(class="form-control", placeholder="Amount paid") }}</div>
+        <div class="col-md-3">{{ payment_form.paid_on(class="form-control") }}</div>
+        <div class="col-md-3">{{ payment_form.reference(class="form-control", placeholder="Reference") }}</div>
+        <div class="col-md-3">{{ payment_form.notes(class="form-control", placeholder="Note for operator") }}</div>
+        <div class="col-12"><button class="btn btn-sm btn-dark">Report payment</button></div>
+      </form>
+    </td></tr>
+    {% endif %}
     {% else %}
-    <tr><td colspan="7" class="text-muted text-center py-4">No invoices yet.</td></tr>
+    <tr><td colspan="8" class="text-muted text-center py-4">No issued invoices yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>
+
+<div class="card mt-4"><div class="card-body">
+  <h5>Payment reports</h5>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Invoice</th><th>Amount</th><th>Date</th><th>Reference</th><th>Status</th><th>Operator message</th></tr></thead>
+    <tbody>
+      {% for submission in submissions %}
+      <tr><td>{{ submission.invoice.number }}</td><td>{{ submission.amount | money }}</td><td>{{ submission.paid_on }}</td><td>{{ submission.reference or "—" }}</td><td><span class="badge bg-secondary">{{ submission.status.value }}</span></td><td>{{ submission.operator_message or "—" }}</td></tr>
+      {% else %}
+      <tr><td colspan="6" class="text-muted text-center py-3">No payment reports yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
 {% endblock %}

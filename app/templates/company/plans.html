@@ -1,24 +1,24 @@
 {% extends "base.html" %}
-{% block title %}Plans{% endblock %}
+{% from "_macros.html" import field %}
+{% block title %}Plans & subscriptions{% endblock %}
 
 {% block content %}
-<h3 class="mb-1">Available plans</h3>
+<h3 class="mb-1">Plans &amp; subscriptions</h3>
 <p class="text-muted small mb-3">
-  What {{ tenant.name if tenant else "your workspace" }} offers. Subscribing is
-  set up by your workspace admin (it's tied to actual desks/rooms they
-  manage) — see <a href="{{ url_for('company.subscriptions') }}">your subscriptions</a>,
-  or contact them to change your plan.
+  Select the plan and number of seats you need. Your workspace operator reviews every
+  request before changing your subscription or allocating capacity.
 </p>
 
 <div class="row g-3">
   {% for p in plans %}
   <div class="col-md-4">
-    <div class="card h-100"><div class="card-body">
+    <div class="card h-100 {% if p.id in active_plan_ids %}border-dark{% endif %}"><div class="card-body">
       <div class="d-flex justify-content-between align-items-start">
         <div>
           <h5>{{ p.name }}</h5>
           <div class="text-muted small">{{ p.plan_type.value.replace('_',' ') }}</div>
         </div>
+        {% if p.id in active_plan_ids %}<span class="badge bg-dark">Selected</span>{% endif %}
         <div class="text-end">
           <div class="fs-4 fw-bold">{{ p.base_price | money }}</div>
           <div class="text-muted small">/ {{ p.billing_cycle.value }}</div>
@@ -37,4 +37,16 @@
   <div class="col-12 text-muted text-center py-4">No plans published yet.</div>
   {% endfor %}
 </div>
+
+<div class="card mt-4"><div class="card-body">
+  <h5>Request a plan change</h5>
+  <form method="post" class="row g-3 align-items-end">
+    {{ form.hidden_tag() }}
+    <div class="col-md-4">{{ field(form.plan_id) }}</div>
+    <div class="col-md-2">{{ field(form.quantity) }}</div>
+    <div class="col-md-4">{{ field(form.company_message) }}</div>
+    <div class="col-md-2"><button class="btn btn-dark w-100">Request change</button></div>
+  </form>
+  <a class="small" href="{{ url_for('company.subscriptions') }}">View request history</a>
+</div></div>
 {% endblock %}

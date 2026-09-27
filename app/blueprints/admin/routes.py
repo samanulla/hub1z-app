@@ -12,6 +12,7 @@ from ...models import (
     User, UserRole, Location, Floor, Seat, SeatType, ConferenceRoom,
     Company, CompanyStatus, PricingPlan, Subscription, SubscriptionStatus,
     SeatAllocation, AllocationStatus, SeatBooking, RoomBooking, BookingStatus,
+    SubscriptionChangeRequest, SubscriptionRequestStatus,
     Document, DocumentKind, CompanyDocument, Invoice, DayPass, DayPassStatus,
 )
 from ...services.storage import storage_service
@@ -269,7 +270,10 @@ def company_new():
 def company_detail(company_id: int):
     c = Company.query.get_or_404(company_id)
     subs = Subscription.query.filter_by(company_id=c.id).order_by(Subscription.created_at.desc()).all()
-    return render_template("admin/companies/detail.html", company=c, subscriptions=subs)
+    subscription_requests = (SubscriptionChangeRequest.query.filter_by(company_id=c.id)
+                             .order_by(SubscriptionChangeRequest.created_at.desc()).all())
+    return render_template("admin/companies/detail.html", company=c, subscriptions=subs,
+                           subscription_requests=subscription_requests)
 
 
 @admin_bp.route("/companies/<int:company_id>/edit", methods=["GET", "POST"])

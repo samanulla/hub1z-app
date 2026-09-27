@@ -2,8 +2,13 @@
 {% block title %}{{ company.name }}{% endblock %}
 
 {% block content %}
-<h3>{{ company.name }}</h3>
-<p class="text-muted">Company dashboard</p>
+<div class="d-flex justify-content-between align-items-start mb-4">
+  <div>
+    <h3 class="mb-1">{{ company.name }}</h3>
+    <p class="text-muted mb-0">Company management overview</p>
+  </div>
+  <a class="btn btn-outline-dark" href="{{ url_for('company.profile') }}">Edit profile</a>
+</div>
 
 <div class="row g-3 mb-4">
   <div class="col-md-3"><div class="card card-stat"><div class="card-body">
@@ -25,20 +30,31 @@
 </div>
 
 <div class="row g-3">
-  <div class="col-md-6"><div class="card"><div class="card-body">
-    <h6>Manage</h6>
-    <ul class="list-unstyled mb-0">
-      <li><a href="{{ url_for('company.employees') }}">Employees →</a></li>
-      <li><a href="{{ url_for('company.plans') }}">Plans & subscriptions →</a></li>
-      <li><a href="{{ url_for('company.allocations') }}">Seat allocations →</a></li>
-      <li><a href="{{ url_for('company.bookings') }}">Team bookings →</a></li>
-      <li><a href="{{ url_for('company.invoices') }}">Invoices →</a></li>
-    </ul>
+  <div class="col-md-6"><div class="card h-100"><div class="card-body">
+    <h5 class="mb-3">Company</h5>
+    {% for label, description, icon, href in [
+      ('People', 'Invite and manage employees', 'people', url_for('company.employees')),
+      ('Seat allocations', 'Assign company seats to employees', 'diagram-3', url_for('company.allocations')),
+      ('Team activity', 'Review employee seat and room bookings', 'calendar-check', url_for('company.bookings')),
+      ('Profile', 'Billing and company contact details', 'building', url_for('company.profile'))
+    ] %}
+    <a class="d-flex align-items-center gap-3 p-2 mb-2 text-body" style="background: color-mix(in srgb, var(--brand) 6%, transparent); text-decoration:none;" href="{{ href }}">
+      <span class="stat-icon m-0" style="width:36px;height:36px;"><i class="bi bi-{{ icon }}"></i></span>
+      <div><div class="fw-semibold small">{{ label }}</div><small class="text-muted">{{ description }}</small></div>
+    </a>
+    {% endfor %}
   </div></div></div>
-  <div class="col-md-6"><div class="card"><div class="card-body">
-    <h6>Book workspace</h6>
-    <p class="mb-2">You and your employees can book seats and conference rooms.</p>
-    <a class="btn btn-dark" href="{{ url_for('book.index') }}">Browse locations</a>
+  <div class="col-md-6"><div class="card h-100"><div class="card-body">
+    <h5 class="mb-3">Plan &amp; billing</h5>
+    <a class="d-flex align-items-center gap-3 p-2 mb-2 text-body" style="background: rgba(217,119,6,.06); text-decoration:none;" href="{{ url_for('company.plans') }}">
+      <span class="stat-icon amber m-0" style="width:36px;height:36px;"><i class="bi bi-arrow-repeat"></i></span>
+      <div><div class="fw-semibold small">Plans &amp; subscriptions</div><small class="text-muted">{% if pending_requests %}{{ pending_requests }} request awaiting review{% else %}Request a plan or seat change{% endif %}</small></div>
+    </a>
+    <a class="d-flex align-items-center gap-3 p-2 mb-2 text-body" style="background: rgba(217,119,6,.06); text-decoration:none;" href="{{ url_for('company.invoices') }}">
+      <span class="stat-icon amber m-0" style="width:36px;height:36px;"><i class="bi bi-receipt"></i></span>
+      <div><div class="fw-semibold small">Invoices &amp; payments</div><small class="text-muted">View invoices, payment options and reports</small></div>
+    </a>
+    <a class="btn btn-dark mt-2" href="{{ url_for('book.calendar') }}">Open booking calendar</a>
   </div></div></div>
 </div>
 {% endblock %}

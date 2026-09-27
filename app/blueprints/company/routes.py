@@ -1,16 +1,23 @@
 """Company-admin portal routes."""
 from __future__ import annotations
 
+from datetime import date
+
 from flask import Blueprint, render_template, redirect, url_for, flash, abort, request, g, current_app
 from flask_login import current_user, login_user
 
 from ...extensions import db
 from ...models import (
     User, UserRole, PricingPlan, Subscription, SubscriptionStatus,
-    SeatAllocation, AllocationStatus, Invoice, SeatBooking, RoomBooking,
+    SubscriptionChangeRequest, SubscriptionRequestStatus,
+    SeatAllocation, AllocationStatus, Invoice, InvoiceStatus, PaymentSubmission,
+    PaymentSubmissionStatus, SeatBooking, RoomBooking,
 )
 from ...utils.decorators import company_admin_required
-from .forms import InviteEmployeeForm, AcceptInviteForm
+from .forms import (
+    InviteEmployeeForm, AcceptInviteForm, CompanyProfileForm,
+    SubscriptionRequestForm, EmployeeAllocationForm, PaymentSubmissionForm,
+)
 from ...services import mail_service, tier_limits
 
 INVITE_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
@@ -39,7 +46,24 @@ def dashboard():
         "open_invoices": Invoice.query.filter(Invoice.company_id == c.id,
                                               Invoice.status.in_(["issued", "partial", "overdue"])).count(),
     }
-    return render_template("company/dashboard.html", company=c, stats=stats)
+    pending_requests = SubscriptionChangeRequest.query.filter_by(
+        company_id=c.id, status=SubscriptionRequestStatus.PENDING,
+    ).count()
+    return render_template("company/dashboard.html", company=c, stats=stats,
+                           pending_requests=pending_requests)
+
+
+@company_bp.route("/profile", methods=["GET", "POST"])
+@company_admin_required
+def profile():
+    c = _own_company()
+    form = CompanyProfileForm(obj=c)
+    if form.validate_on_submit():
+        form.populate_obj(c)
+        db.session.commit()
+        flash("Company profile updated.", "success")
+        return redirect(url_for("company.profile"))
+    return render_template("company/profile.html", company=c, form=form)
 
 
 # --------------------------------------------------------------- employees --
@@ -137,15 +161,37 @@ def employee_deactivate(user_id: int):
 
 # --------------------------------------------------------------- plans --
 
-@company_bp.route("/plans")
+@company_bp.route("/plans", methods=["GET", "POST"])
 @company_admin_required
 def plans():
-    """Read-only: what the tenant offers. Subscribing is tenant-controlled
-    (/admin/companies/<id>/subscriptions/new) — it's tied to real seat
-    inventory the tenant manages, not a company self-checkout."""
     c = _own_company()
-    return render_template("company/plans.html", company=c,
-                           plans=PricingPlan.query.filter_by(is_active=True).all())
+    plans = PricingPlan.query.filter_by(is_active=True).order_by(PricingPlan.base_price).all()
+    active_subs = Subscription.query.filter_by(
+        company_id=c.id, status=SubscriptionStatus.ACTIVE,
+    ).all()
+    form = SubscriptionRequestForm()
+    form.plan_id.choices = [(plan.id, plan.name) for plan in plans]
+    if form.validate_on_submit():
+        if SubscriptionChangeRequest.query.filter_by(
+            company_id=c.id, status=SubscriptionRequestStatus.PENDING,
+        ).first():
+            flash("You already have a subscription request awaiting review.", "warning")
+        else:
+            change = SubscriptionChangeRequest(
+                tenant_id=getattr(g, "tenant_id", None),
+                company_id=c.id,
+                subscription_id=active_subs[0].id if active_subs else None,
+                requested_plan_id=form.plan_id.data,
+                requested_quantity=form.quantity.data,
+                company_message=(form.company_message.data or "").strip() or None,
+                requested_by_id=current_user.id,
+            )
+            db.session.add(change)
+            db.session.commit()
+            flash("Your subscription request was sent to the workspace operator.", "success")
+            return redirect(url_for("company.plans"))
+    return render_template("company/plans.html", company=c, plans=plans, form=form,
+                           active_plan_ids={subscription.plan_id for subscription in active_subs})
 
 
 @company_bp.route("/subscriptions")
@@ -153,7 +199,9 @@ def plans():
 def subscriptions():
     c = _own_company()
     subs = Subscription.query.filter_by(company_id=c.id).order_by(Subscription.created_at.desc()).all()
-    return render_template("company/subscriptions.html", company=c, subs=subs)
+    requests = (SubscriptionChangeRequest.query.filter_by(company_id=c.id)
+                .order_by(SubscriptionChangeRequest.created_at.desc()).all())
+    return render_template("company/subscriptions.html", company=c, subs=subs, requests=requests)
 
 
 # ------------------------------------------------------------ allocations --
@@ -164,7 +212,59 @@ def allocations():
     c = _own_company()
     allocs = (SeatAllocation.query.filter_by(company_id=c.id, status=AllocationStatus.ACTIVE)
               .order_by(SeatAllocation.start_date.desc()).all())
-    return render_template("company/allocations.html", company=c, allocations=allocs)
+    employees = (User.query.filter_by(company_id=c.id, role=UserRole.EMPLOYEE, is_active=True)
+                 .order_by(User.full_name).all())
+    form = EmployeeAllocationForm()
+    form.employee_id.choices = [(employee.id, employee.full_name) for employee in employees]
+    capacity = sum(subscription.quantity for subscription in Subscription.query.filter_by(
+        company_id=c.id, status=SubscriptionStatus.ACTIVE,
+    ).all())
+    assigned = sum(1 for allocation in allocs if allocation.user_id)
+    return render_template("company/allocations.html", company=c, allocations=allocs,
+                           allocation_form=form, capacity=capacity, assigned=assigned)
+
+
+@company_bp.route("/allocations/<int:allocation_id>/assign", methods=["POST"])
+@company_admin_required
+def allocation_assign(allocation_id: int):
+    c = _own_company()
+    allocation = SeatAllocation.query.filter_by(
+        id=allocation_id, company_id=c.id, status=AllocationStatus.ACTIVE, user_id=None,
+    ).first_or_404()
+    form = EmployeeAllocationForm()
+    form.employee_id.choices = [
+        (employee.id, employee.full_name)
+        for employee in User.query.filter_by(company_id=c.id, role=UserRole.EMPLOYEE, is_active=True)
+        .order_by(User.full_name).all()
+    ]
+    capacity = sum(subscription.quantity for subscription in Subscription.query.filter_by(
+        company_id=c.id, status=SubscriptionStatus.ACTIVE,
+    ).all())
+    assigned = SeatAllocation.query.filter_by(
+        company_id=c.id, status=AllocationStatus.ACTIVE,
+    ).filter(SeatAllocation.user_id.isnot(None)).count()
+    if assigned >= capacity:
+        flash("All seats included in your active subscription are already assigned.", "warning")
+    elif form.validate_on_submit():
+        allocation.user_id = form.employee_id.data
+        db.session.commit()
+        flash("Seat assigned to employee.", "success")
+    else:
+        flash("Pick a valid active employee.", "warning")
+    return redirect(url_for("company.allocations"))
+
+
+@company_bp.route("/allocations/<int:allocation_id>/release", methods=["POST"])
+@company_admin_required
+def allocation_release(allocation_id: int):
+    c = _own_company()
+    allocation = SeatAllocation.query.filter_by(
+        id=allocation_id, company_id=c.id, status=AllocationStatus.ACTIVE,
+    ).filter(SeatAllocation.user_id.isnot(None)).first_or_404()
+    allocation.user_id = None
+    db.session.commit()
+    flash("Seat released and available for another employee.", "info")
+    return redirect(url_for("company.allocations"))
 
 
 # --------------------------------------------------------------- invoices --
@@ -173,8 +273,44 @@ def allocations():
 @company_admin_required
 def invoices():
     c = _own_company()
-    invs = Invoice.query.filter_by(company_id=c.id).order_by(Invoice.issued_at.desc().nullslast()).all()
-    return render_template("company/invoices.html", company=c, invoices=invs)
+    invs = (Invoice.query.filter(Invoice.company_id == c.id,
+                                 Invoice.status != InvoiceStatus.DRAFT)
+            .order_by(Invoice.issued_at.desc().nullslast()).all())
+    submissions = (PaymentSubmission.query.filter_by(company_id=c.id)
+                   .order_by(PaymentSubmission.created_at.desc()).all())
+    form = PaymentSubmissionForm()
+    form.paid_on.data = date.today()
+    return render_template("company/invoices.html", company=c, invoices=invs,
+                           submissions=submissions, payment_form=form)
+
+
+@company_bp.route("/invoices/<int:invoice_id>/payments", methods=["POST"])
+@company_admin_required
+def payment_submission_new(invoice_id: int):
+    c = _own_company()
+    invoice = Invoice.query.filter(
+        Invoice.id == invoice_id, Invoice.company_id == c.id,
+        Invoice.status != InvoiceStatus.DRAFT,
+    ).first_or_404()
+    form = PaymentSubmissionForm()
+    if form.validate_on_submit():
+        if form.amount.data > invoice.balance_due:
+            flash("Reported amount cannot exceed the invoice balance.", "warning")
+        else:
+            db.session.add(PaymentSubmission(
+                tenant_id=getattr(g, "tenant_id", None),
+                invoice_id=invoice.id,
+                company_id=c.id,
+                amount=form.amount.data,
+                paid_on=form.paid_on.data,
+                reference=(form.reference.data or "").strip() or None,
+                notes=(form.notes.data or "").strip() or None,
+            ))
+            db.session.commit()
+            flash("Payment reported. It will appear as paid once the workspace operator confirms it.", "success")
+    else:
+        flash("Enter a valid payment amount and date.", "warning")
+    return redirect(url_for("company.invoices"))
 
 
 # --------------------------------------------------------------- bookings --

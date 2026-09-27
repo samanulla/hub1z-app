@@ -1,13 +1,19 @@
 {% extends "base.html" %}
+{% from "_macros.html" import field %}
 {% block title %}Allocations{% endblock %}
 
 {% block content %}
 <h3>Company seat allocations</h3>
-<p class="text-muted">Platform admins allocate dedicated desks/private offices to your company.
-Employees can then use them without booking.</p>
+<p class="text-muted">Your workspace operator makes dedicated desks or private offices available to your company.
+Assign those seats to your employees here, up to the capacity in your active subscription.</p>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-3"><div class="card card-stat"><div class="card-body"><div class="text-muted small">Subscription seats</div><div class="stat-value">{{ capacity }}</div></div></div></div>
+  <div class="col-md-3"><div class="card card-stat"><div class="card-body"><div class="text-muted small">Assigned seats</div><div class="stat-value">{{ assigned }}</div></div></div></div>
+</div>
 
 <table class="table bg-white shadow-sm">
-  <thead><tr><th>Seat</th><th>Location</th><th>Assigned to</th><th>Start</th><th>End</th></tr></thead>
+  <thead><tr><th>Seat</th><th>Location</th><th>Assigned to</th><th>Start</th><th>End</th><th></th></tr></thead>
   <tbody>
     {% for a in allocations %}
     <tr>
@@ -16,9 +22,23 @@ Employees can then use them without booking.</p>
       <td>{{ a.user.full_name if a.user else "Company (any employee)" }}</td>
       <td>{{ a.start_date }}</td>
       <td>{{ a.end_date or "open" }}</td>
+      <td class="text-end">
+        {% if a.user %}
+        <form method="post" action="{{ url_for('company.allocation_release', allocation_id=a.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-dark">Release</button>
+        </form>
+        {% else %}
+        <form method="post" action="{{ url_for('company.allocation_assign', allocation_id=a.id) }}" class="d-flex gap-2 justify-content-end">
+          {{ allocation_form.hidden_tag() }}
+          {{ allocation_form.employee_id(class="form-select form-select-sm", style="max-width:180px") }}
+          <button class="btn btn-sm btn-dark">Assign</button>
+        </form>
+        {% endif %}
+      </td>
     </tr>
     {% else %}
-    <tr><td colspan="5" class="text-muted text-center py-4">No allocations yet.</td></tr>
+    <tr><td colspan="6" class="text-muted text-center py-4">No seats have been made available to your company yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>
