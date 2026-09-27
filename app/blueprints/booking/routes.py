@@ -10,7 +10,7 @@ from flask_login import current_user, login_required
 from ...models import (
     Location, Seat, ConferenceRoom, SeatType, RoomWaitlist, WaitlistStatus,
     RecurringRoomBooking, RecurrencePattern, RoomBooking, SeatBooking, BookingStatus,
-    Subscription, SubscriptionStatus,
+    Subscription, SubscriptionStatus, User, UserRole,
 )
 from ...services.booking_service import (
     create_seat_booking, create_room_booking, quote_seat, quote_room,
@@ -150,10 +150,15 @@ def location_calendar(location_id: int):
         grid.append(row)
 
     locations = Location.query.filter_by(is_active=True).order_by(Location.name).all()
+    recipients = []
+    if current_user.is_admin:
+        recipients = (User.query
+                     .filter(User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL]), User.is_active.is_(True))
+                     .order_by(User.full_name).all())
 
     return render_template(
         "booking/calendar.html", location=loc, locations=locations, rooms=rooms,
-        bookable_rooms=bookable_rooms, grid=grid,
+        bookable_rooms=bookable_rooms, grid=grid, recipients=recipients,
         day=day, prev_day=day - timedelta(days=1), next_day=day + timedelta(days=1),
         today=datetime.now(tz).date(), credits_available=_current_user_credits(),
         day_bookings=bookings,
@@ -204,18 +209,30 @@ def location_calendar_quick_book(location_id: int):
         return redirect(url_for("book.location_calendar", location_id=loc.id))
 
     day_param = start.strftime("%Y-%m-%d")
+    for_user = None
+    waive_charge = False
+    if current_user.is_admin:
+        recipient_id = request.form.get("for_user_id", type=int)
+        if recipient_id:
+            for_user = User.query.filter(
+                User.id == recipient_id, User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL]),
+            ).first()
+        waive_charge = bool(request.form.get("waive_charge"))
     try:
         b = create_room_booking(
             user=current_user, room=room, start=start, end=end,
             title=request.form.get("title"),
             attendees=request.form.get("attendees", 1, type=int),
             notes=request.form.get("notes"),
+            for_user=for_user, waive_charge=waive_charge,
         )
         msg = "Meeting booked."
         if b.credits_used:
             msg += f" Used {b.credits_used} credit(s)."
         if b.total_amount and b.total_amount > 0:
             msg += f" Charge {format_money(b.total_amount)}."
+        elif waive_charge:
+            msg += " No charge (waived)."
         flash(msg, "success")
     except BookingError as e:
         flash(str(e), "danger")
@@ -275,7 +292,13 @@ def room_book(room_id: int):
     default_start = (now_local() + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0, tzinfo=None)
     default_end = default_start + timedelta(hours=1)
 
-    ctx = {"room": room, "quote": None, "error": None,
+    recipients = []
+    if current_user.is_admin:
+        recipients = (User.query
+                     .filter(User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL]), User.is_active.is_(True))
+                     .order_by(User.full_name).all())
+
+    ctx = {"room": room, "quote": None, "error": None, "recipients": recipients,
            "start": request.args.get("start") or default_start.strftime("%Y-%m-%dT%H:%M"),
            "end": request.args.get("end") or default_end.strftime("%Y-%m-%dT%H:%M")}
 
@@ -294,22 +317,38 @@ def room_book(room_id: int):
         title = request.form.get("title")
         notes = request.form.get("notes")
 
+        for_user = None
+        waive_charge = False
+        if current_user.is_admin:
+            recipient_id = request.form.get("for_user_id", type=int)
+            if recipient_id:
+                for_user = User.query.filter(
+                    User.id == recipient_id, User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL]),
+                ).first()
+            waive_charge = bool(request.form.get("waive_charge"))
+        booked_for = for_user or current_user
+
         if action == "book":
             try:
                 b = create_room_booking(user=current_user, room=room, start=start, end=end,
-                                        title=title, attendees=attendees, notes=notes)
+                                        title=title, attendees=attendees, notes=notes,
+                                        for_user=for_user, waive_charge=waive_charge)
                 msg = f"Room booked. "
                 if b.credits_used:
                     msg += f"Used {b.credits_used} credit(s). "
                 if b.total_amount and b.total_amount > 0:
                     msg += f"Charge {format_money(b.total_amount)}."
+                elif waive_charge:
+                    msg += "No charge (waived)."
                 flash(msg, "success")
                 return redirect(url_for("member.bookings"))
             except BookingError as e:
                 ctx["error"] = str(e)
 
-        if end > start:
-            ctx["quote"] = quote_room(current_user, room, start, end)
+        if end > start and not waive_charge:
+            ctx["quote"] = quote_room(booked_for, room, start, end)
+            ctx["has_conflict"] = check_room_conflict(room.id, start, end)
+        elif end > start:
             ctx["has_conflict"] = check_room_conflict(room.id, start, end)
 
     return render_template("booking/room_book.html", **ctx)

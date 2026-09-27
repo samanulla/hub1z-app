@@ -207,24 +207,45 @@ def quote_room(user: User, room: ConferenceRoom, start: datetime, end: datetime)
 def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, end: datetime,
                         title: str | None = None, attendees: int = 1,
                         notes: str | None = None,
-                        recurring_booking_id: int | None = None) -> RoomBooking:
+                        recurring_booking_id: int | None = None,
+                        for_user: User | None = None,
+                        waive_charge: bool = False) -> RoomBooking:
+    """``user`` is the actor performing the booking (used for the tenant/
+    permission check). ``for_user`` is who the meeting is actually for —
+    defaults to ``user`` for a normal self-booking. Only an admin actor may
+    book on behalf of someone else or waive the charge/credits.
+    """
+    booked_for = for_user or user
     _validate_window(start, end)
     if not room.is_active:
         raise BookingError("Room is inactive.")
     if room.tenant_id and user.tenant_id and room.tenant_id != user.tenant_id:
         raise BookingError("Room does not belong to your workspace.")
+    if for_user is not None:
+        if not user.is_admin:
+            raise BookingError("Only an operator admin/manager can book on behalf of someone else.")
+        if room.tenant_id and booked_for.tenant_id != room.tenant_id:
+            raise BookingError("That person does not belong to your workspace.")
     if attendees > room.capacity:
         raise BookingError(f"Room capacity is {room.capacity}.")
     _validate_location_hours(room.location, start, end)
     if check_room_conflict(room.id, start, end):
         raise BookingError("Room already booked for this time.")
 
-    q = quote_room(user, room, start, end)
+    if waive_charge and not user.is_admin:
+        raise BookingError("Only an operator admin/manager can waive credits/charges.")
+
+    if waive_charge:
+        q = Quote(hours=_hours_between(start, end), subtotal=Decimal("0"),
+                  credits_used=0, credits_available=0)
+    else:
+        q = quote_room(booked_for, room, start, end)
+
     booking = RoomBooking(
-        tenant_id=room.tenant_id or user.tenant_id,
+        tenant_id=room.tenant_id or booked_for.tenant_id,
         room_id=room.id,
-        user_id=user.id,
-        company_id=user.company_id,
+        user_id=booked_for.id,
+        company_id=booked_for.company_id,
         start_at=start,
         end_at=end,
         status=BookingStatus.CONFIRMED,
@@ -238,7 +259,7 @@ def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, en
     db.session.add(booking)
 
     if q.credits_used:
-        sub = _active_subscription_for(user)
+        sub = _active_subscription_for(booked_for)
         if sub:
             sub.meeting_credits_balance = max(0, sub.meeting_credits_balance - q.credits_used)
 

@@ -54,7 +54,7 @@ def dashboard():
 
 
 @member_bp.route("/bookings")
-@member_required
+@member_or_admin_required
 def bookings():
     seat_bookings = (SeatBooking.query.filter_by(user_id=current_user.id)
                      .order_by(SeatBooking.start_at.desc()).limit(100).all())
@@ -65,7 +65,7 @@ def bookings():
 
 
 @member_bp.route("/bookings/seat/<int:booking_id>/cancel", methods=["POST"])
-@member_required
+@member_or_admin_required
 def cancel_seat_booking(booking_id: int):
     booking = SeatBooking.query.get_or_404(booking_id)
     try:
@@ -77,7 +77,7 @@ def cancel_seat_booking(booking_id: int):
 
 
 @member_bp.route("/bookings/room/<int:booking_id>/cancel", methods=["POST"])
-@member_required
+@member_or_admin_required
 def cancel_room_booking(booking_id: int):
     booking = RoomBooking.query.get_or_404(booking_id)
     try:

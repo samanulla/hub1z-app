@@ -124,6 +124,25 @@
             <label class="form-label">Title</label>
             <input class="form-control" name="title" placeholder="e.g. Sprint planning">
           </div>
+          {% if current_user.is_admin %}
+          <div class="row">
+            <div class="col-md-8 mb-3">
+              <label class="form-label">Book for</label>
+              <select class="form-select" name="for_user_id">
+                <option value="">Myself</option>
+                {% for u in recipients %}
+                <option value="{{ u.id }}">{{ u.full_name }} ({{ u.email }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4 mb-3 d-flex align-items-end">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="waive_charge" value="1" id="meetingWaiveCharge">
+                <label class="form-check-label" for="meetingWaiveCharge">No charge / ignore credits</label>
+              </div>
+            </div>
+          </div>
+          {% endif %}
           <div class="row">
             <div class="col-md-6 mb-3">
               <label class="form-label">Start</label>
