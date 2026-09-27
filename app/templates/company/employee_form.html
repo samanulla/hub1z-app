@@ -1,17 +1,18 @@
 {% extends "base.html" %}
 {% from "_macros.html" import field %}
-{% block title %}Add employee{% endblock %}
+{% block title %}{{ "Edit employee" if editing else "Add employee" }}{% endblock %}
 
 {% block content %}
-<h3>Add employee to {{ company.name }}</h3>
+<h3>{{ "Edit employee" if editing else "Add employee" }}{% if not editing %} to {{ company.name }}{% endif %}</h3>
 <div class="card"><div class="card-body">
   <form method="post" novalidate>
     {{ form.hidden_tag() }}
     {{ field(form.full_name, autofocus=true) }}
     {{ field(form.email) }}
     {{ field(form.phone) }}
-    <div class="form-text mb-3">We'll email them a secure link to set their own password and activate their account.</div>
-    <button class="btn btn-dark">Send invitation</button>
+    {{ field(form.seat_allocation_id) }}
+    {% if not editing %}<div class="form-text mb-3">We'll email them a secure link to set their own password and activate their account.</div>{% endif %}
+    <button class="btn btn-dark">{{ "Save employee" if editing else "Send invitation" }}</button>
     <a class="btn btn-link" href="{{ url_for('company.employees') }}">Cancel</a>
   </form>
 </div></div>

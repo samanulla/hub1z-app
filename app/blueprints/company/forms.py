@@ -8,6 +8,7 @@ class InviteEmployeeForm(FlaskForm):
     full_name = StringField("Full name", validators=[DataRequired(), Length(max=150)])
     email = StringField("Work email", validators=[DataRequired(), Email(), Length(max=255)])
     phone = StringField("Phone", validators=[Optional(), Length(max=30)])
+    seat_allocation_id = SelectField("Assigned seat (optional)", coerce=int, validators=[Optional()])
     submit = SubmitField("Send invitation")
 
 
@@ -40,6 +41,12 @@ class SubscriptionRequestForm(FlaskForm):
 class EmployeeAllocationForm(FlaskForm):
     employee_id = SelectField("Employee", coerce=int, validators=[DataRequired()])
     submit = SubmitField("Assign seat")
+
+
+class CompanySeatAllocationForm(FlaskForm):
+    seat_id = SelectField("Available dedicated seat or private office", coerce=int, validators=[DataRequired()])
+    employee_id = SelectField("Assign to employee (optional)", coerce=int, validators=[Optional()])
+    submit = SubmitField("Allocate seat")
 
 
 class PaymentSubmissionForm(FlaskForm):

@@ -8,8 +8,9 @@ os.environ.setdefault("FLASK_ENV", "testing")
 from app import create_app
 from app.extensions import db
 from app.models import (
-    BillingCycle, Company, CompanyStatus, Invoice, InvoiceStatus,
+    BillingCycle, Company, CompanyStatus, Floor, Invoice, InvoiceStatus, Location,
     Payment, PaymentSubmission, PaymentSubmissionStatus, PlanType, PricingPlan,
+    Seat, SeatAllocation, SeatType,
     Subscription, SubscriptionChangeRequest, SubscriptionRequestStatus,
     SubscriptionStatus, Tenant, TenantStatus, User, UserRole,
 )
@@ -44,14 +45,27 @@ def _seed(app):
         company_admin = User(tenant_id=tenant.id, email="admin@acme.example", full_name="Company Admin",
                              role=UserRole.COMPANY_ADMIN, company_id=company.id, is_active=True)
         company_admin.set_password("CompanyPass123!")
+        employee = User(tenant_id=tenant.id, email="employee@acme.example", full_name="Employee",
+                role=UserRole.EMPLOYEE, company_id=company.id, is_active=True)
+        employee.set_password("EmployeePass123!")
         basic = PricingPlan(tenant_id=tenant.id, name="Basic", plan_type=PlanType.HOT_DESK,
                             billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("1000"),
                             included_meeting_credits=2)
         growth = PricingPlan(tenant_id=tenant.id, name="Growth", plan_type=PlanType.DEDICATED_DESK,
                              billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("2000"),
                              included_meeting_credits=5)
-        db.session.add_all([company_admin, basic, growth])
+        db.session.add_all([company_admin, employee, basic, growth])
         db.session.flush()
+        location = Location(tenant_id=tenant.id, name="HQ", code="HQ", address_line1="1 Main Street",
+                    city="Chennai", country="IN", timezone="Asia/Kolkata")
+        db.session.add(location)
+        db.session.flush()
+        floor = Floor(tenant_id=tenant.id, location_id=location.id, level=1, name="First floor")
+        db.session.add(floor)
+        db.session.flush()
+        seat = Seat(tenant_id=tenant.id, location_id=location.id, floor_id=floor.id,
+                code="HQ-DD-01", seat_type=SeatType.DEDICATED_DESK)
+        db.session.add(seat)
         subscription = Subscription(tenant_id=tenant.id, company_id=company.id, plan_id=basic.id,
                                     quantity=2, unit_price=basic.base_price, start_date=date.today(),
                                     status=SubscriptionStatus.ACTIVE, meeting_credits_balance=4)
@@ -160,3 +174,26 @@ def test_operator_accepts_company_payment_report():
         assert invoice.status == InvoiceStatus.PAID
         assert invoice.amount_paid == Decimal("1000.00")
         assert Payment.query.filter_by(invoice_id=invoice_id, reference="UTR-123").count() == 1
+
+
+def test_company_admin_allocates_available_seat_to_employee():
+    app = _app()
+    company_id, _, _ = _seed(app)
+    with app.app_context():
+        seat_id = Seat.query.filter_by(code="HQ-DD-01").one().id
+        employee_id = User.query.filter_by(email="employee@acme.example").one().id
+
+    company_client = app.test_client()
+    _login(company_client, "admin@acme.example", "CompanyPass123!")
+    page = company_client.get("/company/employees/new")
+    assert page.status_code == 200
+    assert b"Assigned seat (optional)" in page.data
+
+    response = company_client.post("/company/allocations/new", data={
+        "seat_id": seat_id, "employee_id": employee_id,
+    }, follow_redirects=False)
+    assert response.status_code == 302
+
+    with app.app_context():
+        allocation = SeatAllocation.query.filter_by(company_id=company_id, seat_id=seat_id).one()
+        assert allocation.user_id == employee_id

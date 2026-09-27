@@ -12,6 +12,22 @@ Assign those seats to your employees here, up to the capacity in your active sub
   <div class="col-md-3"><div class="card card-stat"><div class="card-body"><div class="text-muted small">Assigned seats</div><div class="stat-value">{{ assigned }}</div></div></div></div>
 </div>
 
+<div class="card mb-3"><div class="card-body">
+  <h5>Allocate a seat</h5>
+  {% if capacity > allocations|length and create_form.seat_id.choices %}
+  <form method="post" action="{{ url_for('company.allocation_new') }}" class="row g-3 align-items-end">
+    {{ create_form.hidden_tag() }}
+    <div class="col-md-5">{{ field(create_form.seat_id) }}</div>
+    <div class="col-md-4">{{ field(create_form.employee_id) }}</div>
+    <div class="col-md-3"><button class="btn btn-dark w-100">Allocate seat</button></div>
+  </form>
+  {% elif capacity <= allocations|length %}
+  <p class="text-muted mb-0">All seats in your active subscription are allocated. Request a plan change to add capacity.</p>
+  {% else %}
+  <p class="text-muted mb-0">No dedicated desks or private offices are currently available in this workspace.</p>
+  {% endif %}
+</div></div>
+
 <table class="table bg-white shadow-sm">
   <thead><tr><th>Seat</th><th>Location</th><th>Assigned to</th><th>Start</th><th>End</th><th></th></tr></thead>
   <tbody>

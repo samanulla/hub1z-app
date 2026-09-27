@@ -19,6 +19,7 @@
       <td>{% if u.is_active %}Yes{% else %}<span class="text-danger">No</span>{% endif %}</td>
       <td class="text-end">
         {% if u.role.value == 'employee' and u.is_active %}
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('company.employee_edit', user_id=u.id) }}">Edit</a>
         <form method="post" action="{{ url_for('company.employee_deactivate', user_id=u.id) }}" class="d-inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="btn btn-sm btn-outline-danger">Deactivate</button>

@@ -10,13 +10,13 @@ from ...extensions import db
 from ...models import (
     User, UserRole, PricingPlan, Subscription, SubscriptionStatus,
     SubscriptionChangeRequest, SubscriptionRequestStatus,
-    SeatAllocation, AllocationStatus, Invoice, InvoiceStatus, PaymentSubmission,
+    Seat, SeatType, SeatAllocation, AllocationStatus, Invoice, InvoiceStatus, PaymentSubmission,
     PaymentSubmissionStatus, SeatBooking, RoomBooking,
 )
 from ...utils.decorators import company_admin_required
 from .forms import (
     InviteEmployeeForm, AcceptInviteForm, CompanyProfileForm,
-    SubscriptionRequestForm, EmployeeAllocationForm, PaymentSubmissionForm,
+    SubscriptionRequestForm, EmployeeAllocationForm, CompanySeatAllocationForm, PaymentSubmissionForm,
 )
 from ...services import mail_service, tier_limits
 
@@ -29,6 +29,24 @@ def _own_company():
     if not current_user.company_id:
         abort(403)
     return current_user.company
+
+
+def _company_subscription_capacity(company):
+    return sum(subscription.quantity for subscription in Subscription.query.filter_by(
+        company_id=company.id, status=SubscriptionStatus.ACTIVE,
+    ).all())
+
+
+def _employee_seat_choices(company, employee_id=None):
+    query = SeatAllocation.query.filter_by(company_id=company.id, status=AllocationStatus.ACTIVE)
+    if employee_id is None:
+        query = query.filter(SeatAllocation.user_id.is_(None))
+    else:
+        query = query.filter((SeatAllocation.user_id.is_(None)) | (SeatAllocation.user_id == employee_id))
+    return [(0, "— no assigned seat —")] + [
+        (allocation.id, f"{allocation.seat.location.name} / {allocation.seat.code}")
+        for allocation in query.order_by(SeatAllocation.created_at.desc()).all()
+    ]
 
 
 # --------------------------------------------------------------- dashboard --
@@ -81,6 +99,7 @@ def employees():
 def employee_new():
     c = _own_company()
     form = InviteEmployeeForm()
+    form.seat_allocation_id.choices = _employee_seat_choices(c)
     if form.validate_on_submit():
         emp_count = User.query.filter_by(company_id=c.id, role=UserRole.EMPLOYEE).count()
         if emp_count >= c.max_employees:
@@ -105,7 +124,16 @@ def employee_new():
         )
         # Random placeholder — invitee will replace via accept-invite link.
         u.set_password(current_app.config["SECRET_KEY"] + email)
-        db.session.add(u); db.session.commit()
+        db.session.add(u)
+        db.session.flush()
+        if form.seat_allocation_id.data:
+            allocation = SeatAllocation.query.filter_by(
+                id=form.seat_allocation_id.data, company_id=c.id,
+                status=AllocationStatus.ACTIVE, user_id=None,
+            ).first()
+            if allocation is not None:
+                allocation.user_id = u.id
+        db.session.commit()
 
         token = mail_service.make_token(u.id, "employee-invite")
         accept_url = url_for("company.accept_invite", token=token, _external=True)
@@ -118,7 +146,44 @@ def employee_new():
         )
         flash(f"Invitation sent to {u.email}.", "success")
         return redirect(url_for("company.employees"))
-    return render_template("company/employee_form.html", form=form, company=c)
+    return render_template("company/employee_form.html", form=form, company=c, editing=False)
+
+
+@company_bp.route("/employees/<int:user_id>/edit", methods=["GET", "POST"])
+@company_admin_required
+def employee_edit(user_id: int):
+    c = _own_company()
+    employee = User.query.filter_by(id=user_id, company_id=c.id, role=UserRole.EMPLOYEE).first_or_404()
+    form = InviteEmployeeForm(obj=employee)
+    form.seat_allocation_id.choices = _employee_seat_choices(c, employee.id)
+    current_allocation = SeatAllocation.query.filter_by(
+        company_id=c.id, user_id=employee.id, status=AllocationStatus.ACTIVE,
+    ).first()
+    if not form.is_submitted():
+        form.seat_allocation_id.data = current_allocation.id if current_allocation else 0
+    if form.validate_on_submit():
+        email = form.email.data.lower().strip()
+        duplicate = User.query.filter(User.tenant_id == c.tenant_id, User.email == email,
+                                      User.id != employee.id).first()
+        if duplicate:
+            flash("That email is already registered under this workspace.", "warning")
+        else:
+            employee.full_name = form.full_name.data.strip()
+            employee.email = email
+            employee.phone = form.phone.data
+            if current_allocation and current_allocation.id != form.seat_allocation_id.data:
+                current_allocation.user_id = None
+            if form.seat_allocation_id.data:
+                allocation = SeatAllocation.query.filter_by(
+                    id=form.seat_allocation_id.data, company_id=c.id,
+                    status=AllocationStatus.ACTIVE,
+                ).filter((SeatAllocation.user_id.is_(None)) | (SeatAllocation.user_id == employee.id)).first()
+                if allocation is not None:
+                    allocation.user_id = employee.id
+            db.session.commit()
+            flash("Employee updated.", "success")
+            return redirect(url_for("company.employees"))
+    return render_template("company/employee_form.html", form=form, company=c, editing=True)
 
 
 @company_bp.route("/invite/<token>", methods=["GET", "POST"])
@@ -216,12 +281,64 @@ def allocations():
                  .order_by(User.full_name).all())
     form = EmployeeAllocationForm()
     form.employee_id.choices = [(employee.id, employee.full_name) for employee in employees]
-    capacity = sum(subscription.quantity for subscription in Subscription.query.filter_by(
-        company_id=c.id, status=SubscriptionStatus.ACTIVE,
-    ).all())
+    capacity = _company_subscription_capacity(c)
     assigned = sum(1 for allocation in allocs if allocation.user_id)
+    create_form = CompanySeatAllocationForm()
+    create_form.seat_id.choices = [(seat.id, f"{seat.location.name} / {seat.code} ({seat.seat_type.value.replace('_', ' ')})")
+                                   for seat in Seat.query.filter(
+                                       Seat.is_active.is_(True),
+                                       Seat.seat_type.in_([SeatType.DEDICATED_DESK, SeatType.PRIVATE_OFFICE]),
+                                       ~Seat.allocations.any(SeatAllocation.status == AllocationStatus.ACTIVE),
+                                   ).order_by(Seat.code).all()]
+    create_form.employee_id.choices = [(0, "— leave unassigned —")] + [
+        (employee.id, employee.full_name) for employee in employees
+    ]
     return render_template("company/allocations.html", company=c, allocations=allocs,
-                           allocation_form=form, capacity=capacity, assigned=assigned)
+                           allocation_form=form, create_form=create_form, capacity=capacity, assigned=assigned)
+
+
+@company_bp.route("/allocations/new", methods=["POST"])
+@company_admin_required
+def allocation_new():
+    c = _own_company()
+    form = CompanySeatAllocationForm()
+    form.seat_id.choices = [(seat.id, seat.code) for seat in Seat.query.filter(
+        Seat.is_active.is_(True),
+        Seat.seat_type.in_([SeatType.DEDICATED_DESK, SeatType.PRIVATE_OFFICE]),
+        ~Seat.allocations.any(SeatAllocation.status == AllocationStatus.ACTIVE),
+    ).all()]
+    employees = User.query.filter_by(company_id=c.id, role=UserRole.EMPLOYEE, is_active=True).all()
+    form.employee_id.choices = [(0, "— leave unassigned —")] + [
+        (employee.id, employee.full_name) for employee in employees
+    ]
+    active_allocations = SeatAllocation.query.filter_by(company_id=c.id, status=AllocationStatus.ACTIVE).count()
+    if active_allocations >= _company_subscription_capacity(c):
+        flash("Your active subscription does not have another seat available to allocate.", "warning")
+    elif form.validate_on_submit():
+        seat = Seat.query.filter(
+            Seat.id == form.seat_id.data,
+            Seat.is_active.is_(True),
+            Seat.seat_type.in_([SeatType.DEDICATED_DESK, SeatType.PRIVATE_OFFICE]),
+            ~Seat.allocations.any(SeatAllocation.status == AllocationStatus.ACTIVE),
+        ).first()
+        employee = User.query.filter_by(
+            id=form.employee_id.data, company_id=c.id, role=UserRole.EMPLOYEE, is_active=True,
+        ).first() if form.employee_id.data else None
+        if seat is None:
+            flash("That seat is no longer available.", "warning")
+        else:
+            db.session.add(SeatAllocation(
+                seat_id=seat.id,
+                company_id=c.id,
+                user_id=employee.id if employee else None,
+                status=AllocationStatus.ACTIVE,
+                start_date=date.today(),
+            ))
+            db.session.commit()
+            flash("Seat allocated to your company.", "success")
+    else:
+        flash("Pick a valid available seat.", "warning")
+    return redirect(url_for("company.allocations"))
 
 
 @company_bp.route("/allocations/<int:allocation_id>/assign", methods=["POST"])
@@ -237,9 +354,7 @@ def allocation_assign(allocation_id: int):
         for employee in User.query.filter_by(company_id=c.id, role=UserRole.EMPLOYEE, is_active=True)
         .order_by(User.full_name).all()
     ]
-    capacity = sum(subscription.quantity for subscription in Subscription.query.filter_by(
-        company_id=c.id, status=SubscriptionStatus.ACTIVE,
-    ).all())
+    capacity = _company_subscription_capacity(c)
     assigned = SeatAllocation.query.filter_by(
         company_id=c.id, status=AllocationStatus.ACTIVE,
     ).filter(SeatAllocation.user_id.isnot(None)).count()
