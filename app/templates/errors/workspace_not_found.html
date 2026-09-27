@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Workspace not found{% endblock %}
+{% block content %}
+<div class="text-center py-5">
+  <h1 class="display-4 fw-bold mb-3">We couldn't find that workspace</h1>
+  <p class="lead text-muted">
+    <code>{{ requested_host }}</code> isn't a registered operator on {{ base_domain }}.
+    Double-check the URL your operator gave you, or get started below.
+  </p>
+  <div class="mt-4 d-flex gap-2 justify-content-center flex-wrap">
+    <a href="https://{{ base_domain }}/" class="btn btn-outline-dark">Go to {{ base_domain }}</a>
+    <a href="https://{{ base_domain }}/auth/register/tenant" class="btn btn-dark">Sign up with {{ base_domain }}</a>
+  </div>
+</div>
+{% endblock %}

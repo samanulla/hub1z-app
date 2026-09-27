@@ -20,7 +20,7 @@ they're doing.
 """
 from __future__ import annotations
 
-from flask import Flask, g, request, has_request_context, abort
+from flask import Flask, g, request, has_request_context
 from sqlalchemy import event, or_
 from sqlalchemy.orm import Session, with_loader_criteria
 
@@ -68,9 +68,14 @@ def install(app: Flask) -> None:
             if host != base and host != f"www.{base}":
                 # Any other unmatched host — including a *.hub1z.com
                 # subdomain that isn't a real operator, or a stray custom
-                # domain — must 404, not silently fall through to the
-                # platform's own marketing page.
-                abort(404)
+                # domain — gets a friendly "no such workspace" page instead
+                # of silently falling through to the platform's marketing
+                # page, or a bare 404 with no way back. Links on that page
+                # are absolute (this host has no working url_for('index')).
+                from flask import render_template, make_response
+                body = render_template("errors/workspace_not_found.html",
+                                       base_domain=base, requested_host=host)
+                return make_response(body, 404)
         g.tenant = t
         g.tenant_id = t.id if t is not None else None
 
