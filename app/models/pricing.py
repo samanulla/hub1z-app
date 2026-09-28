@@ -35,6 +35,7 @@ class PlanScope(str, enum.Enum):
 
 
 class BillingUnit(str, enum.Enum):
+    PER_PERSON = "per_person"  # Legacy value; migration converts existing rows to PER_PERSON_DAY.
     PER_SEAT = "per_seat"
     PER_OFFICE = "per_office"
     PER_DAY_PASS = "per_day_pass"
