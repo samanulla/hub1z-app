@@ -230,6 +230,7 @@ def _normalize_plan_conditions(plan, form):
         plan.included_seat_quantity = 0
     if not form.additional_seats_allowed.data:
         plan.additional_seat_rate = 0
+        plan.maximum_additional_seats = None
     if not form.meeting_room_access_included.data:
         plan.meeting_credit_unit = None
         plan.included_meeting_credits = 0

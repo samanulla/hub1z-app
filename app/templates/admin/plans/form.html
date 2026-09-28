@@ -15,15 +15,16 @@
       <div class="col-md-3">{{ field(form.plan_type) }}</div><div class="col-md-3">{{ field(form.billing_unit) }}</div><div class="col-md-3">{{ field(form.billing_cycle) }}</div><div class="col-md-3">{{ field(form.status) }}</div>
     </div>
     <div class="row">
-      <div class="col-md-3">{{ field(form.base_price) }}</div><div id="included-seats-field" class="col-md-3">{{ field(form.included_seat_quantity) }}</div><div class="col-md-3">{{ field(form.included_meeting_credits) }}</div><div id="office-capacity-field" class="col-md-3">{{ field(form.office_capacity) }}</div>
+      <div class="col-md-4">{{ field(form.base_price) }}</div><div id="included-seats-field" class="col-md-4">{{ field(form.included_seat_quantity) }}</div><div id="office-capacity-field" class="col-md-4">{{ field(form.office_capacity) }}</div>
     </div>
-    <div class="row"><div class="col-md-4">{{ field(form.additional_seats_allowed) }}</div><div id="additional-seat-rate-field" class="col-md-4">{{ field(form.additional_seat_rate) }}</div><div class="col-md-4">{{ field(form.meeting_room_access_included) }}</div></div>
+    <div class="row"><div class="col-md-4">{{ field(form.additional_seats_allowed) }}</div><div id="additional-seat-rate-field" class="col-md-4">{{ field(form.additional_seat_rate) }}</div><div id="maximum-additional-seats-field" class="col-md-4">{{ field(form.maximum_additional_seats) }}</div></div>
+    <div class="row"><div class="col-md-4">{{ field(form.meeting_room_access_included) }}</div></div>
     <div id="meeting-fields" class="row"><div class="col-md-3">{{ field(form.meeting_credit_unit) }}</div><div class="col-md-3">{{ field(form.included_meeting_credits) }}</div><div class="col-md-3">{{ field(form.meeting_credits_rollover) }}</div><div class="col-md-3">{{ field(form.meeting_room_overage_allowed) }}</div><div id="meeting-overage-field" class="col-md-3">{{ field(form.meeting_room_overage_rate) }}</div></div>
-    <div class="row"><div class="col-md-3">{{ field(form.deposit_required) }}</div><div id="deposit-fields" class="col-md-6"><div class="row"><div class="col-md-6">{{ field(form.deposit_calculation) }}</div><div class="col-md-6">{{ field(form.deposit_value) }}</div></div>{{ field(form.deposit_refundable) }}</div><div class="col-md-3">{{ field(form.tax_applicable) }}{{ field(form.price_includes_tax) }}</div></div>
-    <div class="row"><div class="col-md-3">{{ field(form.tax_code) }}</div><div class="col-md-3">{{ field(form.currency) }}</div><div class="col-md-3">{{ field(form.effective_from) }}</div><div class="col-md-3">{{ field(form.effective_until) }}</div></div>
+    <div class="row"><div class="col-md-3">{{ field(form.deposit_required) }}</div><div id="deposit-fields" class="col-md-6"><div class="row"><div class="col-md-6">{{ field(form.deposit_calculation) }}</div><div class="col-md-6">{{ field(form.deposit_value) }}</div></div>{{ field(form.deposit_refundable) }}</div><div class="col-md-3">{{ field(form.tax_applicable) }}</div></div>
+    <div id="tax-fields" class="row"><div class="col-md-3">{{ field(form.tax_code) }}</div><div class="col-md-3">{{ field(form.price_includes_tax) }}</div></div>
+    <div class="row"><div class="col-md-3">{{ field(form.currency) }}</div><div class="col-md-3">{{ field(form.effective_from) }}</div><div class="col-md-3">{{ field(form.effective_until) }}</div></div>
     {{ field(form.version) }}
     <div class="row"><div class="col-md-4">{{ field(form.location_scope) }}</div><div id="locations-field" class="col-md-4">{{ field(form.location_ids) }}</div><div id="contract-field" class="col-md-4">{{ field(form.minimum_contract_months) }}</div></div>
-    {{ field(form.tax_applicable) }}
     <p class="text-muted small">Parking, lockers, printing, additional meeting credits and after-hours access are plan add-ons and are kept separate from the base plan.</p>
     {{ field(form.description) }}
     <button class="btn btn-dark">Save</button>
@@ -39,10 +40,19 @@
       if (!visible && clear) clear();
     };
     const refresh = () => {
+      const allowedUnits = {
+        hot_desk: type.value === 'hot_desk' && byId('billing_cycle').value === 'daily' ? ['per_person_day'] : ['per_seat'],
+        dedicated_desk: ['per_seat'], private_office: ['per_office'],
+        managed_office: ['per_office', 'flat_fee'], day_pass: ['per_day_pass'],
+      };
+      const validUnits = allowedUnits[type.value] || ['flat_fee'];
+      Array.from(unit.options).forEach(option => option.hidden = !validUnits.includes(option.value));
+      if (!validUnits.includes(unit.value)) unit.value = validUnits[0];
       show(byId('company-field'), scope.value === 'company_custom', () => byId('company_id').value = '0');
       show(byId('office-capacity-field'), ['private_office', 'managed_office'].includes(type.value), () => byId('office_capacity').value = '');
       show(byId('included-seats-field'), ['per_seat', 'per_office', 'flat_fee'].includes(unit.value), () => byId('included_seat_quantity').value = '0');
-      show(byId('contract-field'), type.value !== 'day_pass', () => byId('minimum_contract_months').value = '0');
+      const recurring = ['monthly', 'quarterly', 'annual'].includes(byId('billing_cycle').value) && type.value !== 'day_pass' && unit.value !== 'per_person_day';
+      show(byId('contract-field'), recurring, () => byId('minimum_contract_months').value = '0');
       const manualLocations = ['one', 'multiple'].includes(locationScope.value);
       show(byId('locations-field'), manualLocations, () => Array.from(byId('location_ids').options).forEach(option => option.selected = false));
       byId('location_ids').multiple = locationScope.value === 'multiple';
@@ -51,11 +61,13 @@
         selected.slice(1).forEach(option => option.selected = false);
       }
       show(byId('additional-seat-rate-field'), byId('additional_seats_allowed').checked, () => byId('additional_seat_rate').value = '0');
+      show(byId('maximum-additional-seats-field'), byId('additional_seats_allowed').checked, () => byId('maximum_additional_seats').value = '');
       show(byId('meeting-fields'), byId('meeting_room_access_included').checked, () => byId('meeting_room_overage_rate').value = '0');
       show(byId('meeting-overage-field'), byId('meeting_room_overage_allowed').checked, () => byId('meeting_room_overage_rate').value = '0');
       show(byId('deposit-fields'), byId('deposit_required').checked, () => byId('deposit_value').value = '0');
+      show(byId('tax-fields'), byId('tax_applicable').checked, () => { byId('tax_code').value = ''; byId('price_includes_tax').checked = false; });
     };
-    [scope, type, unit, locationScope, byId('additional_seats_allowed'), byId('meeting_room_access_included'), byId('meeting_room_overage_allowed'), byId('deposit_required')].forEach(control => control.addEventListener('change', refresh));
+    [scope, type, unit, byId('billing_cycle'), locationScope, byId('additional_seats_allowed'), byId('meeting_room_access_included'), byId('meeting_room_overage_allowed'), byId('deposit_required'), byId('tax_applicable')].forEach(control => control.addEventListener('change', refresh));
     refresh();
   })();
 </script>

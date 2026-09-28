@@ -82,6 +82,7 @@ class PricingPlan(db.Model, PkMixin, TimestampMixin, TenantScoped):
     included_meeting_credits = Column(Integer, default=0, nullable=False)
     additional_seat_rate = Column(Numeric(10, 2), default=0, nullable=False)
     additional_seats_allowed = Column(Boolean, default=False, nullable=False)
+    maximum_additional_seats = Column(Integer)
     meeting_room_access_included = Column(Boolean, default=False, nullable=False)
     meeting_credit_unit = Column(String(20))
     meeting_credits_rollover = Column(Boolean, default=False, nullable=False)

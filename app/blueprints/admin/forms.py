@@ -80,13 +80,18 @@ class PricingPlanForm(FlaskForm):
     scope = SelectField("Plan scope", choices=_enum_choices(PlanScope), validators=[DataRequired()])
     company_id = SelectField("Company-specific plan for", coerce=int, validators=[Optional()])
     plan_type = SelectField("Workspace type", choices=_enum_choices(PlanType), validators=[DataRequired()])
-    billing_unit = SelectField("Billing unit", choices=_enum_choices(BillingUnit), validators=[DataRequired()])
+    billing_unit = SelectField("Billing unit", choices=[
+        ("per_seat", "Per Seat"), ("per_office", "Per Office"),
+        ("per_day_pass", "Per Day Pass"), ("per_person_day", "Per Person-Day"),
+        ("flat_fee", "Flat Fee"),
+    ], validators=[DataRequired()])
     billing_cycle = SelectField("Billing cycle", choices=_enum_choices(BillingCycle), validators=[DataRequired()])
     base_price = DecimalField("Base price", validators=[DataRequired(), NumberRange(min=0)])
     included_seat_quantity = IntegerField("Included seat quantity", default=1, validators=[NumberRange(min=0)])
     included_meeting_credits = IntegerField("Meeting room credits", default=0, validators=[NumberRange(min=0)])
     additional_seats_allowed = BooleanField("Additional seats allowed", default=False)
     additional_seat_rate = DecimalField("Additional seat rate", default=0, validators=[NumberRange(min=0)])
+    maximum_additional_seats = IntegerField("Maximum additional seats", validators=[Optional(), NumberRange(min=1)])
     meeting_room_access_included = BooleanField("Meeting-room access included", default=False)
     meeting_credit_unit = SelectField("Credit unit", choices=[("hours", "Hours"), ("booking_credits", "Booking Credits")], validators=[Optional()])
     meeting_credits_rollover = BooleanField("Credit rollover allowed", default=False)
@@ -134,6 +139,19 @@ class PricingPlanForm(FlaskForm):
         if self.additional_seats_allowed.data and (self.additional_seat_rate.data is None or self.additional_seat_rate.data <= 0):
             self.additional_seat_rate.errors.append("Additional seats require a rate greater than zero.")
             valid = False
+        if self.effective_until.data and (not self.effective_from.data or self.effective_until.data <= self.effective_from.data):
+            self.effective_until.errors.append("Effective Until must be later than Effective From.")
+            valid = False
+        if self.tax_applicable.data and not (self.tax_code.data or "").strip():
+            self.tax_code.errors.append("Tax Code / Rate is required when tax applies.")
+            valid = False
+        if self.status.data == PlanStatus.ACTIVE.value:
+            for field, message in ((self.base_price, "Base Price is required for an active plan."),
+                                   (self.currency, "Currency is required for an active plan."),
+                                   (self.effective_from, "Effective From is required for an active plan.")):
+                if field.data in (None, ""):
+                    field.errors.append(message)
+                    valid = False
         return valid
 
 
