@@ -2,7 +2,8 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<h3>Hi {{ current_user.full_name.split(' ')[0] }} 👋</h3>
+<h3 class="mb-1">Hi {{ current_user.full_name.split(' ')[0] }} 👋</h3>
+<p class="text-muted mb-4">Your bookings, credits and day passes at a glance.</p>
 
 <div class="row g-3 mb-4">
   <div class="col-md-4">

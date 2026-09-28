@@ -289,24 +289,24 @@
       <ul class="navbar-nav ms-auto align-items-lg-center">
         {% if current_user.is_authenticated %}
           {% if current_user.is_platform_staff %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('platform.dashboard') }}">Manage</a></li>
+            <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint == 'platform' }}" href="{{ url_for('platform.dashboard') }}">Manage</a></li>
           {% elif current_user.is_admin %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('admin.dashboard') }}">Manage</a></li>
+            <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint == 'admin' }}" href="{{ url_for('admin.dashboard') }}">Manage</a></li>
           {% elif current_user.is_company_admin %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('company.dashboard') }}">Manage</a></li>
+            <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint == 'company' }}" href="{{ url_for('company.dashboard') }}">Manage</a></li>
           {% else %}
-            <li class="nav-item"><a class="nav-link" href="{{ url_for('member.dashboard') }}">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'member.dashboard' }}" href="{{ url_for('member.dashboard') }}">Dashboard</a></li>
           {% endif %}
           {% if current_user.role.value in ["employee", "individual"] %}
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('book.calendar') }}">Calendar</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('community.announcements') }}">Announcements</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('community.guest_passes') }}">Guest passes</a></li>
+          <li class="nav-item"><a class="nav-link {{ 'active' if request.blueprint == 'book' }}" href="{{ url_for('book.calendar') }}">Calendar</a></li>
+          <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'community.announcements' }}" href="{{ url_for('community.announcements') }}">Announcements</a></li>
+          <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'community.guest_passes' }}" href="{{ url_for('community.guest_passes') }}">Guest passes</a></li>
           {% elif not current_user.is_platform_staff %}
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('book.index') }}">Book</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('book.calendar') }}">Calendar</a></li>
-          <li class="nav-item"><a class="nav-link" href="{{ url_for('member.day_passes') }}">Day pass</a></li>
+          <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint in ('book.index', 'book.location_home', 'book.seat_book', 'book.room_book') }}" href="{{ url_for('book.index') }}">Book</a></li>
+          <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint and request.endpoint.startswith('book.') and request.endpoint not in ('book.index', 'book.location_home', 'book.seat_book', 'book.room_book') }}" href="{{ url_for('book.calendar') }}">Calendar</a></li>
+          <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint and request.endpoint.startswith('member.day_pass') }}" href="{{ url_for('member.day_passes') }}">Day pass</a></li>
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#">Hub</a>
+            <a class="nav-link dropdown-toggle {{ 'active' if request.blueprint == 'community' }}" data-bs-toggle="dropdown" href="#">Hub</a>
             <ul class="dropdown-menu">
               <li><a class="dropdown-item" href="{{ url_for('community.directory') }}">Community</a></li>
               <li><a class="dropdown-item" href="{{ url_for('community.announcements') }}">Announcements</a></li>
