@@ -224,6 +224,38 @@
     .role-card:hover { border-top-color: var(--saffron); }
     .heatmap td { transition: background .2s; }
 
+    /* App shell — persistent sidebar for the Operator (Manage) and Platform
+       back-office areas, which have too many sections for a top nav alone. */
+    .app-shell { display: flex; align-items: flex-start; gap: 0; }
+    .app-sidebar {
+      width: 232px; flex: 0 0 232px; padding: 1.5rem .75rem 2rem;
+      border-right: 1px solid var(--line); align-self: stretch;
+    }
+    .app-sidebar .side-group { margin-bottom: 1.4rem; }
+    .app-sidebar .side-group-label {
+      font-size: .66rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .12em; color: var(--ink-soft); margin-bottom: .4rem; padding: 0 .6rem;
+    }
+    .app-sidebar .side-link {
+      display: block; padding: .45rem .6rem; font-size: .87rem; font-weight: 500;
+      color: var(--ink-soft); border-left: 2px solid transparent; margin-bottom: .05rem;
+    }
+    .app-sidebar .side-link:hover { color: var(--ink); background: var(--cream-2); }
+    .app-sidebar .side-link.active {
+      color: var(--ink); background: var(--cream-2); border-left-color: var(--ink); font-weight: 600;
+    }
+    .app-main { flex: 1 1 auto; min-width: 0; }
+    .sidebar-toggle { display: none; }
+    @media (max-width: 991.98px) {
+      .app-shell { flex-direction: column; }
+      .app-sidebar {
+        width: 100%; flex: 1 1 auto; border-right: none;
+        border-bottom: 1px solid var(--line); display: none;
+      }
+      .app-sidebar.open { display: block; }
+      .sidebar-toggle { display: inline-flex; }
+    }
+
     /* Bootstrap utility overrides to keep editorial feel across legacy templates */
     .bg-white, .bg-body, .bg-light { background-color: var(--cream) !important; }
     .shadow-sm, .shadow { box-shadow: none !important; border: 1px solid var(--line); }
@@ -317,18 +349,109 @@
 </nav>
 
 {% block full %}
-<main class="container py-4">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in messages %}
-      <div class="alert alert-{{ 'danger' if cat=='danger' else cat }} alert-dismissible fade show" role="alert">
-        {{ msg }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    {% endfor %}
-  {% endwith %}
+{% set show_admin_sidebar = current_user.is_authenticated and request.blueprint == 'admin' and current_user.is_admin %}
+{% set show_platform_sidebar = current_user.is_authenticated and request.blueprint == 'platform' and current_user.is_platform_staff %}
+<div class="{{ 'app-shell container-fluid' if (show_admin_sidebar or show_platform_sidebar) else '' }}">
+  {% if show_admin_sidebar %}
+  <aside class="app-sidebar" id="appSidebar">
+    <div class="side-group">
+      <div class="side-group-label">Overview</div>
+      <a class="side-link {{ 'active' if request.endpoint == 'admin.dashboard' }}" href="{{ url_for('admin.dashboard') }}">Dashboard</a>
+    </div>
+    <div class="side-group">
+      <div class="side-group-label">Workspace</div>
+      <a class="side-link {{ 'active' if request.endpoint in ('admin.locations_list','admin.location_new','admin.location_detail','admin.location_edit','admin.floor_new','admin.seats_list','admin.seat_new','admin.seat_edit','admin.rooms_list','admin.room_new','admin.room_edit') }}" href="{{ url_for('admin.locations_list') }}">Locations &amp; seats</a>
+      <a class="side-link {{ 'active' if request.endpoint in ('admin.plans_list','admin.plan_new','admin.plan_edit') }}" href="{{ url_for('admin.plans_list') }}">Pricing plans</a>
+      <a class="side-link {{ 'active' if request.endpoint in ('admin.allocations','admin.allocation_end') }}" href="{{ url_for('admin.allocations') }}">Seat allocations</a>
+      <a class="side-link {{ 'active' if request.endpoint in ('admin.operator_documents','admin.company_documents') }}" href="{{ url_for('admin.operator_documents') }}">Documents</a>
+    </div>
+    <div class="side-group">
+      <div class="side-group-label">People</div>
+      <a class="side-link {{ 'active' if request.endpoint in ('admin.companies_list','admin.company_new','admin.company_detail','admin.company_edit') }}" href="{{ url_for('admin.companies_list') }}">Companies</a>
+      {% if current_user.is_manager or current_user.is_super_admin or current_user.is_platform_owner %}
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.invite') or request.endpoint in ('admin.invites_list','admin.accept_member_invite','admin.accept_company_invite','admin.accept_team_invite') }}" href="{{ url_for('admin.invites_list') }}">Invites</a>
+      {% endif %}
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.staff') or request.endpoint == 'admin.salary_new' }}" href="{{ url_for('admin.staff_list') }}">Staff</a>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.payroll') }}" href="{{ url_for('admin.payroll_list') }}">Payroll</a>
+    </div>
+    <div class="side-group">
+      <div class="side-group-label">Billing &amp; finance</div>
+      <a class="side-link {{ 'active' if request.endpoint and (request.endpoint.startswith('admin.invoice') or request.endpoint == 'admin.payment_new' or request.endpoint == 'admin.payment_submission_review' or request.endpoint == 'admin.billing_run') }}" href="{{ url_for('admin.invoices_list') }}">Invoices</a>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.credit_note') }}" href="{{ url_for('admin.credit_notes') }}">Credit notes</a>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.refund') }}" href="{{ url_for('admin.refunds') }}">Refunds</a>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.expense') and 'categor' not in request.endpoint }}" href="{{ url_for('admin.expenses_list') }}">Expenses</a>
+      <a class="side-link {{ 'active' if request.endpoint and 'expense_categor' in request.endpoint }}" href="{{ url_for('admin.expense_categories') }}">Expense categories</a>
+    </div>
+    <div class="side-group">
+      <div class="side-group-label">Reports &amp; communications</div>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.report') }}" href="{{ url_for('admin.reports_home') }}">Reports</a>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.email_template') }}" href="{{ url_for('admin.email_templates') }}">Email templates</a>
+    </div>
+    {% if current_user.is_super_admin or current_user.is_platform_owner %}
+    <div class="side-group">
+      <div class="side-group-label">Administration</div>
+      <a class="side-link {{ 'active' if request.endpoint == 'admin.settings' }}" href="{{ url_for('admin.settings') }}">System settings</a>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.audit_log') }}" href="{{ url_for('admin.audit_log') }}">Audit log</a>
+    </div>
+    {% endif %}
+  </aside>
+  {% elif show_platform_sidebar %}
+  <aside class="app-sidebar" id="appSidebar">
+    <div class="side-group">
+      <div class="side-group-label">Overview</div>
+      <a class="side-link {{ 'active' if request.endpoint == 'platform.dashboard' }}" href="{{ url_for('platform.dashboard') }}">Dashboard</a>
+    </div>
+    {% if current_user.has_platform_permission('tenants') %}
+    <div class="side-group">
+      <div class="side-group-label">Operators</div>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('platform.tenant') and 'invite' not in request.endpoint }}" href="{{ url_for('platform.tenants_list') }}">Operators</a>
+      <a class="side-link {{ 'active' if request.endpoint == 'platform.tenant_invite' }}" href="{{ url_for('platform.tenant_invite') }}">Invite operator</a>
+    </div>
+    {% endif %}
+    {% if current_user.has_platform_permission('billing') %}
+    <div class="side-group">
+      <div class="side-group-label">Billing</div>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('platform.billing') }}" href="{{ url_for('platform.billing') }}">Operator billing</a>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('platform.finance') }}" href="{{ url_for('platform.finance_dashboard') }}">Finance</a>
+      {% if current_user.is_platform_owner %}
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('platform.tier') }}" href="{{ url_for('platform.tiers_list') }}">Pricing tiers</a>
+      {% endif %}
+    </div>
+    {% endif %}
+    {% if current_user.has_platform_permission('reports') %}
+    <div class="side-group">
+      <div class="side-group-label">Reports</div>
+      <a class="side-link {{ 'active' if request.endpoint == 'platform.reports' }}" href="{{ url_for('platform.reports') }}">Reports</a>
+    </div>
+    {% endif %}
+    {% if current_user.is_platform_owner %}
+    <div class="side-group">
+      <div class="side-group-label">Owner only</div>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('platform.team') or request.endpoint and request.endpoint.startswith('platform.manager') }}" href="{{ url_for('platform.team_list') }}">Platform team</a>
+      <a class="side-link {{ 'active' if request.endpoint == 'platform.platform_documents' }}" href="{{ url_for('platform.platform_documents') }}">Documents</a>
+    </div>
+    {% endif %}
+  </aside>
+  {% endif %}
+  <main class="{{ 'app-main py-4' if (show_admin_sidebar or show_platform_sidebar) else 'container py-4' }}">
+    {% if show_admin_sidebar or show_platform_sidebar %}
+    <button class="btn btn-outline-dark btn-sm sidebar-toggle mb-3" type="button"
+            onclick="document.getElementById('appSidebar').classList.toggle('open')">
+      <i class="bi bi-list"></i> Menu
+    </button>
+    {% endif %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="alert alert-{{ 'danger' if cat=='danger' else cat }} alert-dismissible fade show" role="alert">
+          {{ msg }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endwith %}
 
-  {% block content %}{% endblock %}
-</main>
+    {% block content %}{% endblock %}
+  </main>
+</div>
 
 <footer class="container py-4 mt-5 border-top">
   <div class="d-flex justify-content-between">
