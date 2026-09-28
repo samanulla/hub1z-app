@@ -5,7 +5,7 @@ os.environ.setdefault("FLASK_ENV", "testing")
 
 from app import create_app
 from app.extensions import db
-from app.models import Tenant, TenantStatus, User, UserRole, Location, Floor
+from app.models import Tenant, TenantStatus, User, UserRole, Location, Floor, Company, CompanyStatus
 
 
 def _app():
@@ -101,6 +101,29 @@ def test_platform_manager_with_reports_only_sees_restricted_sidebar():
     assert b"Invite operator" not in r.data
     assert b"Pricing tiers" not in r.data
     assert b"Platform team" not in r.data
+
+
+def test_company_admin_sees_company_sidebar():
+    app = _app()
+    with app.app_context():
+        t = Tenant(slug="side4", name="Side Four", primary_domain="side4.hub1z.com",
+                  status=TenantStatus.ACTIVE)
+        db.session.add(t); db.session.flush()
+        company = Company(tenant_id=t.id, name="Sidebar Co", billing_email="c@side4.com",
+                          status=CompanyStatus.ACTIVE)
+        db.session.add(company); db.session.flush()
+        u = User(tenant_id=t.id, email="ca@side4.com", full_name="Company Admin",
+                role=UserRole.COMPANY_ADMIN, company_id=company.id, is_active=True)
+        u.set_password("CaPass123!")
+        db.session.add(u); db.session.commit()
+
+    c = app.test_client()
+    _login(c, "ca@side4.com", "CaPass123!")
+    r = c.get("/company/")
+    assert r.status_code == 200
+    assert b'<aside class="app-sidebar"' in r.data
+    assert b"Plans &amp; subscriptions" in r.data
+    assert b"Seat allocations" in r.data
 
 
 def test_company_and_member_pages_unaffected_by_sidebar():

@@ -351,7 +351,8 @@
 {% block full %}
 {% set show_admin_sidebar = current_user.is_authenticated and request.blueprint == 'admin' and current_user.is_admin %}
 {% set show_platform_sidebar = current_user.is_authenticated and request.blueprint == 'platform' and current_user.is_platform_staff %}
-<div class="{{ 'app-shell container-fluid' if (show_admin_sidebar or show_platform_sidebar) else '' }}">
+{% set show_company_sidebar = current_user.is_authenticated and request.blueprint == 'company' and current_user.is_company_admin %}
+<div class="{{ 'app-shell container-fluid' if (show_admin_sidebar or show_platform_sidebar or show_company_sidebar) else '' }}">
   {% if show_admin_sidebar %}
   <aside class="app-sidebar" id="appSidebar">
     <div class="side-group">
@@ -432,9 +433,29 @@
     </div>
     {% endif %}
   </aside>
+  {% elif show_company_sidebar %}
+  <aside class="app-sidebar" id="appSidebar">
+    <div class="side-group">
+      <div class="side-group-label">Overview</div>
+      <a class="side-link {{ 'active' if request.endpoint == 'company.dashboard' }}" href="{{ url_for('company.dashboard') }}">Dashboard</a>
+      <a class="side-link {{ 'active' if request.endpoint == 'company.profile' }}" href="{{ url_for('company.profile') }}">Company profile</a>
+    </div>
+    <div class="side-group">
+      <div class="side-group-label">People &amp; workspace</div>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('company.employee') or request.endpoint == 'company.accept_invite' }}" href="{{ url_for('company.employees') }}">People</a>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('company.allocation') }}" href="{{ url_for('company.allocations') }}">Seat allocations</a>
+      <a class="side-link {{ 'active' if request.endpoint == 'company.bookings' }}" href="{{ url_for('company.bookings') }}">Team activity</a>
+    </div>
+    <div class="side-group">
+      <div class="side-group-label">Plan &amp; billing</div>
+      <a class="side-link {{ 'active' if request.endpoint == 'company.plans' }}" href="{{ url_for('company.plans') }}">Plans &amp; subscriptions</a>
+      <a class="side-link {{ 'active' if request.endpoint == 'company.subscriptions' }}" href="{{ url_for('company.subscriptions') }}">Subscription history</a>
+      <a class="side-link {{ 'active' if request.endpoint and (request.endpoint.startswith('company.invoice') or request.endpoint == 'company.payment_submission_new') }}" href="{{ url_for('company.invoices') }}">Invoices &amp; payments</a>
+    </div>
+  </aside>
   {% endif %}
-  <main class="{{ 'app-main py-4' if (show_admin_sidebar or show_platform_sidebar) else 'container py-4' }}">
-    {% if show_admin_sidebar or show_platform_sidebar %}
+  <main class="{{ 'app-main py-4' if (show_admin_sidebar or show_platform_sidebar or show_company_sidebar) else 'container py-4' }}">
+    {% if show_admin_sidebar or show_platform_sidebar or show_company_sidebar %}
     <button class="btn btn-outline-dark btn-sm sidebar-toggle mb-3" type="button"
             onclick="document.getElementById('appSidebar').classList.toggle('open')">
       <i class="bi bi-list"></i> Menu
