@@ -39,6 +39,14 @@ services:
       AWS_S3_OPERATOR_BUCKET: ${AWS_S3_OPERATOR_BUCKET:-}
       AWS_S3_URL_TTL: ${AWS_S3_URL_TTL:-3600}
       SEED_DEMO: ${SEED_DEMO:-true}
+      MAIL_SERVER: ${MAIL_SERVER:-localhost}
+      MAIL_PORT: ${MAIL_PORT:-25}
+      MAIL_USE_TLS: ${MAIL_USE_TLS:-false}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_DEFAULT_SENDER: ${MAIL_DEFAULT_SENDER:-no-reply@hub1z.com}
+      MAIL_SUPPRESS_SEND: ${MAIL_SUPPRESS_SEND:-false}
+      MAIL_CREDENTIALS_SECRET_NAME: ${MAIL_CREDENTIALS_SECRET_NAME:-}
     volumes:
       - uploads:/app/var
     command: >-

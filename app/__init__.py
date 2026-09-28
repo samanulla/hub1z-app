@@ -11,6 +11,7 @@ from .extensions import db, migrate, login_manager, csrf, mail, limiter
 from .services.storage import storage_service
 from .services.formatting import register_formatting
 from .services import tenant_resolver
+from .services import secrets_manager
 
 load_dotenv()
 
@@ -21,6 +22,7 @@ def create_app(config_override: dict | None = None) -> Flask:
     if config_override:
         app.config.update(config_override)
 
+    secrets_manager.load_mail_credentials(app)
     _init_extensions(app)
     _register_blueprints(app)
     _register_cli(app)

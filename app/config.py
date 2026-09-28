@@ -50,6 +50,10 @@ class BaseConfig:
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD") or None
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "no-reply@hub1z.com")
     MAIL_SUPPRESS_SEND = _bool("MAIL_SUPPRESS_SEND", False)
+    # Optional: AWS Secrets Manager secret name/ARN holding {"username","password"}.
+    # When set, overrides MAIL_USERNAME/MAIL_PASSWORD above at app startup via the
+    # EC2 instance's IAM role — no static AWS keys or plaintext SMTP password on disk.
+    MAIL_CREDENTIALS_SECRET_NAME = os.getenv("MAIL_CREDENTIALS_SECRET_NAME", "")
 
     # Booking policy
     BOOKING_MIN_ADVANCE_MINUTES = int(os.getenv("BOOKING_MIN_ADVANCE_MINUTES", "15"))
