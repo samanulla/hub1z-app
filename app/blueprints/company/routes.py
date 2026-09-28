@@ -6,9 +6,11 @@ from datetime import date
 from flask import Blueprint, render_template, redirect, url_for, flash, abort, request, g, current_app
 from flask_login import current_user, login_user
 
+from sqlalchemy import or_, and_
+
 from ...extensions import db
 from ...models import (
-    User, UserRole, PricingPlan, Subscription, SubscriptionStatus,
+    User, UserRole, PricingPlan, PlanScope, Subscription, SubscriptionStatus,
     SubscriptionChangeRequest, SubscriptionRequestStatus,
     Seat, SeatType, SeatAllocation, AllocationStatus, Invoice, InvoiceStatus, PaymentSubmission,
     PaymentSubmissionStatus, SeatBooking, RoomBooking,
@@ -230,7 +232,14 @@ def employee_deactivate(user_id: int):
 @company_admin_required
 def plans():
     c = _own_company()
-    plans = PricingPlan.query.filter_by(is_active=True).order_by(PricingPlan.base_price).all()
+    # A company must only ever see plans meant for companies in general
+    # (Company, Standard) plus its own privately negotiated (Company, Custom)
+    # plan — never another company's custom deal, and never Individual plans.
+    plans = (PricingPlan.query.filter_by(is_active=True)
+             .filter(or_(PricingPlan.scope == PlanScope.COMPANY_STANDARD,
+                        and_(PricingPlan.scope == PlanScope.COMPANY_CUSTOM,
+                             PricingPlan.company_id == c.id)))
+             .order_by(PricingPlan.base_price).all())
     active_subs = Subscription.query.filter_by(
         company_id=c.id, status=SubscriptionStatus.ACTIVE,
     ).all()

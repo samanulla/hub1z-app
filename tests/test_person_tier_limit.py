@@ -1,8 +1,7 @@
-"""'No of seats = no of people, always' — a tenant on a lower tier can't
-sidestep the seat cap by just piling on employee/individual/company-admin
-accounts instead of buying more desks. Enforced across every place a new
-person gets attached to a tenant: self-serve signup, tenant-initiated
-invites, and a company adding its own employees."""
+"""Since the Hub1 SaaS tier redesign, only locations are a hard creation
+cap (see app/services/tier_limits.py). Active contracted seats/people are
+metered for platform billing overages instead of blocking new signups,
+invites, or employee adds. These tests lock in that fail-open behavior."""
 import os
 os.environ.setdefault("FLASK_ENV", "testing")
 
@@ -46,17 +45,16 @@ def _login(client, email, password):
     return client.post("/auth/login", data={"email": email, "password": password})
 
 
-def test_self_serve_individual_blocked_at_person_cap():
+def test_self_serve_individual_not_blocked_by_seat_cap():
     app = _app()
     _seed_tenant_at_cap(app, max_seats=1, existing_people=1)
     c = app.test_client()
-    r = c.post("/auth/register", data={
-        "full_name": "One Too Many", "email": "overflow@tiny.com",
+    c.post("/auth/register", data={
+        "full_name": "One More", "email": "overflow@tiny.com",
         "phone": "", "password": "OverPass123!", "confirm": "OverPass123!",
     }, follow_redirects=True)
-    assert b"plan allows up to 1" in r.data
     with app.app_context():
-        assert User.query.filter_by(email="overflow@tiny.com").first() is None
+        assert User.query.filter_by(email="overflow@tiny.com").first() is not None
 
 
 def test_self_serve_individual_allowed_under_person_cap():
@@ -71,36 +69,34 @@ def test_self_serve_individual_allowed_under_person_cap():
         assert User.query.filter_by(email="fits@tiny.com").first() is not None
 
 
-def test_self_serve_company_signup_blocked_at_person_cap():
+def test_self_serve_company_signup_not_blocked_by_seat_cap():
     app = _app()
     _seed_tenant_at_cap(app, max_seats=1, existing_people=1)
     c = app.test_client()
-    r = c.post("/auth/register/company", data={
+    c.post("/auth/register/company", data={
         "company_name": "New Co", "billing_email": "b@newco.example",
         "admin_full_name": "New Admin", "admin_email": "newadmin@newco.example",
         "password": "NewPass123!", "confirm": "NewPass123!",
     }, follow_redirects=True)
-    assert b"plan allows up to 1" in r.data
     with app.app_context():
-        assert Company.query.filter_by(name="New Co").first() is None
+        assert Company.query.filter_by(name="New Co").first() is not None
 
 
-def test_tenant_invite_individual_blocked_at_person_cap():
+def test_tenant_invite_individual_not_blocked_by_seat_cap():
     app = _app()
     _seed_tenant_at_cap(app, max_seats=1, existing_people=1)
     c = app.test_client()
     _login(c, "admin@tiny.com", "AdminPass123!")
-    r = c.post("/admin/invites/individual/new", data={
+    c.post("/admin/invites/individual/new", data={
         "full_name": "Overflow", "email": "overflow2@tiny.com",
     }, follow_redirects=True)
-    assert b"plan allows up to 1" in r.data
     with app.app_context():
-        assert User.query.filter_by(email="overflow2@tiny.com").first() is None
+        assert User.query.filter_by(email="overflow2@tiny.com").first() is not None
 
 
-def test_company_admin_employee_add_blocked_at_person_cap():
-    """The explicitly-named scenario: a company signs up under a tenant and
-    tries to add employees past the tenant's approved tier."""
+def test_company_admin_employee_add_not_blocked_by_seat_cap():
+    """A company signed up under a tenant can still add employees past the
+    tenant's seat-billing threshold — it becomes a billing overage, not a block."""
     app = _app()
     with app.app_context():
         t = Tenant(slug="tiny", name="Tiny Co", primary_domain="tiny.hub1z.com",
@@ -117,13 +113,11 @@ def test_company_admin_employee_add_blocked_at_person_cap():
 
     c = app.test_client()
     _login(c, "jane@acme.example", "JanePass123!")
-    # Jane (company_admin) already occupies the tenant's only "seat".
-    r = c.post("/company/employees/new", data={
+    c.post("/company/employees/new", data={
         "full_name": "New Hire", "email": "hire@acme.example", "phone": "",
     }, follow_redirects=True)
-    assert b"plan allows up to 1" in r.data
     with app.app_context():
-        assert User.query.filter_by(email="hire@acme.example").first() is None
+        assert User.query.filter_by(email="hire@acme.example").first() is not None
 
 
 def test_no_tier_configured_fails_open_for_people_too():

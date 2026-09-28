@@ -86,8 +86,10 @@ def register_billing_routes(bp):
             tier = selected_tier or PricingTier.query.filter_by(key=tenant.plan_tier).first()
             if tier:
                 subscription.pricing_snapshot = json.dumps({
-                    "tier_key": tier.key, "monthly_price": str(tier.monthly_price),
-                    "annual_price": str(tier.annual_price), "annual_discount": str(tier.annual_discount),
+                    "tier_key": tier.key,
+                    "monthly_price": str(tier.monthly_price) if tier.monthly_price is not None else None,
+                    "annual_price": str(tier.annual_price) if tier.annual_price is not None else None,
+                    "annual_discount": str(tier.annual_discount),
                     "pricing_version": tier.pricing_version,
                     "included_locations": tier.max_locations,
                     "included_active_contracted_seats": tier.included_active_contracted_seats,

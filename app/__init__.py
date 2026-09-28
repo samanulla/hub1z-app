@@ -104,7 +104,7 @@ def _register_context(app: Flask) -> None:
 def _register_root_routes(app: Flask) -> None:
     def tenant_public_data():
         from datetime import datetime, timedelta
-        from .models import (Location, PricingPlan, SeatBooking, RoomBooking,
+        from .models import (Location, PricingPlan, PlanScope, SeatBooking, RoomBooking,
                              BookingStatus)
 
         tenant = getattr(g, "tenant", None)
@@ -112,7 +112,11 @@ def _register_root_routes(app: Flask) -> None:
             abort(404)
 
         locations = Location.query.filter_by(is_active=True).order_by(Location.name).all()
-        plans = PricingPlan.query.filter_by(is_active=True).order_by(PricingPlan.base_price).all()
+        # Company-Custom plans are privately negotiated for one company — never
+        # publish them on the tenant's public marketing site.
+        plans = (PricingPlan.query.filter_by(is_active=True)
+                 .filter(PricingPlan.scope != PlanScope.COMPANY_CUSTOM)
+                 .order_by(PricingPlan.base_price).all())
         now = datetime.utcnow()
         later = now + timedelta(hours=1)
         availability = []

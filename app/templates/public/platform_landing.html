@@ -165,7 +165,8 @@
             <li style="margin-bottom: .5rem;">{{ t.max_locations if t.max_locations is not none else "Custom" }} location(s)</li>
             <li style="margin-bottom: .5rem;">{{ t.included_active_contracted_seats if t.included_active_contracted_seats is not none else "Custom" }} active contracted seats</li>
             <li style="margin-bottom: .5rem;">Custom operational inventory</li>
-            <li style="margin-bottom: .5rem;">{{ t.premium_modules or "Custom features, integrations and support" }}</li>
+            {% set included_modules = t.module_catalog | selectattr('kind', 'equalto', 'module') | list %}
+            <li style="margin-bottom: .5rem;">{% if included_modules %}{{ included_modules | map(attribute='name') | join(', ') }}{% else %}Custom features, integrations and support{% endif %}</li>
           </ul>
           <a class="btn-ink" style="margin-top: 1.5rem;" href="{{ url_for('auth.register_tenant') }}">Start free trial</a>
         </div>

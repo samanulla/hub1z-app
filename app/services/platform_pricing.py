@@ -47,13 +47,18 @@ def subscription_pricing(tenant, tier, subscription=None) -> dict:
     """Return an auditable monthly/annual operator charge breakdown."""
     snapshot = json.loads(subscription.pricing_snapshot) if subscription and subscription.pricing_snapshot else {}
     monthly = not subscription or subscription.billing_cycle != "annual"
-    base = (
-        subscription.negotiated_base_price
-        if subscription and subscription.negotiated_base_price is not None
-        else (snapshot.get("monthly_price") if monthly else snapshot.get("annual_price")) or
-        (tier.monthly_price if monthly else tier.annual_price)
-    )
-    base = Decimal(base or 0)
+
+    def _decimal_or_none(value):
+        if value is None:
+            return None
+        return Decimal(str(value))
+
+    if subscription and subscription.negotiated_base_price is not None:
+        base = Decimal(subscription.negotiated_base_price)
+    else:
+        snapshot_base = _decimal_or_none(snapshot.get("monthly_price" if monthly else "annual_price"))
+        tier_base = tier.monthly_price if monthly else tier.annual_price
+        base = snapshot_base if snapshot_base is not None else _decimal_or_none(tier_base) or Decimal(0)
     locations = Location.query.filter_by(tenant_id=tenant.id).count()
     seats = record_usage_snapshot(tenant.id)
     period_start = date.today().replace(day=1)

@@ -9,7 +9,7 @@ from app import create_app
 from app.extensions import db
 from app.models import (
     BillingCycle, Company, CompanyStatus, Floor, Invoice, InvoiceStatus, Location,
-    Payment, PaymentSubmission, PaymentSubmissionStatus, PlanType, PricingPlan,
+    Payment, PaymentSubmission, PaymentSubmissionStatus, PlanScope, PlanType, PricingPlan,
     Seat, SeatAllocation, SeatType,
     Subscription, SubscriptionChangeRequest, SubscriptionRequestStatus,
     SubscriptionStatus, Tenant, TenantStatus, User, UserRole,
@@ -48,10 +48,12 @@ def _seed(app):
         employee = User(tenant_id=tenant.id, email="employee@acme.example", full_name="Employee",
                 role=UserRole.EMPLOYEE, company_id=company.id, is_active=True)
         employee.set_password("EmployeePass123!")
-        basic = PricingPlan(tenant_id=tenant.id, name="Basic", plan_type=PlanType.HOT_DESK,
+        basic = PricingPlan(tenant_id=tenant.id, name="Basic", scope=PlanScope.COMPANY_STANDARD,
+                            plan_type=PlanType.HOT_DESK,
                             billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("1000"),
                             included_meeting_credits=2)
-        growth = PricingPlan(tenant_id=tenant.id, name="Growth", plan_type=PlanType.DEDICATED_DESK,
+        growth = PricingPlan(tenant_id=tenant.id, name="Growth", scope=PlanScope.COMPANY_STANDARD,
+                             plan_type=PlanType.DEDICATED_DESK,
                              billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("2000"),
                              included_meeting_credits=5)
         db.session.add_all([company_admin, employee, basic, growth])

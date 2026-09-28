@@ -26,10 +26,23 @@
       </div>
       <hr>
       <ul class="small mb-0">
-        <li>{{ p.included_meeting_credits }} meeting credits</li>
-        <li>{{ p.included_print_credits }} print credits</li>
-        <li>{{ p.guest_passes }} guest passes</li>
-        <li>{% if p.max_locations == 0 %}All locations{% else %}{{ p.max_locations }} location(s){% endif %}</li>
+        <li>{{ p.billing_unit.value.replace('_',' ')|title }}</li>
+        {% if p.billing_unit.value in ('per_seat', 'per_office', 'flat_fee') %}
+        <li>{{ p.included_seat_quantity }} included seat(s)</li>
+        {% endif %}
+        {% if p.meeting_room_access_included %}
+        <li>{{ p.included_meeting_credits }} meeting room credits</li>
+        {% else %}
+        <li>No meeting room access</li>
+        {% endif %}
+        <li>
+          {% if p.location_scope.value == 'all' %}All locations
+          {% elif p.locations %}{{ p.locations | map(attribute='name') | join(', ') }}
+          {% else %}Location to be confirmed{% endif %}
+        </li>
+        {% if p.deposit_required %}
+        <li>Deposit: {{ p.deposit_value | money }} ({{ 'refundable' if p.deposit_refundable else 'non-refundable' }})</li>
+        {% endif %}
       </ul>
     </div></div>
   </div>

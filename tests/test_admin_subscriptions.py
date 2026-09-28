@@ -6,7 +6,7 @@ from app import create_app
 from app.extensions import db
 from app.models import (
     User, UserRole, Tenant, TenantStatus, Company, CompanyStatus,
-    PricingPlan, PlanType, BillingCycle, Subscription, SubscriptionChangeRequest,
+    PricingPlan, PlanScope, PlanType, BillingCycle, Subscription, SubscriptionChangeRequest,
     SubscriptionRequestStatus, SubscriptionStatus,
 )
 
@@ -38,7 +38,8 @@ def _seed(app):
                  role=UserRole.COMPANY_ADMIN, company_id=company.id, is_active=True)
         ca.set_password("JanePass123!")
         db.session.add(ca)
-        plan = PricingPlan(tenant_id=t.id, name="Dedicated Desk", plan_type=PlanType.DEDICATED_DESK,
+        plan = PricingPlan(tenant_id=t.id, name="Dedicated Desk", scope=PlanScope.COMPANY_STANDARD,
+                           plan_type=PlanType.DEDICATED_DESK,
                            billing_cycle=BillingCycle.MONTHLY, base_price=22000,
                            included_meeting_credits=20, max_locations=1)
         db.session.add(plan); db.session.commit()
