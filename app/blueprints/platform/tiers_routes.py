@@ -14,6 +14,22 @@ from .forms import PricingTierForm
 
 def register_tiers_routes(bp):
 
+    def configure_module_choices(form):
+        modules = PlatformModule.query.filter_by(is_active=True).all()
+        form.feature_ids.choices = [(m.id, m.name) for m in modules if m.kind == "feature"]
+        form.module_ids.choices = [(m.id, f"{m.name} ({m.monthly_price}/mo)") for m in modules if m.kind == "module"]
+
+    def apply_starter_defaults(tier):
+        if tier.key == "starter":
+            tier.max_locations = 1
+            tier.location_overage_policy = "require_plan_upgrade"
+            tier.additional_location_rate = 0
+            tier.included_active_contracted_seats = 50
+            tier.seat_overage_policy = "allow_and_charge"
+            tier.additional_seat_rate = 75
+            tier.trial_period_days = 14
+            tier.annual_discount = 10
+
     @bp.route("/tiers")
     @platform_owner_required
     def tiers_list():
@@ -24,7 +40,7 @@ def register_tiers_routes(bp):
     @platform_owner_required
     def tier_new():
         form = PricingTierForm()
-        form.module_ids.choices = [(m.id, f"{m.name} ({m.monthly_price}/mo)") for m in PlatformModule.query.filter_by(is_active=True).all()]
+        configure_module_choices(form)
         if form.validate_on_submit():
             key = form.key.data.lower().strip()
             if PricingTier.query.filter_by(key=key).first():
@@ -32,9 +48,10 @@ def register_tiers_routes(bp):
                 return render_template("platform/tier_form.html", form=form, title="New pricing tier")
             tier = PricingTier(key=key)
             form.populate_obj(tier)
-            tier.annual_price = tier.calculate_annual_price()
-            tier.module_catalog = PlatformModule.query.filter(PlatformModule.id.in_(form.module_ids.data)).all()
             tier.key = key
+            apply_starter_defaults(tier)
+            tier.annual_price = tier.calculate_annual_price()
+            tier.module_catalog = PlatformModule.query.filter(PlatformModule.id.in_(form.feature_ids.data + form.module_ids.data)).all()
             tier.is_active = tier.status == TierStatus.ACTIVE
             db.session.add(tier)
             db.session.commit()
@@ -48,14 +65,17 @@ def register_tiers_routes(bp):
     def tier_edit(tier_id: int):
         tier = PricingTier.query.get_or_404(tier_id)
         form = PricingTierForm(obj=tier)
-        form.module_ids.choices = [(m.id, f"{m.name} ({m.monthly_price}/mo)") for m in PlatformModule.query.filter_by(is_active=True).all()]
+        configure_module_choices(form)
         if not form.is_submitted():
-            form.module_ids.data = [m.id for m in tier.module_catalog]
+            form.feature_ids.data = [m.id for m in tier.module_catalog if m.kind == "feature"]
+            form.module_ids.data = [m.id for m in tier.module_catalog if m.kind == "module"]
         if form.validate_on_submit():
             original_key = tier.key
             form.populate_obj(tier)
+            apply_starter_defaults(tier)
+            tier.pricing_version += 1
             tier.annual_price = tier.calculate_annual_price()
-            tier.module_catalog = PlatformModule.query.filter(PlatformModule.id.in_(form.module_ids.data)).all()
+            tier.module_catalog = PlatformModule.query.filter(PlatformModule.id.in_(form.feature_ids.data + form.module_ids.data)).all()
             tier.key = original_key  # key is immutable once tenants may reference it
             tier.is_active = tier.status == TierStatus.ACTIVE
             db.session.commit()

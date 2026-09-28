@@ -6,7 +6,10 @@ from wtforms import (StringField, DecimalField, SelectField, TextAreaField,
 from wtforms.validators import (DataRequired, Length, Optional, Email,
                                 NumberRange, Regexp)
 
-from ...models import TenantStatus, PLATFORM_FEATURES, PlatformInvoiceStatus, TierStatus, OveragePolicy
+from ...models import (
+    TenantStatus, PLATFORM_FEATURES, PlatformInvoiceStatus, TierStatus,
+    OveragePolicy, SeatUsageMethod,
+)
 from ...services.locale_data import (
     CURRENCY_CHOICES, COUNTRY_CHOICES, LOCALE_CHOICES, TIMEZONE_CHOICES,
     BANK_ACCOUNT_TYPE_CHOICES,
@@ -140,16 +143,41 @@ class PricingTierForm(FlaskForm):
     included_active_contracted_seats = IntegerField("Included active contracted seats", validators=[Optional(), NumberRange(min=0)])
     additional_seat_rate = DecimalField("Additional seat rate", default=0, validators=[NumberRange(min=0)])
     additional_location_rate = DecimalField("Additional location rate", default=0, validators=[NumberRange(min=0)])
-    included_features = TextAreaField("Included features", validators=[Optional(), Length(max=4000)])
-    premium_modules = TextAreaField("Premium modules", validators=[Optional(), Length(max=4000)])
+    feature_ids = SelectMultipleField("Included features", coerce=int, validators=[Optional()])
     module_ids = SelectMultipleField("Included modules", coerce=int, validators=[Optional()])
     seat_overage_policy = SelectField("Seat overage policy", choices=[(p.value, p.value.replace("_", " ").title()) for p in OveragePolicy])
     location_overage_policy = SelectField("Location overage policy", choices=[(p.value, p.value.replace("_", " ").title()) for p in OveragePolicy])
     effective_from = DateField("Effective from", validators=[Optional()])
     effective_to = DateField("Effective to", validators=[Optional()])
+    seat_usage_method = SelectField("Seat usage calculation", choices=[
+        (m.value, m.value.replace("_", " ").title()) for m in SeatUsageMethod
+    ])
     trial_period_days = IntegerField("Trial period (days)", default=0, validators=[NumberRange(min=0)])
     status = SelectField("Status", choices=[(s.value, s.value.title()) for s in TierStatus], validators=[DataRequired()])
     submit = SubmitField("Save tier")
+
+    def validate(self, extra_validators=None):
+        valid = super().validate(extra_validators=extra_validators)
+        for policy, rate in ((self.seat_overage_policy, self.additional_seat_rate),
+                             (self.location_overage_policy, self.additional_location_rate)):
+            if policy.data == OveragePolicy.ALLOW_AND_CHARGE.value and (rate.data is None or rate.data <= 0):
+                rate.errors.append("Allow and charge requires a rate greater than zero.")
+                valid = False
+            elif policy.data in (OveragePolicy.BLOCK_ADDITIONAL_USAGE.value,
+                                 OveragePolicy.REQUIRE_PLAN_UPGRADE.value):
+                rate.data = 0
+        if self.status.data == TierStatus.ACTIVE.value:
+            for field, message in ((self.monthly_price, "Monthly price is required for an active tier."),
+                                   (self.max_locations, "Included locations are required for an active tier."),
+                                   (self.included_active_contracted_seats, "Included active contracted seats are required for an active tier."),
+                                   (self.effective_from, "Effective From is required for an active tier.")):
+                if field.data is None:
+                    field.errors.append(message)
+                    valid = False
+            if not self.module_ids.data:
+                self.module_ids.errors.append("Configure at least one included module before activating a tier.")
+                valid = False
+        return valid
 
 
 class OperatorSubscriptionForm(FlaskForm):

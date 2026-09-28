@@ -88,15 +88,18 @@ def register_billing_routes(bp):
                 subscription.pricing_snapshot = json.dumps({
                     "tier_key": tier.key, "monthly_price": str(tier.monthly_price),
                     "annual_price": str(tier.annual_price), "annual_discount": str(tier.annual_discount),
+                    "pricing_version": tier.pricing_version,
                     "included_locations": tier.max_locations,
                     "included_active_contracted_seats": tier.included_active_contracted_seats,
                     "additional_seat_rate": str(tier.additional_seat_rate),
                     "additional_location_rate": str(tier.additional_location_rate),
                     "seat_overage_policy": tier.seat_overage_policy.value,
                     "location_overage_policy": tier.location_overage_policy.value,
+                    "seat_usage_method": tier.seat_usage_method.value,
                     "effective_from": tier.effective_from.isoformat() if tier.effective_from else None,
                     "effective_to": tier.effective_to.isoformat() if tier.effective_to else None,
-                    "modules": [module.code for module in tier.module_catalog],
+                    "features": [module.code for module in tier.module_catalog if module.kind == "feature"],
+                    "modules": [module.code for module in tier.module_catalog if module.kind == "module"],
                 })
             db.session.commit()
             audit_service.record("operator_subscription.updated", "operator_subscription", subscription.id,

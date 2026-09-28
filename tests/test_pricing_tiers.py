@@ -5,7 +5,7 @@ os.environ.setdefault("FLASK_ENV", "testing")
 from app import create_app
 from app.extensions import db
 from app.models import (
-    User, UserRole, Tenant, TenantStatus, PricingTier, TierStatus, Location, Floor,
+    User, UserRole, Tenant, TenantStatus, PricingTier, TierStatus, PlatformModule, Location, Floor,
 )
 
 
@@ -34,6 +34,11 @@ def _login(client, email, password):
 def test_owner_can_create_and_edit_tier():
     app = _app()
     _seed_owner(app)
+    with app.app_context():
+        module = PlatformModule(code="analytics", name="Analytics", monthly_price=0, is_active=True)
+        db.session.add(module)
+        db.session.commit()
+        module_id = module.id
     c = app.test_client()
     _login(c, "platform@hub1z.com", "OwnerPass123!")
 
@@ -43,6 +48,8 @@ def test_owner_can_create_and_edit_tier():
         "included_active_contracted_seats": "50", "additional_seat_rate": "50",
         "additional_location_rate": "1000", "annual_discount": "10", "trial_period_days": "14",
         "seat_overage_policy": "allow_and_charge", "location_overage_policy": "require_plan_upgrade",
+            "effective_from": "2026-01-01", "module_ids": [module_id],
+            "seat_usage_method": "maximum_during_billing_period",
     }, follow_redirects=False)
     assert r.status_code == 302
     with app.app_context():
@@ -58,6 +65,8 @@ def test_owner_can_create_and_edit_tier():
         "included_active_contracted_seats": "60", "additional_seat_rate": "50",
         "additional_location_rate": "1000", "annual_discount": "10", "trial_period_days": "14",
         "seat_overage_policy": "allow_and_charge", "location_overage_policy": "require_plan_upgrade",
+            "effective_from": "2026-01-01", "module_ids": [module_id],
+            "seat_usage_method": "maximum_during_billing_period",
     }, follow_redirects=False)
     assert r.status_code == 302
     with app.app_context():

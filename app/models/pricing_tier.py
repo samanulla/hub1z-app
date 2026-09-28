@@ -11,6 +11,7 @@ existing tenant already on it).
 from __future__ import annotations
 
 import enum
+from decimal import Decimal
 
 from sqlalchemy import Column, String, Integer, Numeric, Boolean, Enum, ForeignKey, Date, Text
 from sqlalchemy.orm import relationship
@@ -30,6 +31,12 @@ class OveragePolicy(str, enum.Enum):
     BLOCK_ADDITIONAL_USAGE = "block_additional_usage"
     REQUIRE_PLAN_UPGRADE = "require_plan_upgrade"
     CUSTOM_APPROVAL = "custom_approval"
+
+
+class SeatUsageMethod(str, enum.Enum):
+    MAXIMUM_DURING_BILLING_PERIOD = "maximum_during_billing_period"
+    AVERAGE_DAILY_USAGE = "average_daily_usage"
+    END_OF_PERIOD_USAGE = "end_of_period_usage"
 
 
 tier_modules = db.Table(
@@ -63,6 +70,9 @@ class PricingTier(db.Model, PkMixin, TimestampMixin):
     location_overage_policy = Column(Enum(OveragePolicy), nullable=False, default=OveragePolicy.REQUIRE_PLAN_UPGRADE)
     effective_from = Column(Date)
     effective_to = Column(Date)
+    seat_usage_method = Column(Enum(SeatUsageMethod), nullable=False,
+                               default=SeatUsageMethod.MAXIMUM_DURING_BILLING_PERIOD)
+    pricing_version = Column(Integer, nullable=False, default=1)
     max_private_offices = Column(Integer, nullable=True)    # "manager cabins"
     max_rooms = Column(Integer, nullable=True)               # conference rooms
 
@@ -72,7 +82,8 @@ class PricingTier(db.Model, PkMixin, TimestampMixin):
     def calculate_annual_price(self):
         if self.monthly_price is None:
             return None
-        return self.monthly_price * (12 - (self.annual_discount or 0) / 100)
+        discount = Decimal(self.annual_discount or 0)
+        return self.monthly_price * (Decimal(12) - discount / Decimal(100))
 
 
 class PlatformModule(db.Model, PkMixin, TimestampMixin):
@@ -81,6 +92,7 @@ class PlatformModule(db.Model, PkMixin, TimestampMixin):
     code = Column(String(50), unique=True, nullable=False, index=True)
     name = Column(String(120), nullable=False)
     monthly_price = Column(Numeric(10, 2), nullable=False, default=0)
+    kind = Column(String(20), nullable=False, default="module")
     is_active = Column(Boolean, nullable=False, default=True)
 
     tiers = relationship("PricingTier", secondary=tier_modules, backref="module_catalog")

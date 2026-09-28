@@ -1,6 +1,7 @@
 """Hub1 SaaS tier usage and operator subscription pricing."""
 from __future__ import annotations
 
+import json
 from datetime import date
 from decimal import Decimal
 
@@ -44,11 +45,13 @@ def record_usage_snapshot(tenant_id: int) -> int:
 
 def subscription_pricing(tenant, tier, subscription=None) -> dict:
     """Return an auditable monthly/annual operator charge breakdown."""
+    snapshot = json.loads(subscription.pricing_snapshot) if subscription and subscription.pricing_snapshot else {}
     monthly = not subscription or subscription.billing_cycle != "annual"
     base = (
         subscription.negotiated_base_price
         if subscription and subscription.negotiated_base_price is not None
-        else (tier.monthly_price if monthly else tier.annual_price)
+        else (snapshot.get("monthly_price") if monthly else snapshot.get("annual_price")) or
+        (tier.monthly_price if monthly else tier.annual_price)
     )
     base = Decimal(base or 0)
     locations = Location.query.filter_by(tenant_id=tenant.id).count()
@@ -60,12 +63,12 @@ def subscription_pricing(tenant, tier, subscription=None) -> dict:
     ).with_entities(OperatorUsageSnapshot.active_contracted_seats)
             .order_by(OperatorUsageSnapshot.active_contracted_seats.desc()).first())
     seats = max(seats, peak[0] if peak else 0)
-    included_locations = (tier.max_locations or 0) + (subscription.additional_free_locations if subscription else 0)
-    included_seats = (tier.included_active_contracted_seats or 0) + (subscription.additional_free_seats if subscription else 0)
+    included_locations = (snapshot.get("included_locations", tier.max_locations) or 0) + (subscription.additional_free_locations if subscription else 0)
+    included_seats = (snapshot.get("included_active_contracted_seats", tier.included_active_contracted_seats) or 0) + (subscription.additional_free_seats if subscription else 0)
     seat_rate = (subscription.custom_additional_seat_rate if subscription and subscription.custom_additional_seat_rate is not None
-                 else tier.additional_seat_rate)
+                 else snapshot.get("additional_seat_rate", tier.additional_seat_rate))
     location_rate = (subscription.custom_additional_location_rate if subscription and subscription.custom_additional_location_rate is not None
-                     else tier.additional_location_rate)
+                     else snapshot.get("additional_location_rate", tier.additional_location_rate))
     additional_seats = max(seats - included_seats, 0)
     additional_locations = max(locations - included_locations, 0)
     seat_overage = Decimal(seat_rate or 0) * additional_seats
@@ -91,4 +94,5 @@ def subscription_pricing(tenant, tier, subscription=None) -> dict:
         "discount": discount,
         "tax": tax,
         "total": subtotal + tax,
+        "pricing_version": snapshot.get("pricing_version", tier.pricing_version),
     }

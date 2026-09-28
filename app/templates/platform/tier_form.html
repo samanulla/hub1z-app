@@ -12,13 +12,14 @@
     <div class="col-md-4">{{ field(form.key) }}</div>
     <div class="col-md-4">{{ field(form.name) }}</div>
     <div class="col-md-2">{{ field(form.monthly_price) }}</div>
-    <div class="col-md-2"><label class="form-label">Annual price</label><input class="form-control" value="Calculated from monthly price and annual discount" readonly></div>
+    <div class="col-md-2"><label class="form-label">Annual price</label><input id="annual-price" class="form-control" readonly></div>
   </div>
   <div class="row">
     <div class="col-md-3">{{ field(form.annual_discount) }}</div>
     <div class="col-md-3">{{ field(form.status) }}</div>
     <div class="col-md-3">{{ field(form.trial_period_days) }}</div>
   </div>
+  <div class="card mb-3"><div class="card-body py-2"><strong>Annual pricing preview</strong><div id="annual-preview" class="small text-muted"></div></div></div>
 
   <hr>
   <h6>Included use and overages</h6>
@@ -30,7 +31,7 @@
   </div>
   <div class="row"><div class="col-md-6">{{ field(form.seat_overage_policy) }}</div><div class="col-md-6">{{ field(form.location_overage_policy) }}</div></div>
   <div class="row"><div class="col-md-6">{{ field(form.effective_from) }}</div><div class="col-md-6">{{ field(form.effective_to) }}</div></div>
-  {{ field(form.included_features) }}
+  {{ field(form.feature_ids) }}
   {{ field(form.module_ids) }}
   <p class="form-text">Additional seat rate is charged per active contracted seat per month. Additional location rate is charged per location per month. A rate of zero follows its overage policy; it never grants unlimited usage.</p>
 
@@ -38,4 +39,33 @@
   <a class="btn btn-link" href="{{ url_for('platform.tiers_list') }}">Cancel</a>
 </form>
 </div></div>
+<script>
+  (() => {
+    const monthly = document.getElementById('monthly_price');
+    const discount = document.getElementById('annual_discount');
+    const annual = document.getElementById('annual-price');
+    const preview = document.getElementById('annual-preview');
+    const refreshAnnual = () => {
+      const monthlyValue = Number(monthly.value || 0);
+      const discountValue = Number(discount.value || 0);
+      const fullAnnual = monthlyValue * 12;
+      const annualValue = fullAnnual * (1 - discountValue / 100);
+      annual.value = annualValue ? annualValue.toFixed(2) : '';
+      preview.textContent = `Annual price: ${annualValue.toFixed(2)} | Annual savings: ${(fullAnnual - annualValue).toFixed(2)} | Annual discount: ${discountValue}% | Effective monthly price: ${(annualValue / 12).toFixed(2)}`;
+    };
+    const wirePolicy = (policyId, rateId) => {
+      const policy = document.getElementById(policyId);
+      const rate = document.getElementById(rateId);
+      const refresh = () => {
+        const usesRate = ['allow_and_charge', 'custom_approval'].includes(policy.value);
+        rate.disabled = !usesRate;
+        if (!usesRate) rate.value = '0';
+      };
+      policy.addEventListener('change', refresh); refresh();
+    };
+    monthly.addEventListener('input', refreshAnnual); discount.addEventListener('input', refreshAnnual); refreshAnnual();
+    wirePolicy('seat_overage_policy', 'additional_seat_rate');
+    wirePolicy('location_overage_policy', 'additional_location_rate');
+  })();
+</script>
 {% endblock %}
