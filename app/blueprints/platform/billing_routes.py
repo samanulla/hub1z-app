@@ -8,6 +8,8 @@ tenant pays hub1z.com), separate from a tenant's own /admin/billing
 """
 from __future__ import annotations
 
+import json
+
 from flask import render_template, redirect, url_for, flash, request
 
 from ...extensions import db
@@ -38,6 +40,7 @@ def register_billing_routes(bp):
                 growth.monthly_price is not None and t._pricing and
                 t._pricing["total"] >= growth.monthly_price else None
             )
+            db.session.commit()
         return render_template("platform/billing.html", tenants=tenants, tiers=active_tiers)
 
     @bp.route("/billing/<int:tenant_id>/plan", methods=["POST"])
@@ -80,6 +83,21 @@ def register_billing_routes(bp):
                 tenant.plan_tier = selected_tier.key
             if subscription.id is None:
                 db.session.add(subscription)
+            tier = selected_tier or PricingTier.query.filter_by(key=tenant.plan_tier).first()
+            if tier:
+                subscription.pricing_snapshot = json.dumps({
+                    "tier_key": tier.key, "monthly_price": str(tier.monthly_price),
+                    "annual_price": str(tier.annual_price), "annual_discount": str(tier.annual_discount),
+                    "included_locations": tier.max_locations,
+                    "included_active_contracted_seats": tier.included_active_contracted_seats,
+                    "additional_seat_rate": str(tier.additional_seat_rate),
+                    "additional_location_rate": str(tier.additional_location_rate),
+                    "seat_overage_policy": tier.seat_overage_policy.value,
+                    "location_overage_policy": tier.location_overage_policy.value,
+                    "effective_from": tier.effective_from.isoformat() if tier.effective_from else None,
+                    "effective_to": tier.effective_to.isoformat() if tier.effective_to else None,
+                    "modules": [module.code for module in tier.module_catalog],
+                })
             db.session.commit()
             audit_service.record("operator_subscription.updated", "operator_subscription", subscription.id,
                                  {"tenant_id": tenant.id, "tier": tenant.plan_tier})

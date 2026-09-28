@@ -53,6 +53,9 @@
           Active contracted seats: {{ t._pricing.active_contracted_seats }} ({{ t._pricing.additional_seats }} overage)<br>
           Base: {{ t._pricing.base | money }} · Seat overage: {{ t._pricing.seat_overage | money }}<br>
           Location overage: {{ t._pricing.location_overage | money }}<br>
+          {% if t._pricing.seat_overage_requires_review or t._pricing.location_overage_requires_review %}
+          <div class="text-warning">A zero overage rate requires contract review; it is not unlimited usage.</div>
+          {% endif %}
           <strong>Total: {{ t._pricing.total | money }}</strong>
           {% if t._upgrade_recommendation %}
           <div class="text-warning mt-1">Consider {{ t._upgrade_recommendation.name }}: current Starter charge meets or exceeds its base price.</div>

@@ -6,7 +6,7 @@ from __future__ import annotations
 from flask import render_template, redirect, url_for, flash
 
 from ...extensions import db
-from ...models import PricingTier, TierStatus
+from ...models import PricingTier, TierStatus, PlatformModule
 from ...services import audit_service
 from ...utils.decorators import platform_owner_required
 from .forms import PricingTierForm
@@ -24,6 +24,7 @@ def register_tiers_routes(bp):
     @platform_owner_required
     def tier_new():
         form = PricingTierForm()
+        form.module_ids.choices = [(m.id, f"{m.name} ({m.monthly_price}/mo)") for m in PlatformModule.query.filter_by(is_active=True).all()]
         if form.validate_on_submit():
             key = form.key.data.lower().strip()
             if PricingTier.query.filter_by(key=key).first():
@@ -31,6 +32,8 @@ def register_tiers_routes(bp):
                 return render_template("platform/tier_form.html", form=form, title="New pricing tier")
             tier = PricingTier(key=key)
             form.populate_obj(tier)
+            tier.annual_price = tier.calculate_annual_price()
+            tier.module_catalog = PlatformModule.query.filter(PlatformModule.id.in_(form.module_ids.data)).all()
             tier.key = key
             tier.is_active = tier.status == TierStatus.ACTIVE
             db.session.add(tier)
@@ -45,9 +48,14 @@ def register_tiers_routes(bp):
     def tier_edit(tier_id: int):
         tier = PricingTier.query.get_or_404(tier_id)
         form = PricingTierForm(obj=tier)
+        form.module_ids.choices = [(m.id, f"{m.name} ({m.monthly_price}/mo)") for m in PlatformModule.query.filter_by(is_active=True).all()]
+        if not form.is_submitted():
+            form.module_ids.data = [m.id for m in tier.module_catalog]
         if form.validate_on_submit():
             original_key = tier.key
             form.populate_obj(tier)
+            tier.annual_price = tier.calculate_annual_price()
+            tier.module_catalog = PlatformModule.query.filter(PlatformModule.id.in_(form.module_ids.data)).all()
             tier.key = original_key  # key is immutable once tenants may reference it
             tier.is_active = tier.status == TierStatus.ACTIVE
             db.session.commit()

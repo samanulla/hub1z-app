@@ -25,6 +25,20 @@ class TierStatus(str, enum.Enum):
     INACTIVE = "inactive"
 
 
+class OveragePolicy(str, enum.Enum):
+    ALLOW_AND_CHARGE = "allow_and_charge"
+    BLOCK_ADDITIONAL_USAGE = "block_additional_usage"
+    REQUIRE_PLAN_UPGRADE = "require_plan_upgrade"
+    CUSTOM_APPROVAL = "custom_approval"
+
+
+tier_modules = db.Table(
+    "tier_modules",
+    Column("tier_id", Integer, ForeignKey("pricing_tiers.id", ondelete="CASCADE"), primary_key=True),
+    Column("module_id", Integer, ForeignKey("platform_modules.id", ondelete="CASCADE"), primary_key=True),
+)
+
+
 class PricingTier(db.Model, PkMixin, TimestampMixin):
     __tablename__ = "pricing_tiers"
 
@@ -45,11 +59,31 @@ class PricingTier(db.Model, PkMixin, TimestampMixin):
     included_features = Column(Text)
     premium_modules = Column(Text)
     trial_period_days = Column(Integer, nullable=False, default=0)
+    seat_overage_policy = Column(Enum(OveragePolicy), nullable=False, default=OveragePolicy.ALLOW_AND_CHARGE)
+    location_overage_policy = Column(Enum(OveragePolicy), nullable=False, default=OveragePolicy.REQUIRE_PLAN_UPGRADE)
+    effective_from = Column(Date)
+    effective_to = Column(Date)
     max_private_offices = Column(Integer, nullable=True)    # "manager cabins"
     max_rooms = Column(Integer, nullable=True)               # conference rooms
 
     def __repr__(self) -> str:
         return f"<PricingTier {self.key}>"
+
+    def calculate_annual_price(self):
+        if self.monthly_price is None:
+            return None
+        return self.monthly_price * (12 - (self.annual_discount or 0) / 100)
+
+
+class PlatformModule(db.Model, PkMixin, TimestampMixin):
+    __tablename__ = "platform_modules"
+
+    code = Column(String(50), unique=True, nullable=False, index=True)
+    name = Column(String(120), nullable=False)
+    monthly_price = Column(Numeric(10, 2), nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+    tiers = relationship("PricingTier", secondary=tier_modules, backref="module_catalog")
 
 
 class OperatorSubscription(db.Model, PkMixin, TimestampMixin):
@@ -76,6 +110,17 @@ class OperatorSubscription(db.Model, PkMixin, TimestampMixin):
     negotiated_features = Column(Text)
     contract_start_date = Column(Date)
     contract_end_date = Column(Date)
+    pricing_snapshot = Column(Text)
 
     tenant = relationship("Tenant", foreign_keys=[tenant_id])
     tier = relationship("PricingTier", foreign_keys=[tier_id])
+
+
+class OperatorUsageSnapshot(db.Model, PkMixin, TimestampMixin):
+    __tablename__ = "operator_usage_snapshots"
+
+    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    recorded_on = Column(Date, nullable=False, index=True)
+    active_contracted_seats = Column(Integer, nullable=False, default=0)
+
+    tenant = relationship("Tenant", foreign_keys=[tenant_id])

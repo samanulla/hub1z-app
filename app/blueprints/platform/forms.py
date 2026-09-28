@@ -1,11 +1,12 @@
 """Platform Owner forms (tenant CRUD)."""
 from flask_wtf import FlaskForm
 from wtforms import (StringField, DecimalField, SelectField, TextAreaField,
-                     BooleanField, SubmitField, PasswordField, IntegerField, DateField)
+                     BooleanField, SubmitField, PasswordField, IntegerField, DateField,
+                     SelectMultipleField)
 from wtforms.validators import (DataRequired, Length, Optional, Email,
                                 NumberRange, Regexp)
 
-from ...models import TenantStatus, PLATFORM_FEATURES, PlatformInvoiceStatus, TierStatus
+from ...models import TenantStatus, PLATFORM_FEATURES, PlatformInvoiceStatus, TierStatus, OveragePolicy
 from ...services.locale_data import (
     CURRENCY_CHOICES, COUNTRY_CHOICES, LOCALE_CHOICES, TIMEZONE_CHOICES,
     BANK_ACCOUNT_TYPE_CHOICES,
@@ -134,7 +135,6 @@ class PricingTierForm(FlaskForm):
     name = StringField("Tier name", validators=[DataRequired(), Length(max=80)])
     monthly_price = DecimalField("Monthly price (₹)", validators=[Optional(), NumberRange(min=0)],
                                  description="Leave blank for negotiated Enterprise pricing.")
-    annual_price = DecimalField("Annual price (₹)", validators=[Optional(), NumberRange(min=0)])
     annual_discount = DecimalField("Annual discount", default=0, validators=[NumberRange(min=0)])
     max_locations = IntegerField("Included locations", validators=[Optional(), NumberRange(min=0)])
     included_active_contracted_seats = IntegerField("Included active contracted seats", validators=[Optional(), NumberRange(min=0)])
@@ -142,6 +142,11 @@ class PricingTierForm(FlaskForm):
     additional_location_rate = DecimalField("Additional location rate", default=0, validators=[NumberRange(min=0)])
     included_features = TextAreaField("Included features", validators=[Optional(), Length(max=4000)])
     premium_modules = TextAreaField("Premium modules", validators=[Optional(), Length(max=4000)])
+    module_ids = SelectMultipleField("Included modules", coerce=int, validators=[Optional()])
+    seat_overage_policy = SelectField("Seat overage policy", choices=[(p.value, p.value.replace("_", " ").title()) for p in OveragePolicy])
+    location_overage_policy = SelectField("Location overage policy", choices=[(p.value, p.value.replace("_", " ").title()) for p in OveragePolicy])
+    effective_from = DateField("Effective from", validators=[Optional()])
+    effective_to = DateField("Effective to", validators=[Optional()])
     trial_period_days = IntegerField("Trial period (days)", default=0, validators=[NumberRange(min=0)])
     status = SelectField("Status", choices=[(s.value, s.value.title()) for s in TierStatus], validators=[DataRequired()])
     submit = SubmitField("Save tier")

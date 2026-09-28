@@ -1,13 +1,15 @@
 """Hub1 SaaS tier usage and operator subscription pricing."""
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import or_
 
 from ..models import (
-    Company, Location, SeatAllocation, AllocationStatus, Subscription,
+    Company, Location, Seat, SeatAllocation, AllocationStatus, Subscription,
     SubscriptionStatus, User,
+    OperatorUsageSnapshot,
 )
 
 
@@ -23,9 +25,21 @@ def active_contracted_seats(tenant_id: int) -> int:
     contracted = sum(subscription.quantity for subscription in subscriptions)
     assigned = SeatAllocation.query.join(SeatAllocation.seat).filter(
         SeatAllocation.status == AllocationStatus.ACTIVE,
-        SeatAllocation.seat.has(tenant_id=tenant_id),
+        SeatAllocation.seat.has(tenant_id=tenant_id, is_active=True),
     ).count()
     return max(contracted, assigned)
+
+
+def record_usage_snapshot(tenant_id: int) -> int:
+    seats = active_contracted_seats(tenant_id)
+    snapshot = OperatorUsageSnapshot.query.filter_by(tenant_id=tenant_id, recorded_on=date.today()).first()
+    if snapshot is None:
+        snapshot = OperatorUsageSnapshot(tenant_id=tenant_id, recorded_on=date.today(), active_contracted_seats=seats)
+        from ..extensions import db
+        db.session.add(snapshot)
+    else:
+        snapshot.active_contracted_seats = max(snapshot.active_contracted_seats, seats)
+    return seats
 
 
 def subscription_pricing(tenant, tier, subscription=None) -> dict:
@@ -38,7 +52,14 @@ def subscription_pricing(tenant, tier, subscription=None) -> dict:
     )
     base = Decimal(base or 0)
     locations = Location.query.filter_by(tenant_id=tenant.id).count()
-    seats = active_contracted_seats(tenant.id)
+    seats = record_usage_snapshot(tenant.id)
+    period_start = date.today().replace(day=1)
+    peak = (OperatorUsageSnapshot.query.filter(
+        OperatorUsageSnapshot.tenant_id == tenant.id,
+        OperatorUsageSnapshot.recorded_on >= period_start,
+    ).with_entities(OperatorUsageSnapshot.active_contracted_seats)
+            .order_by(OperatorUsageSnapshot.active_contracted_seats.desc()).first())
+    seats = max(seats, peak[0] if peak else 0)
     included_locations = (tier.max_locations or 0) + (subscription.additional_free_locations if subscription else 0)
     included_seats = (tier.included_active_contracted_seats or 0) + (subscription.additional_free_seats if subscription else 0)
     seat_rate = (subscription.custom_additional_seat_rate if subscription and subscription.custom_additional_seat_rate is not None
@@ -63,6 +84,8 @@ def subscription_pricing(tenant, tier, subscription=None) -> dict:
         "base": base,
         "seat_overage": seat_overage,
         "location_overage": location_overage,
+        "seat_overage_requires_review": additional_seats > 0 and Decimal(seat_rate or 0) == 0,
+        "location_overage_requires_review": additional_locations > 0 and Decimal(location_rate or 0) == 0,
         "premium_modules": modules,
         "implementation": implementation,
         "discount": discount,

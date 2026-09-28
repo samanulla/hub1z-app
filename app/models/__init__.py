@@ -1,6 +1,9 @@
 """SQLAlchemy models re-exported from a single package for convenience."""
 from .tenant import Tenant, TenantScoped, TenantStatus
-from .pricing_tier import PricingTier, TierStatus, OperatorSubscription
+from .pricing_tier import (
+    PricingTier, TierStatus, OveragePolicy, PlatformModule, OperatorSubscription,
+    OperatorUsageSnapshot,
+)
 from .user import User, UserRole, PLATFORM_FEATURES, PLATFORM_FEATURE_KEYS
 from .company import Company, CompanyStatus, CompanyDocument
 from .location import Location, Floor, Amenity
@@ -64,7 +67,8 @@ __all__ = [
     "EmailTemplate", "EmailKind",
     "SystemSettings",
     "AuditLog",
-    "Tenant", "TenantScoped", "TenantStatus", "PricingTier", "TierStatus", "OperatorSubscription",
+    "Tenant", "TenantScoped", "TenantStatus", "PricingTier", "TierStatus", "OveragePolicy",
+    "PlatformModule", "OperatorSubscription", "OperatorUsageSnapshot",
     "DayPass", "DayPassStatus",
     "RoomWaitlist", "WaitlistStatus",
     "RecurringRoomBooking", "RecurrencePattern",

@@ -12,7 +12,7 @@
     <div class="col-md-4">{{ field(form.key) }}</div>
     <div class="col-md-4">{{ field(form.name) }}</div>
     <div class="col-md-2">{{ field(form.monthly_price) }}</div>
-    <div class="col-md-2">{{ field(form.annual_price) }}</div>
+    <div class="col-md-2"><label class="form-label">Annual price</label><input class="form-control" value="Calculated from monthly price and annual discount" readonly></div>
   </div>
   <div class="row">
     <div class="col-md-3">{{ field(form.annual_discount) }}</div>
@@ -28,8 +28,11 @@
     <div class="col-md-3">{{ field(form.additional_seat_rate) }}</div>
     <div class="col-md-3">{{ field(form.additional_location_rate) }}</div>
   </div>
+  <div class="row"><div class="col-md-6">{{ field(form.seat_overage_policy) }}</div><div class="col-md-6">{{ field(form.location_overage_policy) }}</div></div>
+  <div class="row"><div class="col-md-6">{{ field(form.effective_from) }}</div><div class="col-md-6">{{ field(form.effective_to) }}</div></div>
   {{ field(form.included_features) }}
-  {{ field(form.premium_modules) }}
+  {{ field(form.module_ids) }}
+  <p class="form-text">Additional seat rate is charged per active contracted seat per month. Additional location rate is charged per location per month. A rate of zero follows its overage policy; it never grants unlimited usage.</p>
 
   <button class="btn btn-dark">Save</button>
   <a class="btn btn-link" href="{{ url_for('platform.tiers_list') }}">Cancel</a>

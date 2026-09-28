@@ -41,7 +41,8 @@ def test_owner_can_create_and_edit_tier():
         "key": "starter", "name": "Starter", "monthly_price": "4999",
         "annual_price": "49990", "status": "active", "max_locations": "1",
         "included_active_contracted_seats": "50", "additional_seat_rate": "50",
-        "additional_location_rate": "1000", "trial_period_days": "14",
+        "additional_location_rate": "1000", "annual_discount": "10", "trial_period_days": "14",
+        "seat_overage_policy": "allow_and_charge", "location_overage_policy": "require_plan_upgrade",
     }, follow_redirects=False)
     assert r.status_code == 302
     with app.app_context():
@@ -55,7 +56,8 @@ def test_owner_can_create_and_edit_tier():
         "key": "renamed-should-be-ignored", "name": "Starter Plus", "monthly_price": "5999",
         "annual_price": "59990", "status": "active", "max_locations": "1",
         "included_active_contracted_seats": "60", "additional_seat_rate": "50",
-        "additional_location_rate": "1000", "trial_period_days": "14",
+        "additional_location_rate": "1000", "annual_discount": "10", "trial_period_days": "14",
+        "seat_overage_policy": "allow_and_charge", "location_overage_policy": "require_plan_upgrade",
     }, follow_redirects=False)
     assert r.status_code == 302
     with app.app_context():
