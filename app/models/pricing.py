@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import enum
-from sqlalchemy import Column, String, Integer, Numeric, Enum, Text, Boolean, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, String, Integer, Numeric, Enum, Text, Boolean, ForeignKey, UniqueConstraint, Date
 from sqlalchemy.orm import relationship
 
 from ..extensions import db
@@ -81,11 +81,25 @@ class PricingPlan(db.Model, PkMixin, TimestampMixin, TenantScoped):
     included_seat_quantity = Column(Integer, default=1, nullable=False)
     included_meeting_credits = Column(Integer, default=0, nullable=False)
     additional_seat_rate = Column(Numeric(10, 2), default=0, nullable=False)
+    additional_seats_allowed = Column(Boolean, default=False, nullable=False)
+    meeting_room_access_included = Column(Boolean, default=False, nullable=False)
+    meeting_credit_unit = Column(String(20))
+    meeting_credits_rollover = Column(Boolean, default=False, nullable=False)
+    meeting_room_overage_allowed = Column(Boolean, default=False, nullable=False)
     meeting_room_overage_rate = Column(Numeric(10, 2), default=0, nullable=False)
     location_scope = Column(Enum(LocationScope), nullable=False, default=LocationScope.ALL)
     minimum_contract_months = Column(Integer, default=0, nullable=False)
-    refundable_deposit = Column(Numeric(10, 2), default=0, nullable=False)
+    deposit_required = Column(Boolean, default=False, nullable=False)
+    deposit_calculation = Column(String(30))
+    deposit_value = Column(Numeric(10, 2), default=0, nullable=False)
+    deposit_refundable = Column(Boolean, default=True, nullable=False)
     tax_applicable = Column(Boolean, default=True, nullable=False)
+    tax_code = Column(String(30))
+    price_includes_tax = Column(Boolean, default=False, nullable=False)
+    currency = Column(String(3), default="INR", nullable=False)
+    effective_from = Column(Date)
+    effective_until = Column(Date)
+    version = Column(Integer, default=1, nullable=False)
     status = Column(Enum(PlanStatus), nullable=False, default=PlanStatus.DRAFT)
     office_capacity = Column(Integer)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)

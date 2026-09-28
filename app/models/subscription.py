@@ -41,6 +41,7 @@ class Subscription(db.Model, PkMixin, TimestampMixin, TenantScoped):
 
     # Consumable credits pool
     meeting_credits_balance = Column(Integer, default=0, nullable=False)
+    pricing_snapshot = Column(Text)
 
     plan = relationship("PricingPlan", back_populates="subscriptions")
     company = relationship("Company", back_populates="subscriptions", foreign_keys=[company_id])

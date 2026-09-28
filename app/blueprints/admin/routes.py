@@ -224,6 +224,27 @@ def _normalize_plan_conditions(plan, form):
         plan.included_seat_quantity = 0
     if form.plan_type.data == "day_pass":
         plan.minimum_contract_months = 0
+    if form.plan_type.data not in ("private_office", "managed_office"):
+        plan.office_capacity = None
+    if form.billing_unit.data not in ("per_seat", "per_office", "flat_fee"):
+        plan.included_seat_quantity = 0
+    if not form.additional_seats_allowed.data:
+        plan.additional_seat_rate = 0
+    if not form.meeting_room_access_included.data:
+        plan.meeting_credit_unit = None
+        plan.included_meeting_credits = 0
+        plan.meeting_credits_rollover = False
+        plan.meeting_room_overage_allowed = False
+        plan.meeting_room_overage_rate = 0
+    elif not form.meeting_room_overage_allowed.data:
+        plan.meeting_room_overage_rate = 0
+    if not form.deposit_required.data:
+        plan.deposit_calculation = None
+        plan.deposit_value = 0
+        plan.deposit_refundable = False
+    if not form.tax_applicable.data:
+        plan.tax_code = None
+        plan.price_includes_tax = False
     if form.location_scope.data == "all":
         plan.locations = Location.query.order_by(Location.name).all()
     else:

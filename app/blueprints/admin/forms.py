@@ -85,13 +85,27 @@ class PricingPlanForm(FlaskForm):
     base_price = DecimalField("Base price", validators=[DataRequired(), NumberRange(min=0)])
     included_seat_quantity = IntegerField("Included seat quantity", default=1, validators=[NumberRange(min=0)])
     included_meeting_credits = IntegerField("Meeting room credits", default=0, validators=[NumberRange(min=0)])
+    additional_seats_allowed = BooleanField("Additional seats allowed", default=False)
     additional_seat_rate = DecimalField("Additional seat rate", default=0, validators=[NumberRange(min=0)])
+    meeting_room_access_included = BooleanField("Meeting-room access included", default=False)
+    meeting_credit_unit = SelectField("Credit unit", choices=[("hours", "Hours"), ("booking_credits", "Booking Credits")], validators=[Optional()])
+    meeting_credits_rollover = BooleanField("Credit rollover allowed", default=False)
+    meeting_room_overage_allowed = BooleanField("Meeting-room overage allowed", default=False)
     meeting_room_overage_rate = DecimalField("Meeting room overage rate", default=0, validators=[NumberRange(min=0)])
     location_scope = SelectField("Applicable locations", choices=_enum_choices(LocationScope), validators=[DataRequired()])
     location_ids = SelectMultipleField("Locations", coerce=int, validators=[Optional()])
     minimum_contract_months = IntegerField("Minimum contract duration (months)", default=0, validators=[NumberRange(min=0)])
-    refundable_deposit = DecimalField("Refundable deposit", default=0, validators=[NumberRange(min=0)])
+    deposit_required = BooleanField("Deposit required", default=False)
+    deposit_calculation = SelectField("Deposit calculation", choices=[("fixed_amount", "Fixed Amount"), ("months_of_base_price", "Months of Base Price")], validators=[Optional()])
+    deposit_value = DecimalField("Deposit value", default=0, validators=[NumberRange(min=0)])
+    deposit_refundable = BooleanField("Refundable", default=True)
     tax_applicable = BooleanField("Tax applicable", default=True)
+    tax_code = StringField("Tax code / rate", validators=[Optional(), Length(max=30)])
+    price_includes_tax = BooleanField("Price includes tax", default=False)
+    currency = SelectField("Currency", choices=[("INR", "INR"), ("USD", "USD")], default="INR")
+    effective_from = DateField("Effective from", validators=[Optional()])
+    effective_until = DateField("Effective until", validators=[Optional()])
+    version = IntegerField("Plan version", default=1, validators=[NumberRange(min=1)])
     office_capacity = IntegerField("Office capacity", validators=[Optional(), NumberRange(min=1)])
     status = SelectField("Plan status", choices=_enum_choices(PlanStatus), validators=[DataRequired()])
     description = TextAreaField("Description", validators=[Optional()])
@@ -107,6 +121,18 @@ class PricingPlanForm(FlaskForm):
             valid = False
         if self.location_scope.data == LocationScope.MULTIPLE.value and not self.location_ids.data:
             self.location_ids.errors.append("Choose one or more locations.")
+            valid = False
+        allowed_units = {
+            "hot_desk": {"daily": "per_person_day", "monthly": "per_seat"},
+            "dedicated_desk": {"*": "per_seat"}, "private_office": {"*": "per_office"},
+            "managed_office": {"*": {"per_office", "flat_fee"}}, "day_pass": {"*": "per_day_pass"},
+        }
+        expected = allowed_units.get(self.plan_type.data, {}).get(self.billing_cycle.data) or allowed_units.get(self.plan_type.data, {}).get("*")
+        if expected and self.billing_unit.data not in (expected if isinstance(expected, set) else {expected}):
+            self.billing_unit.errors.append("This workspace type and billing cycle require a different billing unit.")
+            valid = False
+        if self.additional_seats_allowed.data and (self.additional_seat_rate.data is None or self.additional_seat_rate.data <= 0):
+            self.additional_seat_rate.errors.append("Additional seats require a rate greater than zero.")
             valid = False
         return valid
 
