@@ -9,16 +9,16 @@
     {{ form.hidden_tag() }}
     <div class="row">
       <div class="col-md-6">{{ field(form.name) }}</div>
-      <div class="col-md-3">{{ field(form.scope) }}</div><div class="col-md-3">{{ field(form.company_id) }}</div>
+      <div class="col-md-3">{{ field(form.scope) }}</div><div id="company-field" class="col-md-3">{{ field(form.company_id) }}</div>
     </div>
     <div class="row">
       <div class="col-md-3">{{ field(form.plan_type) }}</div><div class="col-md-3">{{ field(form.billing_unit) }}</div><div class="col-md-3">{{ field(form.billing_cycle) }}</div><div class="col-md-3">{{ field(form.status) }}</div>
     </div>
     <div class="row">
-      <div class="col-md-3">{{ field(form.base_price) }}</div><div class="col-md-3">{{ field(form.included_seat_quantity) }}</div><div class="col-md-3">{{ field(form.included_meeting_credits) }}</div><div class="col-md-3">{{ field(form.office_capacity) }}</div>
+      <div class="col-md-3">{{ field(form.base_price) }}</div><div id="included-seats-field" class="col-md-3">{{ field(form.included_seat_quantity) }}</div><div class="col-md-3">{{ field(form.included_meeting_credits) }}</div><div id="office-capacity-field" class="col-md-3">{{ field(form.office_capacity) }}</div>
     </div>
     <div class="row"><div class="col-md-4">{{ field(form.additional_seat_rate) }}</div><div class="col-md-4">{{ field(form.meeting_room_overage_rate) }}</div><div class="col-md-4">{{ field(form.refundable_deposit) }}</div></div>
-    <div class="row"><div class="col-md-4">{{ field(form.location_scope) }}</div><div class="col-md-4">{{ field(form.location_ids) }}</div><div class="col-md-4">{{ field(form.minimum_contract_months) }}</div></div>
+    <div class="row"><div class="col-md-4">{{ field(form.location_scope) }}</div><div id="locations-field" class="col-md-4">{{ field(form.location_ids) }}</div><div id="contract-field" class="col-md-4">{{ field(form.minimum_contract_months) }}</div></div>
     {{ field(form.tax_applicable) }}
     <p class="text-muted small">Parking, lockers, printing, additional meeting credits and after-hours access are plan add-ons and are kept separate from the base plan.</p>
     {{ field(form.description) }}
@@ -26,4 +26,29 @@
     <a class="btn btn-link" href="{{ url_for('admin.plans_list') }}">Cancel</a>
   </form>
 </div></div>
+<script>
+  (() => {
+    const byId = id => document.getElementById(id);
+    const scope = byId('scope'), type = byId('plan_type'), unit = byId('billing_unit'), locationScope = byId('location_scope');
+    const show = (wrapper, visible, clear) => {
+      wrapper.hidden = !visible;
+      if (!visible && clear) clear();
+    };
+    const refresh = () => {
+      show(byId('company-field'), scope.value === 'company_custom', () => byId('company_id').value = '0');
+      show(byId('office-capacity-field'), ['private_office', 'managed_office'].includes(type.value), () => byId('office_capacity').value = '');
+      show(byId('included-seats-field'), ['per_seat', 'per_office', 'flat_fee'].includes(unit.value), () => byId('included_seat_quantity').value = '0');
+      show(byId('contract-field'), type.value !== 'day_pass', () => byId('minimum_contract_months').value = '0');
+      const manualLocations = ['one', 'multiple'].includes(locationScope.value);
+      show(byId('locations-field'), manualLocations, () => Array.from(byId('location_ids').options).forEach(option => option.selected = false));
+      byId('location_ids').multiple = locationScope.value === 'multiple';
+      if (locationScope.value === 'one') {
+        const selected = Array.from(byId('location_ids').options).filter(option => option.selected);
+        selected.slice(1).forEach(option => option.selected = false);
+      }
+    };
+    [scope, type, unit, locationScope].forEach(control => control.addEventListener('change', refresh));
+    refresh();
+  })();
+</script>
 {% endblock %}

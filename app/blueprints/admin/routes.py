@@ -213,6 +213,22 @@ def room_edit(room_id: int):
 
 # ---------------------------------------------------------- pricing plans --
 
+def _normalize_plan_conditions(plan, form):
+    if form.scope.data != "company_custom":
+        plan.company_id = None
+    else:
+        plan.company_id = form.company_id.data
+    if form.plan_type.data not in ("private_office", "managed_office"):
+        plan.office_capacity = None
+    if form.billing_unit.data not in ("per_seat", "per_office", "flat_fee"):
+        plan.included_seat_quantity = 0
+    if form.plan_type.data == "day_pass":
+        plan.minimum_contract_months = 0
+    if form.location_scope.data == "all":
+        plan.locations = Location.query.order_by(Location.name).all()
+    else:
+        plan.locations = Location.query.filter(Location.id.in_(form.location_ids.data)).all()
+
 @admin_bp.route("/plans")
 @admin_required
 def plans_list():
@@ -229,8 +245,7 @@ def plan_new():
     if form.validate_on_submit():
         plan = PricingPlan()
         form.populate_obj(plan)
-        plan.company_id = form.company_id.data or None
-        plan.locations = Location.query.filter(Location.id.in_(form.location_ids.data)).all()
+        _normalize_plan_conditions(plan, form)
         plan.is_active = plan.status.value == "active"
         db.session.add(plan)
         db.session.commit()
@@ -251,8 +266,7 @@ def plan_edit(plan_id: int):
         form.location_ids.data = [location.id for location in plan.locations]
     if form.validate_on_submit():
         form.populate_obj(plan)
-        plan.company_id = form.company_id.data or None
-        plan.locations = Location.query.filter(Location.id.in_(form.location_ids.data)).all()
+        _normalize_plan_conditions(plan, form)
         plan.is_active = plan.status.value == "active"
         db.session.commit()
         flash("Plan updated.", "success")

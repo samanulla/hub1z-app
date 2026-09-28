@@ -97,6 +97,19 @@ class PricingPlanForm(FlaskForm):
     description = TextAreaField("Description", validators=[Optional()])
     submit = SubmitField("Save")
 
+    def validate(self, extra_validators=None):
+        valid = super().validate(extra_validators=extra_validators)
+        if self.scope.data == PlanScope.COMPANY_CUSTOM.value and not self.company_id.data:
+            self.company_id.errors.append("Choose the company for a custom plan.")
+            valid = False
+        if self.location_scope.data == LocationScope.ONE.value and len(self.location_ids.data or []) != 1:
+            self.location_ids.errors.append("Choose exactly one location.")
+            valid = False
+        if self.location_scope.data == LocationScope.MULTIPLE.value and not self.location_ids.data:
+            self.location_ids.errors.append("Choose one or more locations.")
+            valid = False
+        return valid
+
 
 class CompanyForm(FlaskForm):
     name = StringField("Company name", validators=[DataRequired(), Length(max=200)])

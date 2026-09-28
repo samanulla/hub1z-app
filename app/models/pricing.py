@@ -30,14 +30,15 @@ class BillingCycle(str, enum.Enum):
 
 class PlanScope(str, enum.Enum):
     INDIVIDUAL = "individual"
-    COMPANY = "company"
+    COMPANY_STANDARD = "company_standard"
+    COMPANY_CUSTOM = "company_custom"
 
 
 class BillingUnit(str, enum.Enum):
-    PER_PERSON = "per_person"
     PER_SEAT = "per_seat"
     PER_OFFICE = "per_office"
-    PER_DAY = "per_day"
+    PER_DAY_PASS = "per_day_pass"
+    PER_PERSON_DAY = "per_person_day"
     FLAT_FEE = "flat_fee"
 
 
@@ -73,7 +74,7 @@ class PricingPlan(db.Model, PkMixin, TimestampMixin, TenantScoped):
 
     scope = Column(Enum(PlanScope), nullable=False, default=PlanScope.INDIVIDUAL)
     plan_type = Column(Enum(PlanType), nullable=False, default=PlanType.HOT_DESK)
-    billing_unit = Column(Enum(BillingUnit), nullable=False, default=BillingUnit.PER_PERSON)
+    billing_unit = Column(Enum(BillingUnit), nullable=False, default=BillingUnit.PER_SEAT)
     billing_cycle = Column(Enum(BillingCycle), nullable=False, default=BillingCycle.MONTHLY)
     base_price = Column(Numeric(10, 2), nullable=False)
     included_seat_quantity = Column(Integer, default=1, nullable=False)
