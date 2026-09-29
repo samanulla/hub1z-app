@@ -1,15 +1,19 @@
-"""System-wide settings — a single-row table the super admin can edit."""
+"""Settings — one row per operator, plus an optional platform-level default row."""
 from __future__ import annotations
 
 from decimal import Decimal
+from flask import g, has_request_context
 from sqlalchemy import Column, Integer, String, Numeric, Boolean
 
 from ..extensions import db
 from ._mixins import TimestampMixin
+from .operator import OperatorScoped
 
 
-class SystemSettings(db.Model, TimestampMixin):
+class SystemSettings(db.Model, TimestampMixin, OperatorScoped):
     __tablename__ = "system_settings"
+    __operator_nullable__ = True  # NULL = platform default row
+    __table_args__ = (db.UniqueConstraint("operator_id", name="uq_system_settings_operator"),)
 
     id = Column(Integer, primary_key=True)
 
@@ -40,10 +44,13 @@ class SystemSettings(db.Model, TimestampMixin):
 
     @classmethod
     def get(cls) -> "SystemSettings":
-        """Return the singleton row, creating it with defaults if missing."""
-        s = db.session.get(cls, 1)
+        """Return the current operator's row (the platform default row outside an
+        operator context), creating it with defaults if missing."""
+        oid = getattr(g, "operator_id", None) if has_request_context() else None
+        match = cls.operator_id == oid if oid is not None else cls.operator_id.is_(None)
+        s = cls.query.execution_options(skip_operator_filter=True).filter(match).first()
         if s is None:
-            s = cls(id=1)
+            s = cls(operator_id=oid)
             db.session.add(s)
             db.session.commit()
         return s

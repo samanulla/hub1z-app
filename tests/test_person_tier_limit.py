@@ -7,7 +7,7 @@ os.environ.setdefault("FLASK_ENV", "testing")
 
 from app import create_app
 from app.extensions import db
-from app.models import User, UserRole, Tenant, TenantStatus, PricingTier, Company, CompanyStatus
+from app.models import User, UserRole, Operator, OperatorStatus, PricingTier, Company, CompanyStatus
 
 
 def _app():
@@ -21,20 +21,20 @@ def _app():
     return app
 
 
-def _seed_tenant_at_cap(app, max_seats, existing_people=0):
-    """Tenant on a tier capped at `max_seats` people, with `existing_people`
+def _seed_operator_at_cap(app, max_seats, existing_people=0):
+    """Operator on a tier capped at `max_seats` people, with `existing_people`
     individuals already burning through that cap."""
     with app.app_context():
-        t = Tenant(slug="tiny", name="Tiny Co", primary_domain="tiny.hub1z.com",
-                  status=TenantStatus.ACTIVE, plan_tier="starter")
+        t = Operator(slug="tiny", name="Tiny Co", primary_domain="tiny.hub1z.com",
+                  status=OperatorStatus.ACTIVE, plan_tier="starter")
         db.session.add(t); db.session.flush()
         db.session.add(PricingTier(key="starter", name="Starter", is_active=True, max_seats=max_seats))
-        admin = User(tenant_id=t.id, email="admin@tiny.com", full_name="Admin",
+        admin = User(operator_id=t.id, email="admin@tiny.com", full_name="Admin",
                     role=UserRole.SUPER_ADMIN, is_active=True)
         admin.set_password("AdminPass123!")
         db.session.add(admin)
         for i in range(existing_people):
-            u = User(tenant_id=t.id, email=f"person{i}@tiny.com", full_name=f"Person {i}",
+            u = User(operator_id=t.id, email=f"person{i}@tiny.com", full_name=f"Person {i}",
                     role=UserRole.INDIVIDUAL, is_active=True)
             u.set_password("PersonPass123!")
             db.session.add(u)
@@ -47,7 +47,7 @@ def _login(client, email, password):
 
 def test_self_serve_individual_not_blocked_by_seat_cap():
     app = _app()
-    _seed_tenant_at_cap(app, max_seats=1, existing_people=1)
+    _seed_operator_at_cap(app, max_seats=1, existing_people=1)
     c = app.test_client()
     c.post("/auth/register", data={
         "full_name": "One More", "email": "overflow@tiny.com",
@@ -59,7 +59,7 @@ def test_self_serve_individual_not_blocked_by_seat_cap():
 
 def test_self_serve_individual_allowed_under_person_cap():
     app = _app()
-    _seed_tenant_at_cap(app, max_seats=5, existing_people=1)
+    _seed_operator_at_cap(app, max_seats=5, existing_people=1)
     c = app.test_client()
     r = c.post("/auth/register", data={
         "full_name": "Fits Fine", "email": "fits@tiny.com",
@@ -71,7 +71,7 @@ def test_self_serve_individual_allowed_under_person_cap():
 
 def test_self_serve_company_signup_not_blocked_by_seat_cap():
     app = _app()
-    _seed_tenant_at_cap(app, max_seats=1, existing_people=1)
+    _seed_operator_at_cap(app, max_seats=1, existing_people=1)
     c = app.test_client()
     c.post("/auth/register/company", data={
         "company_name": "New Co", "billing_email": "b@newco.example",
@@ -82,9 +82,9 @@ def test_self_serve_company_signup_not_blocked_by_seat_cap():
         assert Company.query.filter_by(name="New Co").first() is not None
 
 
-def test_tenant_invite_individual_not_blocked_by_seat_cap():
+def test_operator_invite_individual_not_blocked_by_seat_cap():
     app = _app()
-    _seed_tenant_at_cap(app, max_seats=1, existing_people=1)
+    _seed_operator_at_cap(app, max_seats=1, existing_people=1)
     c = app.test_client()
     _login(c, "admin@tiny.com", "AdminPass123!")
     c.post("/admin/invites/individual/new", data={
@@ -95,18 +95,18 @@ def test_tenant_invite_individual_not_blocked_by_seat_cap():
 
 
 def test_company_admin_employee_add_not_blocked_by_seat_cap():
-    """A company signed up under a tenant can still add employees past the
-    tenant's seat-billing threshold — it becomes a billing overage, not a block."""
+    """A company signed up under an operator can still add employees past the
+    operator's seat-billing threshold — it becomes a billing overage, not a block."""
     app = _app()
     with app.app_context():
-        t = Tenant(slug="tiny", name="Tiny Co", primary_domain="tiny.hub1z.com",
-                  status=TenantStatus.ACTIVE, plan_tier="starter")
+        t = Operator(slug="tiny", name="Tiny Co", primary_domain="tiny.hub1z.com",
+                  status=OperatorStatus.ACTIVE, plan_tier="starter")
         db.session.add(t); db.session.flush()
         db.session.add(PricingTier(key="starter", name="Starter", is_active=True, max_seats=1))
-        company = Company(tenant_id=t.id, name="Acme", billing_email="b@acme.example",
+        company = Company(operator_id=t.id, name="Acme", billing_email="b@acme.example",
                           status=CompanyStatus.ACTIVE, max_employees=99)  # company's own cap is generous
         db.session.add(company); db.session.flush()
-        ca = User(tenant_id=t.id, email="jane@acme.example", full_name="Jane",
+        ca = User(operator_id=t.id, email="jane@acme.example", full_name="Jane",
                  role=UserRole.COMPANY_ADMIN, company_id=company.id, is_active=True)
         ca.set_password("JanePass123!")
         db.session.add(ca); db.session.commit()
@@ -123,8 +123,8 @@ def test_company_admin_employee_add_not_blocked_by_seat_cap():
 def test_no_tier_configured_fails_open_for_people_too():
     app = _app()
     with app.app_context():
-        t = Tenant(slug="notier", name="No Tier Co", primary_domain="notier.hub1z.com",
-                  status=TenantStatus.ACTIVE, plan_tier="nonexistent")
+        t = Operator(slug="notier", name="No Tier Co", primary_domain="notier.hub1z.com",
+                  status=OperatorStatus.ACTIVE, plan_tier="nonexistent")
         db.session.add(t); db.session.commit()
     c = app.test_client()
     r = c.post("/auth/register", data={

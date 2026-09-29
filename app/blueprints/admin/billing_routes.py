@@ -76,11 +76,11 @@ def register_billing_routes(bp):
                     status=InvoiceStatus.DRAFT,
                     subtotal=0, total_amount=0,
                 )
-                from ...services.billing_service import billing_snapshot_for_tenant
-                inv.tenant_id = getattr(g, "tenant_id", None)
-                tenant = getattr(g, "tenant", None)
-                inv.currency = tenant.currency_code if tenant else "USD"
-                for key, value in billing_snapshot_for_tenant(tenant).items():
+                from ...services.billing_service import billing_snapshot_for_operator
+                inv.operator_id = getattr(g, "operator_id", None)
+                operator = getattr(g, "operator", None)
+                inv.currency = operator.currency_code if operator else "USD"
+                for key, value in billing_snapshot_for_operator(operator).items():
                     setattr(inv, key, value)
                 db.session.add(inv)
                 db.session.commit()

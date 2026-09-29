@@ -4,7 +4,7 @@ os.environ.setdefault("FLASK_ENV", "testing")
 
 from app import create_app
 from app.extensions import db
-from app.models import Tenant, TenantStatus
+from app.models import Operator, OperatorStatus
 
 
 def _app():
@@ -15,9 +15,9 @@ def _app():
                       "LOCAL_STORAGE_DIR": "./var/test-uploads"})
     with app.app_context():
         db.create_all()
-        db.session.add(Tenant(slug="coworkhub", name="CoWorkHub",
+        db.session.add(Operator(slug="coworkhub", name="CoWorkHub",
                               primary_domain="coworkhub.io",
-                              status=TenantStatus.ACTIVE))
+                              status=OperatorStatus.ACTIVE))
         db.session.commit()
     return app
 

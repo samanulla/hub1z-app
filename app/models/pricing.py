@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class PlanType(str, enum.Enum):
@@ -62,14 +62,12 @@ pricing_plan_locations = db.Table(
 )
 
 
-class PricingPlan(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class PricingPlan(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "pricing_plans"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "name", name="uq_pricing_plans_tenant_name"),
+        UniqueConstraint("operator_id", "name", name="uq_pricing_plans_operator_name"),
     )
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
 
     name = Column(String(120), nullable=False)
 
@@ -121,7 +119,7 @@ class PricingPlan(db.Model, PkMixin, TimestampMixin, TenantScoped):
         return f"<PricingPlan {self.name} ${self.base_price}/{self.billing_cycle.value}>"
 
 
-class PlanAddon(db.Model, PkMixin, TimestampMixin):
+class PlanAddon(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "plan_addons"
 
     plan_id = Column(Integer, ForeignKey("pricing_plans.id", ondelete="CASCADE"), nullable=False, index=True)

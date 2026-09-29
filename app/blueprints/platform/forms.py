@@ -1,4 +1,4 @@
-"""Platform Owner forms (tenant CRUD)."""
+"""Platform Owner forms (operator CRUD)."""
 from flask_wtf import FlaskForm
 from wtforms import (StringField, DecimalField, SelectField, TextAreaField,
                      BooleanField, SubmitField, PasswordField, IntegerField, DateField,
@@ -7,7 +7,7 @@ from wtforms.validators import (DataRequired, Length, Optional, Email,
                                 NumberRange, Regexp)
 
 from ...models import (
-    TenantStatus, PLATFORM_FEATURES, PlatformInvoiceStatus, TierStatus,
+    OperatorStatus, PLATFORM_FEATURES, PlatformInvoiceStatus, TierStatus,
     OveragePolicy, SeatUsageMethod,
 )
 from ...services.locale_data import (
@@ -16,7 +16,7 @@ from ...services.locale_data import (
 )
 
 
-class TenantForm(FlaskForm):
+class OperatorForm(FlaskForm):
     slug = StringField(
         "URL slug",
         validators=[
@@ -36,7 +36,7 @@ class TenantForm(FlaskForm):
     # Choices populated dynamically from PricingTier at request time (see routes.py) —
     # tiers are Owner-configurable, not a fixed list.
     plan_tier = SelectField("Plan tier", validators=[DataRequired()])
-    status = SelectField("Status", choices=[(s.value, s.value.title()) for s in TenantStatus],
+    status = SelectField("Status", choices=[(s.value, s.value.title()) for s in OperatorStatus],
                          validators=[DataRequired()])
 
     primary_domain = StringField("Primary domain", validators=[Optional(), Length(max=255)],
@@ -86,7 +86,7 @@ class TenantForm(FlaskForm):
     payment_bank_ifsc_or_routing = StringField("IFSC (India) / Routing number (US)",
                                                validators=[Optional(), Length(max=30)])
 
-    submit = SubmitField("Save tenant")
+    submit = SubmitField("Save operator")
 
 
 class PlatformManagerForm(FlaskForm):
@@ -110,10 +110,10 @@ for _key, _label, _desc in PLATFORM_FEATURES:
             BooleanField(f"{_label} — {_desc}", default=True))
 
 
-class InviteTenantForm(FlaskForm):
-    """Invite a prospective coworking business to become a tenant. Unlike
-    NewTenantForm, the business sets its own admin password via the emailed
-    link, and the tenant lands as TRIAL pending an explicit Approve."""
+class InviteOperatorForm(FlaskForm):
+    """Invite a prospective coworking business to become an operator. Unlike
+    NewOperatorForm, the business sets its own admin password via the emailed
+    link, and the operator lands as TRIAL pending an explicit Approve."""
     slug = StringField(
         "URL slug",
         validators=[
@@ -133,7 +133,7 @@ class PricingTierForm(FlaskForm):
     key = StringField(
         "Key", validators=[DataRequired(), Length(max=30), Regexp(r"^[a-z0-9_-]+$",
         message="Lowercase letters, digits, hyphens/underscores only")],
-        description="Stable identifier stored on tenants — don't change this after tenants are on it.",
+        description="Stable identifier stored on operators — don't change this after operators are on it.",
     )
     name = StringField("Tier name", validators=[DataRequired(), Length(max=80)])
     monthly_price = DecimalField("Monthly price (₹)", validators=[Optional(), NumberRange(min=0)],
@@ -198,8 +198,8 @@ class OperatorSubscriptionForm(FlaskForm):
     submit = SubmitField("Save operator subscription")
 
 
-class NewTenantForm(TenantForm):
-    """Extends TenantForm with the first super-admin credentials."""
+class NewOperatorForm(OperatorForm):
+    """Extends OperatorForm with the first super-admin credentials."""
     admin_name = StringField("First admin name", validators=[DataRequired(), Length(max=150)])
     admin_email = StringField("First admin email",
                               validators=[DataRequired(), Email(), Length(max=255)])
@@ -208,14 +208,14 @@ class NewTenantForm(TenantForm):
         validators=[DataRequired(), Length(min=8, max=200)],
     )
     seed_defaults = BooleanField(
-        "Seed default pricing plans + email templates for this tenant", default=True,
+        "Seed default pricing plans + email templates for this operator", default=True,
     )
     submit = SubmitField("Provision operator")
 
 
 class PlatformInvoiceForm(FlaskForm):
     """An invoice the platform issues to an operator for their subscription."""
-    tenant_id = SelectField("Operator", coerce=int, validators=[DataRequired()])
+    operator_id = SelectField("Operator", coerce=int, validators=[DataRequired()])
     number = StringField("Invoice number", validators=[DataRequired(), Length(max=30)])
     period_start = DateField("Period start", validators=[DataRequired()])
     period_end = DateField("Period end", validators=[DataRequired()])
@@ -230,7 +230,7 @@ class PlatformInvoiceForm(FlaskForm):
 
 
 class PlatformCreditNoteForm(FlaskForm):
-    tenant_id = SelectField("Operator", coerce=int, validators=[DataRequired()])
+    operator_id = SelectField("Operator", coerce=int, validators=[DataRequired()])
     invoice_id = SelectField("Against invoice (optional)", coerce=int, validators=[Optional()])
     number = StringField("Credit note number", validators=[DataRequired(), Length(max=30)])
     amount = DecimalField("Amount", validators=[DataRequired(), NumberRange(min=0)])
@@ -239,7 +239,7 @@ class PlatformCreditNoteForm(FlaskForm):
 
 
 class PlatformRefundForm(FlaskForm):
-    tenant_id = SelectField("Operator", coerce=int, validators=[DataRequired()])
+    operator_id = SelectField("Operator", coerce=int, validators=[DataRequired()])
     invoice_id = SelectField("Against invoice (optional)", coerce=int, validators=[Optional()])
     number = StringField("Refund reference", validators=[DataRequired(), Length(max=30)])
     amount = DecimalField("Amount", validators=[DataRequired(), NumberRange(min=0)])

@@ -1,5 +1,5 @@
 """SQLAlchemy models re-exported from a single package for convenience."""
-from .tenant import Tenant, TenantScoped, TenantStatus
+from .operator import Operator, OperatorScoped, OperatorStatus
 from .pricing_tier import (
     PricingTier, TierStatus, OveragePolicy, SeatUsageMethod, PlatformModule, OperatorSubscription,
     OperatorUsageSnapshot,
@@ -67,7 +67,7 @@ __all__ = [
     "EmailTemplate", "EmailKind",
     "SystemSettings",
     "AuditLog",
-    "Tenant", "TenantScoped", "TenantStatus", "PricingTier", "TierStatus", "OveragePolicy", "SeatUsageMethod",
+    "Operator", "OperatorScoped", "OperatorStatus", "PricingTier", "TierStatus", "OveragePolicy", "SeatUsageMethod",
     "PlatformModule", "OperatorSubscription", "OperatorUsageSnapshot",
     "DayPass", "DayPassStatus",
     "RoomWaitlist", "WaitlistStatus",

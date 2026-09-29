@@ -1,4 +1,4 @@
-"""Platform Owner routes: manage tenants (create, edit, list, dashboard)."""
+"""Platform Owner routes: manage operators (create, edit, list, dashboard)."""
 from __future__ import annotations
 
 from decimal import Decimal
@@ -7,7 +7,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 
 from ...extensions import db
 from ...models import (
-    Tenant, TenantStatus, User, UserRole, Company, Location,
+    Operator, OperatorStatus, User, UserRole, Company, Location,
     PricingPlan, PlanType, BillingCycle, EmailTemplate, EmailKind,
     AuditLog, Invoice, PricingTier,
 )
@@ -17,14 +17,14 @@ from ...services.locale_data import CURRENCY_SYMBOLS
 from ...utils.decorators import (
     platform_staff_required, platform_permission_required, platform_owner_required,
 )
-from .forms import TenantForm, NewTenantForm
+from .forms import OperatorForm, NewOperatorForm
 
 
 platform_bp = Blueprint("platform", __name__, template_folder="../../templates")
 
 
 def _normalize_primary_domain(raw: str | None, slug: str, base: str) -> str:
-    """A bare slug/subdomain (no base domain) silently breaks tenant
+    """A bare slug/subdomain (no base domain) silently breaks operator
     resolution by Host header, so always ensure the full domain is stored."""
     domain = (raw or "").strip().lower()
     if not domain:
@@ -34,8 +34,8 @@ def _normalize_primary_domain(raw: str | None, slug: str, base: str) -> str:
     return domain
 
 
-def _seed_tenant_defaults(tenant: Tenant) -> None:
-    """Seed a fresh tenant with sensible starter data — pricing plans + email templates."""
+def _seed_operator_defaults(operator: Operator) -> None:
+    """Seed a fresh operator with sensible starter data — pricing plans + email templates."""
     plans_seed = [
         ("Hot Desk Monthly", PlanType.HOT_DESK, BillingCycle.MONTHLY, Decimal("12000"), 8, 1),
         ("Dedicated Desk", PlanType.DEDICATED_DESK, BillingCycle.MONTHLY, Decimal("22000"), 20, 1),
@@ -45,7 +45,7 @@ def _seed_tenant_defaults(tenant: Tenant) -> None:
     ]
     for name, ptype, cycle, price, credits, max_loc in plans_seed:
         db.session.add(PricingPlan(
-            tenant_id=tenant.id, name=name, plan_type=ptype, billing_cycle=cycle,
+            operator_id=operator.id, name=name, plan_type=ptype, billing_cycle=cycle,
             base_price=price, included_meeting_credits=credits, max_locations=max_loc,
         ))
 
@@ -59,7 +59,7 @@ def _seed_tenant_defaults(tenant: Tenant) -> None:
     ]
     for code, subject, kind, body in tmpl_seed:
         db.session.add(EmailTemplate(
-            tenant_id=tenant.id, code=code, name=subject, kind=kind,
+            operator_id=operator.id, code=code, name=subject, kind=kind,
             subject=subject, body_html=body, is_active=True,
         ))
 
@@ -68,36 +68,36 @@ def _seed_tenant_defaults(tenant: Tenant) -> None:
 @platform_staff_required
 def dashboard():
     stats = {
-        "tenants": Tenant.query.execution_options(skip_tenant_filter=True).count(),
-        "active_tenants": Tenant.query.execution_options(skip_tenant_filter=True)
-                                       .filter_by(status=TenantStatus.ACTIVE).count(),
-        "total_users": User.query.execution_options(skip_tenant_filter=True).count(),
-        "total_companies": Company.query.execution_options(skip_tenant_filter=True).count(),
-        "total_locations": Location.query.execution_options(skip_tenant_filter=True).count(),
-        "total_invoices": Invoice.query.execution_options(skip_tenant_filter=True).count(),
+        "operators": Operator.query.execution_options(skip_operator_filter=True).count(),
+        "active_operators": Operator.query.execution_options(skip_operator_filter=True)
+                                       .filter_by(status=OperatorStatus.ACTIVE).count(),
+        "total_users": User.query.execution_options(skip_operator_filter=True).count(),
+        "total_companies": Company.query.execution_options(skip_operator_filter=True).count(),
+        "total_locations": Location.query.execution_options(skip_operator_filter=True).count(),
+        "total_invoices": Invoice.query.execution_options(skip_operator_filter=True).count(),
     }
     return render_template("platform/dashboard.html", stats=stats)
 
 
-@platform_bp.route("/tenants")
-@platform_permission_required("tenants")
-def tenants_list():
-    tenants = (Tenant.query
-               .execution_options(skip_tenant_filter=True)
-               .order_by(Tenant.name).all())
+@platform_bp.route("/operators")
+@platform_permission_required("operators")
+def operators_list():
+    operators = (Operator.query
+               .execution_options(skip_operator_filter=True)
+               .order_by(Operator.name).all())
     # Enrich with counts (bypass filter)
-    for t in tenants:
-        t._user_count = (User.query.execution_options(skip_tenant_filter=True)
-                                    .filter_by(tenant_id=t.id).count())
-        t._location_count = (Location.query.execution_options(skip_tenant_filter=True)
-                                            .filter_by(tenant_id=t.id).count())
-    return render_template("platform/tenants_list.html", tenants=tenants)
+    for t in operators:
+        t._user_count = (User.query.execution_options(skip_operator_filter=True)
+                                    .filter_by(operator_id=t.id).count())
+        t._location_count = (Location.query.execution_options(skip_operator_filter=True)
+                                            .filter_by(operator_id=t.id).count())
+    return render_template("platform/operators_list.html", operators=operators)
 
 
-@platform_bp.route("/tenants/new", methods=["GET", "POST"])
-@platform_permission_required("tenants")
-def tenant_new():
-    form = NewTenantForm()
+@platform_bp.route("/operators/new", methods=["GET", "POST"])
+@platform_permission_required("operators")
+def operator_new():
+    form = NewOperatorForm()
     form.plan_tier.choices = [(t.key, t.name) for t in
                               PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all()]
     if form.validate_on_submit():
@@ -105,15 +105,15 @@ def tenant_new():
         base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
         form.primary_domain.data = _normalize_primary_domain(form.primary_domain.data, slug, base)
 
-        existing = (Tenant.query
-                    .execution_options(skip_tenant_filter=True)
+        existing = (Operator.query
+                    .execution_options(skip_operator_filter=True)
                     .filter_by(slug=slug).first())
         if existing:
             flash("An operator with that workspace slug already exists.", "warning")
-            return render_template("platform/tenant_form.html", form=form, title="New operator")
+            return render_template("platform/operator_form.html", form=form, title="New operator")
 
-        t = Tenant()
-        for f in TenantForm.__dict__:
+        t = Operator()
+        for f in OperatorForm.__dict__:
             if f.startswith("_") or f in ("submit", "seed_defaults"):
                 continue
             if hasattr(t, f) and hasattr(form, f):
@@ -123,9 +123,9 @@ def tenant_new():
         db.session.add(t)
         db.session.flush()
 
-        # First super admin for this tenant
+        # First super admin for this operator
         u = User(
-            tenant_id=t.id,
+            operator_id=t.id,
             email=form.admin_email.data.lower().strip(),
             full_name=form.admin_name.data.strip(),
             role=UserRole.SUPER_ADMIN,
@@ -135,22 +135,22 @@ def tenant_new():
         db.session.add(u)
 
         if form.seed_defaults.data:
-            _seed_tenant_defaults(t)
+            _seed_operator_defaults(t)
 
         db.session.commit()
-        audit_service.record("tenant.created", "tenant", t.id,
+        audit_service.record("operator.created", "operator", t.id,
                              {"slug": t.slug, "name": t.name})
         flash(f"Operator workspace {t.name} provisioned. Owner: {u.email}", "success")
-        return redirect(url_for("platform.tenants_list"))
-    return render_template("platform/tenant_form.html", form=form, title="Provision new operator")
+        return redirect(url_for("platform.operators_list"))
+    return render_template("platform/operator_form.html", form=form, title="Provision new operator")
 
 
-@platform_bp.route("/tenants/<int:tenant_id>/edit", methods=["GET", "POST"])
-@platform_permission_required("tenants")
-def tenant_edit(tenant_id: int):
-    t = (Tenant.query.execution_options(skip_tenant_filter=True)
-                     .filter_by(id=tenant_id).first_or_404())
-    form = TenantForm(obj=t)
+@platform_bp.route("/operators/<int:operator_id>/edit", methods=["GET", "POST"])
+@platform_permission_required("operators")
+def operator_edit(operator_id: int):
+    t = (Operator.query.execution_options(skip_operator_filter=True)
+                     .filter_by(id=operator_id).first_or_404())
+    form = OperatorForm(obj=t)
     tiers = PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all()
     choices = [(pt.key, pt.name) for pt in tiers]
     if t.plan_tier and t.plan_tier not in {k for k, _ in choices}:
@@ -162,26 +162,26 @@ def tenant_edit(tenant_id: int):
         form.populate_obj(t)
         t.currency_symbol = CURRENCY_SYMBOLS.get(t.currency_code, t.currency_symbol)
         db.session.commit()
-        audit_service.record("tenant.updated", "tenant", t.id, {"slug": t.slug})
+        audit_service.record("operator.updated", "operator", t.id, {"slug": t.slug})
         flash("Operator workspace updated.", "success")
-        return redirect(url_for("platform.tenants_list"))
-    return render_template("platform/tenant_form.html", form=form,
-                           title=f"Edit {t.name}", tenant=t)
+        return redirect(url_for("platform.operators_list"))
+    return render_template("platform/operator_form.html", form=form,
+                           title=f"Edit {t.name}", operator=t)
 
 
-@platform_bp.route("/tenants/<int:tenant_id>/send-password-reset", methods=["POST"])
-@platform_permission_required("tenants")
-def tenant_send_password_reset(tenant_id: int):
+@platform_bp.route("/operators/<int:operator_id>/send-password-reset", methods=["POST"])
+@platform_permission_required("operators")
+def operator_send_password_reset(operator_id: int):
     """Email a password-reset link to the operator's Super Admin(s) — for
     when an operator is locked out and can't use self-service Forgot
     Password (e.g. they no longer have access to that inbox)."""
-    t = (Tenant.query.execution_options(skip_tenant_filter=True)
-                     .filter_by(id=tenant_id).first_or_404())
-    admins = (User.query.execution_options(skip_tenant_filter=True)
-              .filter_by(tenant_id=t.id, role=UserRole.SUPER_ADMIN, is_active=True).all())
+    t = (Operator.query.execution_options(skip_operator_filter=True)
+                     .filter_by(id=operator_id).first_or_404())
+    admins = (User.query.execution_options(skip_operator_filter=True)
+              .filter_by(operator_id=t.id, role=UserRole.SUPER_ADMIN, is_active=True).all())
     if not admins:
         flash(f"{t.name} has no active Super Admin to send a reset link to.", "warning")
-        return redirect(url_for("platform.tenant_edit", tenant_id=t.id))
+        return redirect(url_for("platform.operator_edit", operator_id=t.id))
     for admin in admins:
         token = mail_service.make_token(admin.id, "password-reset")
         reset_url = url_for("auth.reset_password", token=token, _external=True)
@@ -191,81 +191,81 @@ def tenant_send_password_reset(tenant_id: int):
             template="password_reset",
             user=admin, reset_url=reset_url, ttl_hours=2,
         )
-    audit_service.record("tenant.password_reset_sent", "tenant", t.id, {"slug": t.slug})
+    audit_service.record("operator.password_reset_sent", "operator", t.id, {"slug": t.slug})
     flash(f"Password reset link sent to: {', '.join(a.email for a in admins)}.", "success")
-    return redirect(url_for("platform.tenant_edit", tenant_id=t.id))
+    return redirect(url_for("platform.operator_edit", operator_id=t.id))
 
 
-@platform_bp.route("/tenants/<int:tenant_id>/approve", methods=["POST"])
-@platform_permission_required("tenants")
-def tenant_approve(tenant_id: int):
-    """TRIAL -> ACTIVE. For tenants that came in via /platform/tenants/invite
-    (directly-provisioned tenants from /platform/tenants/new start ACTIVE already)."""
-    t = (Tenant.query.execution_options(skip_tenant_filter=True)
-                     .filter_by(id=tenant_id).first_or_404())
-    if t.status != TenantStatus.TRIAL:
+@platform_bp.route("/operators/<int:operator_id>/approve", methods=["POST"])
+@platform_permission_required("operators")
+def operator_approve(operator_id: int):
+    """TRIAL -> ACTIVE. For operators that came in via /platform/operators/invite
+    (directly-provisioned operators from /platform/operators/new start ACTIVE already)."""
+    t = (Operator.query.execution_options(skip_operator_filter=True)
+                     .filter_by(id=operator_id).first_or_404())
+    if t.status != OperatorStatus.TRIAL:
         flash(f"{t.name} isn't pending approval.", "warning")
-        return redirect(url_for("platform.tenants_list"))
-    t.status = TenantStatus.ACTIVE
+        return redirect(url_for("platform.operators_list"))
+    t.status = OperatorStatus.ACTIVE
     db.session.commit()
-    audit_service.record("tenant.approved", "tenant", t.id, {"slug": t.slug})
+    audit_service.record("operator.approved", "operator", t.id, {"slug": t.slug})
     flash(f"{t.name} approved and now active.", "success")
-    return redirect(url_for("platform.tenants_list"))
+    return redirect(url_for("platform.operators_list"))
 
 
-@platform_bp.route("/tenants/<int:tenant_id>/hold", methods=["POST"])
-@platform_permission_required("tenants")
-def tenant_hold(tenant_id: int):
-    """Soft, reversible pause — available to any staffer with the 'tenants' grant."""
-    t = (Tenant.query.execution_options(skip_tenant_filter=True)
-                     .filter_by(id=tenant_id).first_or_404())
-    if t.status == TenantStatus.SUSPENDED:
+@platform_bp.route("/operators/<int:operator_id>/hold", methods=["POST"])
+@platform_permission_required("operators")
+def operator_hold(operator_id: int):
+    """Soft, reversible pause — available to any staffer with the 'operators' grant."""
+    t = (Operator.query.execution_options(skip_operator_filter=True)
+                     .filter_by(id=operator_id).first_or_404())
+    if t.status == OperatorStatus.SUSPENDED:
         flash(f"{t.name} is suspended; only a Platform Super Admin can change that.", "warning")
-        return redirect(url_for("platform.tenants_list"))
-    t.status = TenantStatus.HOLD
+        return redirect(url_for("platform.operators_list"))
+    t.status = OperatorStatus.HOLD
     db.session.commit()
-    audit_service.record("tenant.held", "tenant", t.id, {"slug": t.slug})
+    audit_service.record("operator.held", "operator", t.id, {"slug": t.slug})
     flash(f"{t.name} placed on hold.", "info")
-    return redirect(url_for("platform.tenants_list"))
+    return redirect(url_for("platform.operators_list"))
 
 
-@platform_bp.route("/tenants/<int:tenant_id>/release-hold", methods=["POST"])
-@platform_permission_required("tenants")
-def tenant_release_hold(tenant_id: int):
-    t = (Tenant.query.execution_options(skip_tenant_filter=True)
-                     .filter_by(id=tenant_id).first_or_404())
-    if t.status != TenantStatus.HOLD:
+@platform_bp.route("/operators/<int:operator_id>/release-hold", methods=["POST"])
+@platform_permission_required("operators")
+def operator_release_hold(operator_id: int):
+    t = (Operator.query.execution_options(skip_operator_filter=True)
+                     .filter_by(id=operator_id).first_or_404())
+    if t.status != OperatorStatus.HOLD:
         flash(f"{t.name} isn't on hold.", "warning")
-        return redirect(url_for("platform.tenants_list"))
-    t.status = TenantStatus.ACTIVE
+        return redirect(url_for("platform.operators_list"))
+    t.status = OperatorStatus.ACTIVE
     db.session.commit()
-    audit_service.record("tenant.hold_released", "tenant", t.id, {"slug": t.slug})
+    audit_service.record("operator.hold_released", "operator", t.id, {"slug": t.slug})
     flash(f"{t.name} is active again.", "success")
-    return redirect(url_for("platform.tenants_list"))
+    return redirect(url_for("platform.operators_list"))
 
 
-@platform_bp.route("/tenants/<int:tenant_id>/suspend", methods=["POST"])
+@platform_bp.route("/operators/<int:operator_id>/suspend", methods=["POST"])
 @platform_owner_required
-def tenant_suspend(tenant_id: int):
+def operator_suspend(operator_id: int):
     """Hard stop (deactivation) — Platform Super Admin only, not delegable."""
-    t = (Tenant.query.execution_options(skip_tenant_filter=True)
-                     .filter_by(id=tenant_id).first_or_404())
-    t.status = TenantStatus.SUSPENDED
+    t = (Operator.query.execution_options(skip_operator_filter=True)
+                     .filter_by(id=operator_id).first_or_404())
+    t.status = OperatorStatus.SUSPENDED
     db.session.commit()
-    audit_service.record("tenant.suspended", "tenant", t.id, {"slug": t.slug})
+    audit_service.record("operator.suspended", "operator", t.id, {"slug": t.slug})
     flash(f"{t.name} suspended.", "info")
-    return redirect(url_for("platform.tenants_list"))
+    return redirect(url_for("platform.operators_list"))
 
 
-@platform_bp.route("/tenants/<int:tenant_id>/activate", methods=["POST"])
+@platform_bp.route("/operators/<int:operator_id>/activate", methods=["POST"])
 @platform_owner_required
-def tenant_activate(tenant_id: int):
+def operator_activate(operator_id: int):
     """Reactivating out of a hard Suspend — Platform Super Admin only, to match
-    Suspend being Owner-exclusive. (Reactivating from Hold is tenant_release_hold.)"""
-    t = (Tenant.query.execution_options(skip_tenant_filter=True)
-                     .filter_by(id=tenant_id).first_or_404())
-    t.status = TenantStatus.ACTIVE
+    Suspend being Owner-exclusive. (Reactivating from Hold is operator_release_hold.)"""
+    t = (Operator.query.execution_options(skip_operator_filter=True)
+                     .filter_by(id=operator_id).first_or_404())
+    t.status = OperatorStatus.ACTIVE
     db.session.commit()
-    audit_service.record("tenant.activated", "tenant", t.id, {"slug": t.slug})
+    audit_service.record("operator.activated", "operator", t.id, {"slug": t.slug})
     flash(f"{t.name} activated.", "success")
-    return redirect(url_for("platform.tenants_list"))
+    return redirect(url_for("platform.operators_list"))

@@ -1,9 +1,9 @@
-"""Platform invites a prospective coworking business to become a tenant.
+"""Platform invites a prospective coworking business to become an operator.
 
-Distinct from direct provisioning (/platform/tenants/new, staff sets
-everything including the admin password and the tenant goes live
+Distinct from direct provisioning (/platform/operators/new, staff sets
+everything including the admin password and the operator goes live
 immediately): here the business sets its own password via a signed link,
-and the tenant lands as TRIAL pending an explicit /platform/tenants/<id>/approve.
+and the operator lands as TRIAL pending an explicit /platform/operators/<id>/approve.
 """
 from __future__ import annotations
 
@@ -11,42 +11,42 @@ from flask import render_template, redirect, url_for, flash, current_app
 from flask_login import login_user
 
 from ...extensions import db
-from ...models import Tenant, TenantStatus, User, UserRole
+from ...models import Operator, OperatorStatus, User, UserRole
 from ...services import audit_service, mail_service
 from ...utils.decorators import platform_permission_required
-from .forms import InviteTenantForm
-from ..admin.forms import AcceptTenantInviteForm
+from .forms import InviteOperatorForm
+from ..admin.forms import AcceptOperatorInviteForm
 
 INVITE_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
 
 
 def register_invite_routes(bp):
 
-    @bp.route("/tenants/invite", methods=["GET", "POST"])
-    @platform_permission_required("tenants")
-    def tenant_invite():
-        form = InviteTenantForm()
+    @bp.route("/operators/invite", methods=["GET", "POST"])
+    @platform_permission_required("operators")
+    def operator_invite():
+        form = InviteOperatorForm()
         if form.validate_on_submit():
             slug = form.slug.data.lower().strip()
             admin_email = form.admin_email.data.lower().strip()
 
-            if Tenant.query.execution_options(skip_tenant_filter=True).filter_by(slug=slug).first():
+            if Operator.query.execution_options(skip_operator_filter=True).filter_by(slug=slug).first():
                 flash("An operator with that workspace slug already exists.", "warning")
-                return render_template("platform/tenant_invite_form.html", form=form)
-            if User.query.execution_options(skip_tenant_filter=True).filter_by(email=admin_email).first():
+                return render_template("platform/operator_invite_form.html", form=form)
+            if User.query.execution_options(skip_operator_filter=True).filter_by(email=admin_email).first():
                 flash("That admin email is already registered.", "warning")
-                return render_template("platform/tenant_invite_form.html", form=form)
+                return render_template("platform/operator_invite_form.html", form=form)
 
             base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
-            t = Tenant(
+            t = Operator(
                 slug=slug, name=form.name.data.strip(),
-                primary_domain=f"{slug}.{base}", status=TenantStatus.TRIAL,
+                primary_domain=f"{slug}.{base}", status=OperatorStatus.TRIAL,
             )
             db.session.add(t)
             db.session.flush()
 
             admin = User(
-                tenant_id=t.id, email=admin_email,
+                operator_id=t.id, email=admin_email,
                 full_name=form.admin_name.data.strip(),
                 role=UserRole.SUPER_ADMIN,
                 is_active=False,  # activated when the invite is accepted
@@ -55,29 +55,29 @@ def register_invite_routes(bp):
             db.session.add(admin)
             db.session.commit()
 
-            token = mail_service.make_token(admin.id, "platform-tenant-invite")
-            accept_url = url_for("platform.tenant_accept_invite", token=token, _external=True)
+            token = mail_service.make_token(admin.id, "platform-operator-invite")
+            accept_url = url_for("platform.operator_accept_invite", token=token, _external=True)
             mail_service.send(
                 subject=f"You're invited to bring {t.name} onto {current_app.config['APP_NAME']}",
                 recipient=admin.email,
-                template="platform_tenant_invite",
-                user=admin, tenant=t, accept_url=accept_url,
+                template="platform_operator_invite",
+                user=admin, operator=t, accept_url=accept_url,
                 ttl_days=INVITE_TTL_SECONDS // 86400,
             )
-            audit_service.record("tenant.invited", "tenant", t.id,
+            audit_service.record("operator.invited", "operator", t.id,
                                  {"slug": t.slug, "admin_email": admin.email})
             flash(f"Invitation sent to {admin.email}.", "success")
-            return redirect(url_for("platform.tenants_list"))
-        return render_template("platform/tenant_invite_form.html", form=form)
+            return redirect(url_for("platform.operators_list"))
+        return render_template("platform/operator_invite_form.html", form=form)
 
-    @bp.route("/tenants/accept/<token>", methods=["GET", "POST"])
-    def tenant_accept_invite(token: str):
-        uid = mail_service.read_token(token, "platform-tenant-invite", INVITE_TTL_SECONDS)
+    @bp.route("/operators/accept/<token>", methods=["GET", "POST"])
+    def operator_accept_invite(token: str):
+        uid = mail_service.read_token(token, "platform-operator-invite", INVITE_TTL_SECONDS)
         if uid is None:
             flash("This invitation link is invalid or has expired.", "danger")
             return redirect(url_for("auth.login"))
         user = User.query.filter_by(id=int(uid)) \
-                         .execution_options(skip_tenant_filter=True).first()
+                         .execution_options(skip_operator_filter=True).first()
         if user is None:
             flash("Account not found.", "danger")
             return redirect(url_for("auth.login"))
@@ -85,7 +85,7 @@ def register_invite_routes(bp):
             flash("This invitation has already been accepted. Please sign in.", "info")
             return redirect(url_for("auth.login"))
 
-        form = AcceptTenantInviteForm()
+        form = AcceptOperatorInviteForm()
         if form.validate_on_submit():
             user.set_password(form.password.data)
             user.is_active = True
@@ -95,4 +95,4 @@ def register_invite_routes(bp):
             flash("Your account is set up. Your workspace is pending platform approval "
                  "before it goes fully live.", "success")
             return redirect(url_for("admin.dashboard"))
-        return render_template("platform/tenant_accept_invite.html", form=form, user=user)
+        return render_template("platform/operator_accept_invite.html", form=form, user=user)

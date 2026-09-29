@@ -92,12 +92,12 @@ def register_expense_routes(bp):
             if form.receipt.data:
                 f = form.receipt.data
                 stored = storage_service.upload(
-                    namespace=f"operators/{getattr(g, 'tenant_id', 'unscoped')}/expenses",
+                    namespace=f"operators/{getattr(g, 'operator_id', 'unscoped')}/expenses",
                     filename=f.filename, stream=f.stream, content_type=f.mimetype,
                     scope="operator",
                 )
                 doc = Document(
-                    tenant_id=getattr(g, "tenant_id", None),
+                    operator_id=getattr(g, "operator_id", None),
                     kind=DocumentKind.OTHER,
                     owner_type="expense",
                     filename=f.filename, content_type=f.mimetype,

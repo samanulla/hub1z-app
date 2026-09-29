@@ -2,7 +2,7 @@
 {% block title %}Manage{% endblock %}
 
 {% block content %}
-<h3 class="mb-4">{{ tenant.name if tenant else "Operator" }} overview</h3>
+<h3 class="mb-4">{{ operator.name if operator else "Operator" }} overview</h3>
 
 <div class="row g-3 mb-4">
   {% for label, value, icon in [

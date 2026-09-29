@@ -13,14 +13,14 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class UserRole(str, enum.Enum):
-    PLATFORM_OWNER = "platform_owner"  # SaaS operator — manages tenants; not scoped to one
+    PLATFORM_OWNER = "platform_owner"  # SaaS operator — manages operators; not scoped to one
     PLATFORM_MANAGER = "platform_manager"  # Platform staff/contractor with admin-granted feature access
-    SUPER_ADMIN = "super_admin"        # Tenant owner — full access within one tenant
-    MANAGER = "manager"                # Tenant operations manager (day-to-day, no destructive actions)
+    SUPER_ADMIN = "super_admin"        # Operator owner — full access within one operator
+    MANAGER = "manager"                # Operator operations manager (day-to-day, no destructive actions)
     LOCATION_MANAGER = "location_manager"  # Manages a specific location
     COMPANY_ADMIN = "company_admin"    # Admin of a subscribing company
     EMPLOYEE = "employee"              # Employee of a subscribing company
@@ -31,31 +31,31 @@ class UserRole(str, enum.Enum):
 # Manager. (key, label, description) — Platform Owners implicitly have all of
 # them; a Manager only has what's in their `platform_permissions`.
 PLATFORM_FEATURES: list[tuple[str, str, str]] = [
-    ("tenants", "Tenants", "Provision, edit, suspend/activate coworking businesses"),
-    ("billing", "Billing & accounting", "Tenant plan tiers and custom-domain access/surcharge"),
-    ("reports", "Reports", "Cross-tenant analytics"),
+    ("operators", "Operators", "Provision, edit, suspend/activate coworking businesses"),
+    ("billing", "Billing & accounting", "Operator plan tiers and custom-domain access/surcharge"),
+    ("reports", "Reports", "Cross-operator analytics"),
 ]
 PLATFORM_FEATURE_KEYS = {key for key, _, _ in PLATFORM_FEATURES}
 
 
-class User(db.Model, PkMixin, TimestampMixin, UserMixin, TenantScoped):
+class User(db.Model, PkMixin, TimestampMixin, UserMixin, OperatorScoped):
     __tablename__ = "users"
-    # Email is unique per-tenant; a second partial unique index enforces
-    # a single platform-owner row per email (tenant_id IS NULL).
+    # Email is unique per-operator; a second partial unique index enforces
+    # a single platform-owner row per email (operator_id IS NULL).
     __table_args__ = (
-        UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),
+        UniqueConstraint("operator_id", "email", name="uq_users_operator_email"),
         Index(
             "uq_users_platform_email",
             "email",
             unique=True,
-            postgresql_where=text("tenant_id IS NULL"),
-            sqlite_where=text("tenant_id IS NULL"),
+            postgresql_where=text("operator_id IS NULL"),
+            sqlite_where=text("operator_id IS NULL"),
         ),
     )
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
+    operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"),
                        nullable=True, index=True)
-    tenant = relationship("Tenant", foreign_keys=[tenant_id])
+    operator = relationship("Operator", foreign_keys=[operator_id])
 
     email = Column(String(255), nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)

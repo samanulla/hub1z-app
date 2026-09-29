@@ -27,7 +27,7 @@
     </tr>
   </thead>
   <tbody>
-    {% for t in tenants %}
+    {% for t in operators %}
     <tr>
       <td>
         {{ t.name }}
@@ -65,7 +65,7 @@
         {% endif %}
       </td>
       <td class="text-end">
-        <form method="post" action="{{ url_for('platform.billing_set_plan', tenant_id=t.id) }}" class="d-inline-flex gap-2">
+        <form method="post" action="{{ url_for('platform.billing_set_plan', operator_id=t.id) }}" class="d-inline-flex gap-2">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <select name="plan_tier" class="form-select form-select-sm">
             {% for tier in tiers %}
@@ -74,7 +74,7 @@
           </select>
           <button class="btn btn-sm btn-outline-dark">Update</button>
         </form>
-        <a class="btn btn-sm btn-outline-dark mt-2" href="{{ url_for('platform.billing_subscription_edit', tenant_id=t.id) }}">Configure contract</a>
+        <a class="btn btn-sm btn-outline-dark mt-2" href="{{ url_for('platform.billing_subscription_edit', operator_id=t.id) }}">Configure contract</a>
       </td>
     </tr>
     {% else %}
@@ -85,7 +85,7 @@
 
 <p class="text-muted small">
   Custom-domain mapping itself is still set from
-  <a href="{{ url_for('platform.tenants_list') }}">Operators → Edit</a>; this
+  <a href="{{ url_for('platform.operators_list') }}">Operators → Edit</a>; this
   page is for subscription configuration and pricing calculations. Platform
   invoices remain separate records in Platform finance.
 </p>

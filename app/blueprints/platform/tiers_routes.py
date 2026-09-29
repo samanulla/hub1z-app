@@ -1,6 +1,6 @@
 """Platform pricing tiers: Owner-only. "Introducing a new pricing model" and
-"Tiers for tenants" from the product brief — deliberately not delegable to a
-Platform Manager, unlike day-to-day tenant billing (/platform/billing)."""
+"Tiers for operators" from the product brief — deliberately not delegable to a
+Platform Manager, unlike day-to-day operator billing (/platform/billing)."""
 from __future__ import annotations
 
 from flask import render_template, redirect, url_for, flash
@@ -76,7 +76,7 @@ def register_tiers_routes(bp):
             tier.pricing_version += 1
             tier.annual_price = tier.calculate_annual_price()
             tier.module_catalog = PlatformModule.query.filter(PlatformModule.id.in_(form.feature_ids.data + form.module_ids.data)).all()
-            tier.key = original_key  # key is immutable once tenants may reference it
+            tier.key = original_key  # key is immutable once operators may reference it
             tier.is_active = tier.status == TierStatus.ACTIVE
             db.session.commit()
             audit_service.record("pricing_tier.updated", "pricing_tier", tier.id, {"key": tier.key})

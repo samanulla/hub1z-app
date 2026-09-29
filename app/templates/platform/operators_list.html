@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Operators{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+  <h3>Operators</h3>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-dark" href="{{ url_for('platform.operator_invite') }}">+ Invite operator</a>
+    <a class="btn btn-dark" href="{{ url_for('platform.operator_new') }}">+ Provision operator</a>
+  </div>
+</div>
+
+<table class="table bg-white shadow-sm">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Slug</th>
+      <th>Domains</th>
+      <th>Plan</th>
+      <th>Users</th>
+      <th>Locations</th>
+      <th>Status</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in operators %}
+    <tr>
+      <td>
+        <strong style="color: {{ t.brand_color }};">■</strong>
+        {{ t.name }}
+        {% if t.tagline %}<div class="text-muted small">{{ t.tagline }}</div>{% endif %}
+      </td>
+      <td><code>{{ t.slug }}</code></td>
+      <td>
+        <div class="small">{{ t.primary_domain or "—" }}</div>
+        {% if t.custom_domain %}<div class="text-muted small">{{ t.custom_domain }}</div>{% endif %}
+      </td>
+      <td><span class="badge bg-secondary">{{ t.plan_tier }}</span></td>
+      <td>{{ t._user_count }}</td>
+      <td>{{ t._location_count }}</td>
+      <td>
+        {% if t.status.value == 'active' %}<span class="badge bg-success">Active</span>
+        {% elif t.status.value == 'trial' %}<span class="badge bg-info text-dark">Pending approval</span>
+        {% elif t.status.value == 'hold' %}<span class="badge bg-warning text-dark">On hold</span>
+        {% elif t.status.value == 'suspended' %}<span class="badge bg-danger">Suspended</span>
+        {% else %}<span class="badge bg-secondary">{{ t.status.value }}</span>{% endif %}
+      </td>
+      <td class="text-end">
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('platform.operator_edit', operator_id=t.id) }}">Edit</a>
+
+        {% if t.status.value == 'trial' %}
+        <form method="post" action="{{ url_for('platform.operator_approve', operator_id=t.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-success">Approve</button>
+        </form>
+        {% elif t.status.value == 'hold' %}
+        <form method="post" action="{{ url_for('platform.operator_release_hold', operator_id=t.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-success">Release hold</button>
+        </form>
+        {% elif t.status.value == 'active' %}
+        <form method="post" action="{{ url_for('platform.operator_hold', operator_id=t.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-warning">Hold</button>
+        </form>
+        {% endif %}
+
+        {% if current_user.is_platform_owner %}
+          {% if t.status.value == 'suspended' %}
+          <form method="post" action="{{ url_for('platform.operator_activate', operator_id=t.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-success">Reactivate</button>
+          </form>
+          {% else %}
+          <form method="post" action="{{ url_for('platform.operator_suspend', operator_id=t.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-danger">Deactivate</button>
+          </form>
+          {% endif %}
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="text-center text-muted py-4">No operators yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

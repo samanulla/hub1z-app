@@ -11,7 +11,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class WaitlistStatus(str, enum.Enum):
@@ -21,11 +21,9 @@ class WaitlistStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-class RoomWaitlist(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class RoomWaitlist(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "room_waitlist"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     room_id = Column(Integer, ForeignKey("conference_rooms.id", ondelete="CASCADE"),
                      nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
@@ -45,11 +43,9 @@ class RecurrencePattern(str, enum.Enum):
     WEEKLY = "weekly"
 
 
-class RecurringRoomBooking(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class RecurringRoomBooking(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "recurring_room_bookings"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     room_id = Column(Integer, ForeignKey("conference_rooms.id", ondelete="CASCADE"),
                      nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),

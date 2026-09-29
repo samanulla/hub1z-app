@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class SeatType(str, enum.Enum):
@@ -16,11 +16,9 @@ class SeatType(str, enum.Enum):
     PRIVATE_OFFICE = "private_office"
 
 
-class Seat(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class Seat(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "seats"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"), nullable=False, index=True)
     floor_id = Column(Integer, ForeignKey("floors.id", ondelete="CASCADE"), nullable=False, index=True)
     code = Column(String(30), nullable=False, index=True)   # e.g. "L5-HD-014"
@@ -49,11 +47,9 @@ class Seat(db.Model, PkMixin, TimestampMixin, TenantScoped):
         return f"<Seat {self.code} ({self.seat_type.value})>"
 
 
-class ConferenceRoom(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class ConferenceRoom(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "conference_rooms"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"), nullable=False, index=True)
     floor_id = Column(Integer, ForeignKey("floors.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(120), nullable=False)
@@ -78,9 +74,10 @@ class ConferenceRoom(db.Model, PkMixin, TimestampMixin, TenantScoped):
         return f"<Room {self.name} cap={self.capacity}>"
 
 
-class RoomAmenity(db.Model, PkMixin):
+class RoomAmenity(db.Model, PkMixin, OperatorScoped):
     __tablename__ = "room_amenities"
-    name = Column(String(80), nullable=False, unique=True)  # e.g. TV, Whiteboard, VC
+    __table_args__ = (db.UniqueConstraint("operator_id", "name", name="uq_room_amenities_operator_name"),)
+    name = Column(String(80), nullable=False)  # e.g. TV, Whiteboard, VC
 
 
 class RoomAmenityLink(db.Model):

@@ -122,7 +122,7 @@ def day_pass_new():
     recipient = current_user
     if current_user.is_admin and recipient_id:
         # Operators can issue a day pass on behalf of any individual/employee
-        # in their own workspace — never someone else's tenant.
+        # in their own workspace — never someone else's operator.
         recipient = User.query.filter(
             User.id == recipient_id,
             User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL]),
@@ -132,7 +132,7 @@ def day_pass_new():
             return redirect(url_for("member.day_passes"))
 
     dp = DayPass(
-        tenant_id=getattr(g, "tenant_id", None),
+        operator_id=getattr(g, "operator_id", None),
         user_id=recipient.id,
         location_id=loc.id,
         pass_date=pd,

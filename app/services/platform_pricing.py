@@ -14,28 +14,28 @@ from ..models import (
 )
 
 
-def active_contracted_seats(tenant_id: int) -> int:
+def active_contracted_seats(operator_id: int) -> int:
     """Count contracted customer seats, not physical workspace capacity."""
     subscriptions = (Subscription.query
                      .outerjoin(Company, Subscription.company_id == Company.id)
                      .outerjoin(User, Subscription.user_id == User.id)
                      .filter(Subscription.status == SubscriptionStatus.ACTIVE)
-                     .filter(or_(Subscription.tenant_id == tenant_id,
-                                 Company.tenant_id == tenant_id,
-                                 User.tenant_id == tenant_id)).all())
+                     .filter(or_(Subscription.operator_id == operator_id,
+                                 Company.operator_id == operator_id,
+                                 User.operator_id == operator_id)).all())
     contracted = sum(subscription.quantity for subscription in subscriptions)
     assigned = SeatAllocation.query.join(SeatAllocation.seat).filter(
         SeatAllocation.status == AllocationStatus.ACTIVE,
-        SeatAllocation.seat.has(tenant_id=tenant_id, is_active=True),
+        SeatAllocation.seat.has(operator_id=operator_id, is_active=True),
     ).count()
     return max(contracted, assigned)
 
 
-def record_usage_snapshot(tenant_id: int) -> int:
-    seats = active_contracted_seats(tenant_id)
-    snapshot = OperatorUsageSnapshot.query.filter_by(tenant_id=tenant_id, recorded_on=date.today()).first()
+def record_usage_snapshot(operator_id: int) -> int:
+    seats = active_contracted_seats(operator_id)
+    snapshot = OperatorUsageSnapshot.query.filter_by(operator_id=operator_id, recorded_on=date.today()).first()
     if snapshot is None:
-        snapshot = OperatorUsageSnapshot(tenant_id=tenant_id, recorded_on=date.today(), active_contracted_seats=seats)
+        snapshot = OperatorUsageSnapshot(operator_id=operator_id, recorded_on=date.today(), active_contracted_seats=seats)
         from ..extensions import db
         db.session.add(snapshot)
     else:
@@ -43,7 +43,7 @@ def record_usage_snapshot(tenant_id: int) -> int:
     return seats
 
 
-def subscription_pricing(tenant, tier, subscription=None) -> dict:
+def subscription_pricing(operator, tier, subscription=None) -> dict:
     """Return an auditable monthly/annual operator charge breakdown."""
     snapshot = json.loads(subscription.pricing_snapshot) if subscription and subscription.pricing_snapshot else {}
     monthly = not subscription or subscription.billing_cycle != "annual"
@@ -59,11 +59,11 @@ def subscription_pricing(tenant, tier, subscription=None) -> dict:
         snapshot_base = _decimal_or_none(snapshot.get("monthly_price" if monthly else "annual_price"))
         tier_base = tier.monthly_price if monthly else tier.annual_price
         base = snapshot_base if snapshot_base is not None else _decimal_or_none(tier_base) or Decimal(0)
-    locations = Location.query.filter_by(tenant_id=tenant.id).count()
-    seats = record_usage_snapshot(tenant.id)
+    locations = Location.query.filter_by(operator_id=operator.id).count()
+    seats = record_usage_snapshot(operator.id)
     period_start = date.today().replace(day=1)
     peak = (OperatorUsageSnapshot.query.filter(
-        OperatorUsageSnapshot.tenant_id == tenant.id,
+        OperatorUsageSnapshot.operator_id == operator.id,
         OperatorUsageSnapshot.recorded_on >= period_start,
     ).with_entities(OperatorUsageSnapshot.active_contracted_seats)
             .order_by(OperatorUsageSnapshot.active_contracted_seats.desc()).first())

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{{ app_name }}{% endblock %} · {{ tenant.name if tenant else app_name }}</title>
+  <title>{% block title %}{{ app_name }}{% endblock %} · {{ operator.name if operator else app_name }}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,8 +18,8 @@
       --saffron: #f5b642;
       --coral: #ff6b57;
       --forest: #2b4a3e;
-      /* Per-tenant accent still available for badges/highlights */
-      --brand: {{ tenant.brand_color if tenant else "#f5b642" }};
+      /* Per-operator accent still available for badges/highlights */
+      --brand: {{ operator.brand_color if operator else "#f5b642" }};
       --brand-2: #7c3aed;
       --brand-3: #ff6b57;
     }
@@ -275,12 +275,12 @@
 <nav class="navbar navbar-expand-lg sticky-top">
   <div class="container">
     <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
-      {% if tenant and tenant.logo_url %}
-        <img src="{{ tenant.logo_url }}" alt="{{ tenant.name }}" style="height:32px;" class="me-2">
+      {% if operator and operator.logo_url %}
+        <img src="{{ operator.logo_url }}" alt="{{ operator.name }}" style="height:32px;" class="me-2">
       {% else %}
         <span class="brand-mark"></span>
       {% endif %}
-      {{ tenant.name if tenant else app_name }}
+      {{ operator.name if operator else app_name }}
     </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navmenu">
       <span class="navbar-toggler-icon"></span>
@@ -341,7 +341,7 @@
         {% else %}
           <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Sign in</a></li>
           <li class="nav-item"><a class="btn btn-sm btn-outline-success ms-2"
-                                   href="{{ url_for('auth.register_tenant') }}">Start free trial</a></li>
+                                   href="{{ url_for('auth.register_operator') }}">Start free trial</a></li>
         {% endif %}
       </ul>
     </div>
@@ -402,11 +402,11 @@
       <div class="side-group-label">Overview</div>
       <a class="side-link {{ 'active' if request.endpoint == 'platform.dashboard' }}" href="{{ url_for('platform.dashboard') }}">Dashboard</a>
     </div>
-    {% if current_user.has_platform_permission('tenants') %}
+    {% if current_user.has_platform_permission('operators') %}
     <div class="side-group">
       <div class="side-group-label">Operators</div>
-      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('platform.tenant') and 'invite' not in request.endpoint }}" href="{{ url_for('platform.tenants_list') }}">Operators</a>
-      <a class="side-link {{ 'active' if request.endpoint == 'platform.tenant_invite' }}" href="{{ url_for('platform.tenant_invite') }}">Invite operator</a>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('platform.operator') and 'invite' not in request.endpoint }}" href="{{ url_for('platform.operators_list') }}">Operators</a>
+      <a class="side-link {{ 'active' if request.endpoint == 'platform.operator_invite' }}" href="{{ url_for('platform.operator_invite') }}">Invite operator</a>
     </div>
     {% endif %}
     {% if current_user.has_platform_permission('billing') %}

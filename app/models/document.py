@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class DocumentKind(str, enum.Enum):
@@ -19,11 +19,10 @@ class DocumentKind(str, enum.Enum):
     OTHER = "other"
 
 
-class Document(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class Document(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "documents"
+    __operator_nullable__ = True
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
 
     # Polymorphic owner for platform, operator, company, member, location,
     # staff, invoice, and other document categories. Ownership is enforced by

@@ -48,7 +48,7 @@ def guest_passes():
             flash("Invalid guest pass.", "warning")
             return redirect(url_for("community.guest_passes"))
         gp = GuestPass(
-            tenant_id=getattr(g, "tenant_id", None),
+            operator_id=getattr(g, "operator_id", None),
             issuer_id=current_user.id,
             company_id=current_user.company_id,
             location_id=loc_id,
@@ -85,7 +85,7 @@ def visitors():
             flash("Invalid visitor.", "warning")
             return redirect(url_for("community.visitors"))
         v = Visitor(
-            tenant_id=getattr(g, "tenant_id", None),
+            operator_id=getattr(g, "operator_id", None),
             host_user_id=current_user.id,
             location_id=loc_id,
             name=(request.form.get("name") or "").strip(),
@@ -161,7 +161,7 @@ def directory():
 def edit_profile():
     p = CommunityProfile.query.filter_by(user_id=current_user.id).first()
     if p is None:
-        p = CommunityProfile(tenant_id=getattr(g, "tenant_id", None),
+        p = CommunityProfile(operator_id=getattr(g, "operator_id", None),
                              user_id=current_user.id)
         db.session.add(p); db.session.commit()
 
@@ -194,7 +194,7 @@ def announcements():
 def announcement_new():
     if request.method == "POST":
         a = Announcement(
-            tenant_id=getattr(g, "tenant_id", None),
+            operator_id=getattr(g, "operator_id", None),
             author_id=current_user.id,
             location_id=int(request.form["location_id"])
                 if request.form.get("location_id") else None,
@@ -238,7 +238,7 @@ def printing_adjust():
         flash("Invalid entry.", "warning")
         return redirect(url_for("community.printing"))
     db.session.add(PrintingLedger(
-        tenant_id=getattr(g, "tenant_id", None),
+        operator_id=getattr(g, "operator_id", None),
         user_id=uid, delta=delta,
         note=(request.form.get("note") or "").strip() or None,
     ))
@@ -253,8 +253,8 @@ def _notify_support(ticket) -> None:
     """Route a new ticket's notification to the operator's own support
     email if they've set one, otherwise the platform's fallback address."""
     from flask import current_app
-    tenant = getattr(g, "tenant", None)
-    recipient = (tenant.support_email if tenant and tenant.support_email
+    operator = getattr(g, "operator", None)
+    recipient = (operator.support_email if operator and operator.support_email
                 else current_app.config["PLATFORM_SUPPORT_EMAIL"])
     try:
         mail_service.send(
@@ -271,7 +271,7 @@ def _notify_support(ticket) -> None:
 def tickets():
     if request.method == "POST":
         t = SupportTicket(
-            tenant_id=getattr(g, "tenant_id", None),
+            operator_id=getattr(g, "operator_id", None),
             submitter_id=current_user.id,
             location_id=int(request.form["location_id"])
                 if request.form.get("location_id") else None,
@@ -322,7 +322,7 @@ def lockers():
         except (KeyError, ValueError):
             abort(400)
         db.session.add(Locker(
-            tenant_id=getattr(g, "tenant_id", None),
+            operator_id=getattr(g, "operator_id", None),
             location_id=loc_id,
             code=(request.form.get("code") or "").strip(),
             monthly_rate=request.form.get("monthly_rate") or 0,
@@ -376,7 +376,7 @@ def referrals():
             flash("Email is required.", "warning")
             return redirect(url_for("community.referrals"))
         r = Referral(
-            tenant_id=getattr(g, "tenant_id", None),
+            operator_id=getattr(g, "operator_id", None),
             referrer_id=current_user.id,
             referred_email=email,
             code=Referral.new_code(),

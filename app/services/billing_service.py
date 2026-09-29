@@ -7,7 +7,7 @@ from decimal import Decimal
 from ..extensions import db
 from ..models import (
     Invoice, InvoiceLineItem, InvoiceStatus, Subscription, SubscriptionStatus,
-    SystemSettings, Tenant,
+    SystemSettings, Operator,
 )
 
 
@@ -18,8 +18,8 @@ def _prefix() -> str:
         return "INV"
 
 
-def next_invoice_number(tenant: Tenant | None = None) -> str:
-    prefix = (tenant.invoice_prefix.strip() if tenant and tenant.invoice_prefix else _prefix())
+def next_invoice_number(operator: Operator | None = None) -> str:
+    prefix = (operator.invoice_prefix.strip() if operator and operator.invoice_prefix else _prefix())
     ts = datetime.utcnow().strftime("%Y%m")
     last = (Invoice.query
             .filter(Invoice.number.like(f"{prefix}-{ts}-%"))
@@ -37,10 +37,10 @@ def _default_tax_rate() -> Decimal:
         return Decimal("0")
 
 
-def billing_snapshot_for_tenant(tenant: Tenant | None) -> dict:
-    location = tenant.primary_location if tenant else None
+def billing_snapshot_for_operator(operator: Operator | None) -> dict:
+    location = operator.primary_location if operator else None
     return {
-        "billing_name": (tenant.company_legal_name if tenant else None),
+        "billing_name": (operator.company_legal_name if operator else None),
         "billing_address": location.address_line1 if location else None,
         "billing_city": location.city if location else None,
         "billing_state": location.state if location else None,
@@ -53,11 +53,11 @@ def generate_invoice_for_subscription(sub: Subscription,
                                       period_start: date, period_end: date,
                                       tax_rate: Decimal | None = None) -> Invoice:
     if tax_rate is None:
-        tenant = db.session.get(Tenant, sub.tenant_id) if sub.tenant_id else None
-        tax_rate = (Decimal(tenant.default_tax_rate) / Decimal(100)
-                    if tenant and tenant.default_tax_rate is not None
+        operator = db.session.get(Operator, sub.operator_id) if sub.operator_id else None
+        tax_rate = (Decimal(operator.default_tax_rate) / Decimal(100)
+                    if operator and operator.default_tax_rate is not None
                     else _default_tax_rate())
-    tenant = db.session.get(Tenant, sub.tenant_id) if sub.tenant_id else None
+    operator = db.session.get(Operator, sub.operator_id) if sub.operator_id else None
     existing = Invoice.query.filter_by(
         subscription_id=sub.id, period_start=period_start, period_end=period_end,
     ).first()
@@ -68,8 +68,8 @@ def generate_invoice_for_subscription(sub: Subscription,
     total = subtotal + tax
 
     inv = Invoice(
-        number=next_invoice_number(tenant),
-        tenant_id=sub.tenant_id,
+        number=next_invoice_number(operator),
+        operator_id=sub.operator_id,
         subscription_id=sub.id,
         company_id=sub.company_id,
         user_id=sub.user_id,
@@ -81,13 +81,14 @@ def generate_invoice_for_subscription(sub: Subscription,
         tax_amount=tax,
         total_amount=total,
         status=InvoiceStatus.ISSUED,
-        currency=tenant.currency_code if tenant else "USD",
-        **billing_snapshot_for_tenant(tenant),
+        currency=operator.currency_code if operator else "USD",
+        **billing_snapshot_for_operator(operator),
     )
     db.session.add(inv)
     db.session.flush()
 
     db.session.add(InvoiceLineItem(
+        operator_id=inv.operator_id,
         invoice_id=inv.id,
         description=f"{sub.plan.name} × {sub.quantity} ({period_start} to {period_end})",
         quantity=Decimal(sub.quantity or 1),

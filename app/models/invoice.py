@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class InvoiceStatus(str, enum.Enum):
@@ -19,13 +19,12 @@ class InvoiceStatus(str, enum.Enum):
     OVERDUE = "overdue"
 
 
-class Invoice(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class Invoice(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "invoices"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
 
-    number = Column(String(30), unique=True, nullable=False, index=True)
+    __table_args__ = (db.UniqueConstraint("operator_id", "number", name="uq_invoices_operator_number"),)
+    number = Column(String(30), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     subscription_id = Column(Integer, ForeignKey("subscriptions.id", ondelete="SET NULL"),
@@ -63,7 +62,7 @@ class Invoice(db.Model, PkMixin, TimestampMixin, TenantScoped):
         return (self.total_amount or 0) - (self.amount_paid or 0)
 
 
-class InvoiceLineItem(db.Model, PkMixin):
+class InvoiceLineItem(db.Model, PkMixin, OperatorScoped):
     __tablename__ = "invoice_line_items"
 
     invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -75,7 +74,7 @@ class InvoiceLineItem(db.Model, PkMixin):
     invoice = relationship("Invoice", back_populates="line_items")
 
 
-class Payment(db.Model, PkMixin, TimestampMixin):
+class Payment(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "payments"
 
     invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
@@ -93,10 +92,10 @@ class PaymentSubmissionStatus(str, enum.Enum):
     REJECTED = "rejected"
 
 
-class PaymentSubmission(db.Model, PkMixin, TimestampMixin):
+class PaymentSubmission(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "payment_submissions"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"), nullable=False, index=True)
     invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
     amount = Column(Numeric(10, 2), nullable=False)

@@ -134,7 +134,7 @@ def create_seat_booking(*, user: User, seat: Seat, start: datetime, end: datetim
     _validate_window(start, end)
     if not seat.is_active:
         raise BookingError("Seat is inactive.")
-    if seat.tenant_id and user.tenant_id and seat.tenant_id != user.tenant_id:
+    if seat.operator_id and user.operator_id and seat.operator_id != user.operator_id:
         raise BookingError("Seat does not belong to your workspace.")
     _validate_location_hours(seat.location, start, end)
     if check_seat_conflict(seat.id, start, end, booker=user):
@@ -142,7 +142,7 @@ def create_seat_booking(*, user: User, seat: Seat, start: datetime, end: datetim
 
     q = quote_seat(seat, start, end)
     booking = SeatBooking(
-        tenant_id=seat.tenant_id or user.tenant_id,
+        operator_id=seat.operator_id or user.operator_id,
         seat_id=seat.id,
         user_id=user.id,
         company_id=user.company_id,
@@ -210,7 +210,7 @@ def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, en
                         recurring_booking_id: int | None = None,
                         for_user: User | None = None,
                         waive_charge: bool = False) -> RoomBooking:
-    """``user`` is the actor performing the booking (used for the tenant/
+    """``user`` is the actor performing the booking (used for the operator/
     permission check). ``for_user`` is who the meeting is actually for —
     defaults to ``user`` for a normal self-booking. Only an admin actor may
     book on behalf of someone else or waive the charge/credits.
@@ -219,12 +219,12 @@ def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, en
     _validate_window(start, end)
     if not room.is_active:
         raise BookingError("Room is inactive.")
-    if room.tenant_id and user.tenant_id and room.tenant_id != user.tenant_id:
+    if room.operator_id and user.operator_id and room.operator_id != user.operator_id:
         raise BookingError("Room does not belong to your workspace.")
     if for_user is not None:
         if not user.is_admin:
             raise BookingError("Only an operator admin/manager can book on behalf of someone else.")
-        if room.tenant_id and booked_for.tenant_id != room.tenant_id:
+        if room.operator_id and booked_for.operator_id != room.operator_id:
             raise BookingError("That person does not belong to your workspace.")
     if attendees > room.capacity:
         raise BookingError(f"Room capacity is {room.capacity}.")
@@ -242,7 +242,7 @@ def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, en
         q = quote_room(booked_for, room, start, end)
 
     booking = RoomBooking(
-        tenant_id=room.tenant_id or booked_for.tenant_id,
+        operator_id=room.operator_id or booked_for.operator_id,
         room_id=room.id,
         user_id=booked_for.id,
         company_id=booked_for.company_id,

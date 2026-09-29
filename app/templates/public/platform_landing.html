@@ -10,7 +10,7 @@
       <a class="nav-link" href="{{ url_for('public_features') }}">Features</a>
       <a class="nav-link" href="{{ url_for('public_pricing') }}">Pricing</a>
       <a class="nav-link" href="#how-it-works">How it works</a>
-      <a class="nav-link" href="{{ url_for('auth.register_tenant') }}">Start free</a>
+      <a class="nav-link" href="{{ url_for('auth.register_operator') }}">Start free</a>
       <a class="nav-link btn-nav-cta" href="{{ url_for('auth.login') }}">Sign in</a>
     </div>
   </nav>
@@ -25,7 +25,7 @@
         GST invoicing, UPI/NEFT/RTGS/IMPS, ₹ and Indian number formats out of the box.
       </p>
       <div class="gap-buttons" style="margin-top: 2.5rem;">
-        <a class="btn-saffron" href="{{ url_for('auth.register_tenant') }}">Start free trial</a>
+        <a class="btn-saffron" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
         <a class="btn-outline-ink" href="{{ url_for('public_features') }}" style="color: var(--cream); border-color: var(--cream);">Explore the platform</a>
         <a class="btn-outline-ink" href="{{ url_for('auth.login') }}" style="color: var(--cream); border-color: var(--cream);">Sign in</a>
       </div>
@@ -168,11 +168,11 @@
             {% set included_modules = t.module_catalog | selectattr('kind', 'equalto', 'module') | list %}
             <li style="margin-bottom: .5rem;">{% if included_modules %}{{ included_modules | map(attribute='name') | join(', ') }}{% else %}Custom features, integrations and support{% endif %}</li>
           </ul>
-          <a class="btn-ink" style="margin-top: 1.5rem;" href="{{ url_for('auth.register_tenant') }}">Start free trial</a>
+          <a class="btn-ink" style="margin-top: 1.5rem;" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
         </div>
       </div>
       {% else %}
-      <p class="text-center text-muted">Pricing coming soon — <a href="{{ url_for('auth.register_tenant') }}">start a free trial</a> in the meantime.</p>
+      <p class="text-center text-muted">Pricing coming soon — <a href="{{ url_for('auth.register_operator') }}">start a free trial</a> in the meantime.</p>
       {% endfor %}
     </div>
     <p class="text-center" style="margin-top: 2.5rem; color: var(--ink-soft);">
@@ -186,10 +186,10 @@
   <div class="container-x text-center">
     <h2 class="text-cream">Your space, your software.</h2>
     <p class="text-cream" style="opacity: .8; max-width: 500px; margin: 1rem auto 2rem;">
-      Free {{ config.TENANT_TRIAL_DAYS }}-day trial. No card required to start.
+      Free {{ config.OPERATOR_TRIAL_DAYS }}-day trial. No card required to start.
     </p>
     <div class="gap-buttons" style="justify-content: center;">
-      <a class="btn-saffron" href="{{ url_for('auth.register_tenant') }}">Start free trial</a>
+      <a class="btn-saffron" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
       <a class="btn-outline-ink" style="color: var(--cream); border-color: var(--cream);" href="{{ url_for('auth.login') }}">Sign in</a>
     </div>
   </div>
@@ -220,7 +220,7 @@
         <div class="eyebrow">Account</div>
         <ul style="list-style: none; padding: 0; margin: 1rem 0 0;">
           <li style="margin-bottom: .5rem;"><a href="{{ url_for('auth.login') }}">Sign in</a></li>
-          <li style="margin-bottom: .5rem;"><a href="{{ url_for('auth.register_tenant') }}">Start free trial</a></li>
+          <li style="margin-bottom: .5rem;"><a href="{{ url_for('auth.register_operator') }}">Start free trial</a></li>
           <li style="margin-bottom: .5rem;"><a href="{{ url_for('auth.pick_workspace') }}">Find your workspace</a></li>
         </ul>
       </div>

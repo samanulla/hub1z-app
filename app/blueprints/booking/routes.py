@@ -52,12 +52,12 @@ def location_home(location_id: int):
 @member_or_admin_required
 def calendar():
     """Default entry point for the top-nav Calendar link — picks a sensible
-    location (tenant's primary, else the first active one) and redirects."""
+    location (operator's primary, else the first active one) and redirects."""
     from flask import g
-    tenant = getattr(g, "tenant", None)
+    operator = getattr(g, "operator", None)
     loc = None
-    if tenant and tenant.primary_location_id:
-        loc = Location.query.filter_by(id=tenant.primary_location_id, is_active=True).first()
+    if operator and operator.primary_location_id:
+        loc = Location.query.filter_by(id=operator.primary_location_id, is_active=True).first()
     if loc is None:
         loc = Location.query.filter_by(is_active=True).order_by(Location.name).first()
     if loc is None:
@@ -78,7 +78,7 @@ def location_calendar(location_id: int):
     # locations' calendars, not just their own.
     cross_location_rooms = (ConferenceRoom.query
                             .filter(ConferenceRoom.location_id != loc.id,
-                                   ConferenceRoom.tenant_id == loc.tenant_id,
+                                   ConferenceRoom.operator_id == loc.operator_id,
                                    ConferenceRoom.is_active.is_(True),
                                    ConferenceRoom.cross_location_bookable.is_(True))
                             .order_by(ConferenceRoom.name).all())
@@ -172,7 +172,7 @@ def room_check_conflict(room_id: int):
     modal — called via fetch() as the user adjusts room/start/end."""
     from flask import jsonify
     room = ConferenceRoom.query.get_or_404(room_id)
-    if room.tenant_id and current_user.tenant_id and room.tenant_id != current_user.tenant_id:
+    if room.operator_id and current_user.operator_id and room.operator_id != current_user.operator_id:
         return jsonify({"error": "Room does not belong to your workspace."}), 403
     try:
         start = parse_local_naive_to_utc(request.args["start"])
@@ -194,7 +194,7 @@ def location_calendar_quick_book(location_id: int):
     loc = Location.query.get_or_404(location_id)
     room_id = request.form.get("room_id", type=int)
     room = ConferenceRoom.query.filter(
-        ConferenceRoom.id == room_id, ConferenceRoom.tenant_id == loc.tenant_id,
+        ConferenceRoom.id == room_id, ConferenceRoom.operator_id == loc.operator_id,
         ConferenceRoom.is_active.is_(True),
         (ConferenceRoom.location_id == loc.id) | (ConferenceRoom.cross_location_bookable.is_(True)),
     ).first()
@@ -369,7 +369,7 @@ def room_waitlist_join(room_id: int):
         return redirect(url_for("book.room_book", room_id=room_id))
     from ...extensions import db as _db
     entry = RoomWaitlist(
-        tenant_id=getattr(g, "tenant_id", None),
+        operator_id=getattr(g, "operator_id", None),
         room_id=room.id, user_id=current_user.id,
         start_at=start, end_at=end, status=WaitlistStatus.WAITING,
     )
@@ -395,7 +395,7 @@ def room_recurring_create(room_id: int):
         return redirect(url_for("book.room_book", room_id=room_id))
     from ...extensions import db as _db
     rec = RecurringRoomBooking(
-        tenant_id=getattr(g, "tenant_id", None),
+        operator_id=getattr(g, "operator_id", None),
         room_id=room.id, user_id=current_user.id,
         pattern=pattern, start_time=start_time, end_time=end_time,
         start_date=start_date, end_date=end_date, is_active=True,

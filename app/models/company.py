@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class CompanyStatus(str, enum.Enum):
@@ -17,13 +17,12 @@ class CompanyStatus(str, enum.Enum):
     CHURNED = "churned"
 
 
-class Company(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class Company(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "companies"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
 
-    name = Column(String(200), nullable=False, unique=True, index=True)
+    __table_args__ = (db.UniqueConstraint("operator_id", "name", name="uq_companies_operator_name"),)
+    name = Column(String(200), nullable=False, index=True)
     legal_name = Column(String(255))
     tax_id = Column(String(64))
     industry = Column(String(120))
@@ -52,7 +51,7 @@ class Company(db.Model, PkMixin, TimestampMixin, TenantScoped):
         return f"<Company {self.name}>"
 
 
-class CompanyDocument(db.Model, PkMixin, TimestampMixin):
+class CompanyDocument(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     """Company-level docs — KYC, contracts, addenda. Actual file stored via StorageService."""
     __tablename__ = "company_documents"
 

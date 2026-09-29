@@ -10,15 +10,15 @@
       {% if current_user.is_platform_owner %}Platform Super Admin{% else %}Platform Manager{% endif %}.
     </div>
   </div>
-  {% if current_user.has_platform_permission("tenants") %}
-  <a class="btn btn-dark" href="{{ url_for('platform.tenant_new') }}"><i class="bi bi-plus-lg me-1"></i>Provision operator</a>
+  {% if current_user.has_platform_permission("operators") %}
+  <a class="btn btn-dark" href="{{ url_for('platform.operator_new') }}"><i class="bi bi-plus-lg me-1"></i>Provision operator</a>
   {% endif %}
 </div>
 
 <div class="row g-3 mb-4">
   {% for label, val, icon, tint in [
-    ("Operators", stats.tenants, "building", ""),
-    ("Active", stats.active_tenants, "check-circle-fill", "teal"),
+    ("Operators", stats.operators, "building", ""),
+    ("Active", stats.active_operators, "check-circle-fill", "teal"),
     ("Users", stats.total_users, "people-fill", "purple"),
     ("Companies", stats.total_companies, "briefcase-fill", "amber"),
     ("Locations", stats.total_locations, "geo-alt-fill", "orange"),
@@ -39,9 +39,9 @@
     <h5 class="mb-0">Quick links</h5>
   </div>
   <div class="row g-3">
-    {% if current_user.has_platform_permission("tenants") %}
+    {% if current_user.has_platform_permission("operators") %}
     <div class="col-md-6">
-      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: color-mix(in srgb, var(--brand) 6%, transparent); text-decoration: none;" href="{{ url_for('platform.tenants_list') }}">
+      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: color-mix(in srgb, var(--brand) 6%, transparent); text-decoration: none;" href="{{ url_for('platform.operators_list') }}">
         <span class="stat-icon m-0" style="width:40px;height:40px;"><i class="bi bi-building"></i></span>
         <div><div class="fw-semibold">Manage operators</div><small class="text-muted">List, suspend, activate, edit branding</small></div>
       </a>

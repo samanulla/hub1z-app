@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class SubscriptionStatus(str, enum.Enum):
@@ -23,11 +23,9 @@ class SubscriptionRequestStatus(str, enum.Enum):
     DENIED = "denied"
 
 
-class Subscription(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class Subscription(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "subscriptions"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
 
     plan_id = Column(Integer, ForeignKey("pricing_plans.id", ondelete="RESTRICT"), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
@@ -59,10 +57,10 @@ class Subscription(db.Model, PkMixin, TimestampMixin, TenantScoped):
         return (self.unit_price or 0) * (self.quantity or 1)
 
 
-class SubscriptionChangeRequest(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class SubscriptionChangeRequest(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "subscription_change_requests"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
     subscription_id = Column(Integer, ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True)
     requested_plan_id = Column(Integer, ForeignKey("pricing_plans.id", ondelete="RESTRICT"), nullable=False)

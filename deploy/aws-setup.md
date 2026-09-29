@@ -10,7 +10,7 @@ webapp on AWS EC2 instances for dev and production environments.
 - GitHub repository access
 
 ## 0. Cost Considerations and Service Selection
-This deployment is designed for a low-to-moderate volume multi-tenant site
+This deployment is designed for a low-to-moderate volume multi-operator site
 with affordable and secure AWS services.
 
 - Prefer the Mumbai region (`ap-south-1`) for lower latency for India-based operators and members.
@@ -35,7 +35,7 @@ with affordable and secure AWS services.
 
 > Confirm current AWS free-tier eligibility and pricing for your account/region — the above are approximate starting-point estimates, not a quote.
 
-> For a low-volume multi-tenant deployment, the secure and cheap configuration is: dev on `t3.micro` with a tightly scoped security group, prod on `t3.small`, Docker Compose running the app + PostgreSQL, Nginx reverse proxy with a wildcard Let's Encrypt certificate, and S3 for documents.
+> For a low-volume multi-operator deployment, the secure and cheap configuration is: dev on `t3.micro` with a tightly scoped security group, prod on `t3.small`, Docker Compose running the app + PostgreSQL, Nginx reverse proxy with a wildcard Let's Encrypt certificate, and S3 for documents.
 
 ## 0.5 Infrastructure as Code
 This repository does not yet include Terraform. If you want reproducible
@@ -228,7 +228,7 @@ APP_BASE_URL=http://<EC2_PUBLIC_DNS_OR_DOMAIN>:8000
 SECRET_KEY=<LONG_RANDOM_SECRET>
 PLATFORM_BASE_DOMAIN=hub1z.com
 DEPLOY_MODE=shared
-TENANT_TRIAL_DAYS=14
+OPERATOR_TRIAL_DAYS=14
 
 POSTGRES_USER=hub1z
 POSTGRES_PASSWORD=<LONG_RANDOM_DATABASE_PASSWORD>
@@ -272,7 +272,7 @@ This builds and starts the `web` and `db` containers, applies database
 migrations, and (only when `SEED_DEMO=true`) seeds demo data — leave
 `SEED_DEMO=false` on dev/prod servers you intend to use for real operators.
 
-### 4.8 Create the Platform Owner and (Optionally) a Tenant
+### 4.8 Create the Platform Owner and (Optionally) an Operator
 `seed-demo` (section 4.7) already creates a Platform Owner using
 `PLATFORM_OWNER_EMAIL`/`PLATFORM_OWNER_PASSWORD` from `.env` (default
 `admin@hub1z.com`). To create an additional platform admin instead:
@@ -287,10 +287,10 @@ creating a duplicate:
 docker compose exec web flask --app wsgi.py update-platform-owner-email \
   --old-email platform@hub1z.com --new-email admin@hub1z.com
 ```
-Provision an operator/tenant directly from the CLI, or invite/provision one
+Provision an operator directly from the CLI, or invite/provision one
 later from `/platform/` in the browser:
 ```bash
-docker compose exec web flask --app wsgi.py create-tenant \
+docker compose exec web flask --app wsgi.py create-operator \
   --slug my-space --name "My Space" \
   --primary-domain my-space.hub1z.com \
   --admin-email admin@my-space.example --admin-password '<STRONG_PASSWORD>'
@@ -308,7 +308,7 @@ curl -f http://localhost:8000/healthz
 
 ## 5. Domain and SSL Setup
 
-Hub1z resolves the tenant/operator from the `Host` header
+Hub1z resolves the operator from the `Host` header
 (`DEPLOY_MODE=shared`), so every operator subdomain
 (`<operator-slug>.hub1z.com`) must resolve to the same instance and must be
 covered by the TLS certificate. This means a **wildcard certificate** is
@@ -400,7 +400,7 @@ server {
     }
 }
 ```
-`proxy_set_header Host $host` is required — Hub1z's tenant resolver depends
+`proxy_set_header Host $host` is required — Hub1z's operator resolver depends
 on the original `Host` header to route each operator subdomain.
 
 Validate and start:
@@ -720,4 +720,4 @@ already established in sections 2–4.
 - Certbot renewal dry run: `sudo certbot renew --dry-run`
 - Health check: `curl -f http://localhost:8000/healthz`
 - Firewall: ensure security groups allow the necessary traffic and nothing more
-- Tenant/operator subdomain not resolving: confirm the wildcard `A` record and that Nginx forwards the original `Host` header
+- Operator subdomain not resolving: confirm the wildcard `A` record and that Nginx forwards the original `Host` header

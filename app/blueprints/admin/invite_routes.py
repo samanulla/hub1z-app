@@ -1,10 +1,10 @@
-"""Tenant-initiated invites: a tenant admin/manager invites an Individual or
+"""Operator-initiated invites: an operator admin/manager invites an Individual or
 a Company to join their workspace. The invitee finishes signup (sets their
 own password) via a signed, time-limited link — same mechanism as the
 existing employee invite flow in app/blueprints/company/routes.py.
 
 This is separate from self-serve signup (/auth/register, /auth/register/company),
-which is initiated by the prospect instead of the tenant.
+which is initiated by the prospect instead of the operator.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from ...models import User, UserRole, Company, CompanyStatus, Location
 from ...utils.decorators import manager_or_super_required, super_admin_required
 from ...services import mail_service, tier_limits
 from .forms import (
-    InviteIndividualForm, InviteCompanyForm, InviteTeamMemberForm, AcceptTenantInviteForm,
+    InviteIndividualForm, InviteCompanyForm, InviteTeamMemberForm, AcceptOperatorInviteForm,
 )
 
 INVITE_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
@@ -58,13 +58,13 @@ def register_invite_routes(bp):
             if User.query.filter_by(email=email).first():
                 flash("That email is already registered under this workspace.", "warning")
                 return redirect(url_for("admin.invites_list"))
-            ok, msg = tier_limits.check_limit(getattr(g, "tenant", None), "person")
+            ok, msg = tier_limits.check_limit(getattr(g, "operator", None), "person")
             if not ok:
                 flash(msg, "warning")
                 return redirect(url_for("admin.invites_list"))
 
             u = User(
-                tenant_id=getattr(g, "tenant_id", None),
+                operator_id=getattr(g, "operator_id", None),
                 email=email,
                 full_name=form.full_name.data.strip(),
                 role=UserRole.INDIVIDUAL,
@@ -74,14 +74,14 @@ def register_invite_routes(bp):
             db.session.add(u)
             db.session.commit()
 
-            token = mail_service.make_token(u.id, "tenant-member-invite")
+            token = mail_service.make_token(u.id, "operator-member-invite")
             accept_url = url_for("admin.accept_member_invite", token=token, _external=True)
-            tenant_name = getattr(g.tenant, "name", None) if getattr(g, "tenant", None) else current_app.config.get("APP_NAME")
+            operator_name = getattr(g.operator, "name", None) if getattr(g, "operator", None) else current_app.config.get("APP_NAME")
             mail_service.send(
-                subject=f"You're invited to {tenant_name}",
+                subject=f"You're invited to {operator_name}",
                 recipient=u.email,
-                template="tenant_member_invite",
-                user=u, tenant_name=tenant_name, accept_url=accept_url,
+                template="operator_member_invite",
+                user=u, operator_name=operator_name, accept_url=accept_url,
                 ttl_days=INVITE_TTL_SECONDS // 86400,
             )
             flash(f"Invitation sent to {u.email}.", "success")
@@ -90,12 +90,12 @@ def register_invite_routes(bp):
 
     @bp.route("/invites/accept/<token>", methods=["GET", "POST"])
     def accept_member_invite(token: str):
-        uid = mail_service.read_token(token, "tenant-member-invite", INVITE_TTL_SECONDS)
+        uid = mail_service.read_token(token, "operator-member-invite", INVITE_TTL_SECONDS)
         if uid is None:
             flash("This invitation link is invalid or has expired.", "danger")
             return redirect(url_for("auth.login"))
         user = User.query.filter_by(id=int(uid)) \
-                         .execution_options(skip_tenant_filter=True).first()
+                         .execution_options(skip_operator_filter=True).first()
         if user is None:
             flash("Account not found.", "danger")
             return redirect(url_for("auth.login"))
@@ -103,7 +103,7 @@ def register_invite_routes(bp):
             flash("This invitation has already been accepted. Please sign in.", "info")
             return redirect(url_for("auth.login"))
 
-        form = AcceptTenantInviteForm()
+        form = AcceptOperatorInviteForm()
         if form.validate_on_submit():
             user.set_password(form.password.data)
             user.is_active = True
@@ -128,14 +128,14 @@ def register_invite_routes(bp):
             if Company.query.filter_by(name=form.company_name.data.strip()).first():
                 flash("A company with that name already exists.", "warning")
                 return redirect(url_for("admin.invites_list"))
-            ok, msg = tier_limits.check_limit(getattr(g, "tenant", None), "person")
+            ok, msg = tier_limits.check_limit(getattr(g, "operator", None), "person")
             if not ok:
                 flash(msg, "warning")
                 return redirect(url_for("admin.invites_list"))
 
-            tenant_id = getattr(g, "tenant_id", None)
+            operator_id = getattr(g, "operator_id", None)
             company = Company(
-                tenant_id=tenant_id,
+                operator_id=operator_id,
                 name=form.company_name.data.strip(),
                 billing_email=form.billing_email.data.lower().strip(),
                 status=CompanyStatus.PROSPECT,
@@ -144,7 +144,7 @@ def register_invite_routes(bp):
             db.session.flush()
 
             admin = User(
-                tenant_id=tenant_id,
+                operator_id=operator_id,
                 email=admin_email,
                 full_name=form.admin_full_name.data.strip(),
                 role=UserRole.COMPANY_ADMIN,
@@ -155,14 +155,14 @@ def register_invite_routes(bp):
             db.session.add(admin)
             db.session.commit()
 
-            token = mail_service.make_token(admin.id, "tenant-company-invite")
+            token = mail_service.make_token(admin.id, "operator-company-invite")
             accept_url = url_for("admin.accept_company_invite", token=token, _external=True)
-            tenant_name = getattr(g.tenant, "name", None) if getattr(g, "tenant", None) else current_app.config.get("APP_NAME")
+            operator_name = getattr(g.operator, "name", None) if getattr(g, "operator", None) else current_app.config.get("APP_NAME")
             mail_service.send(
-                subject=f"You're invited to set up {company.name} on {tenant_name}",
+                subject=f"You're invited to set up {company.name} on {operator_name}",
                 recipient=admin.email,
-                template="tenant_company_invite",
-                user=admin, company=company, tenant_name=tenant_name, accept_url=accept_url,
+                template="operator_company_invite",
+                user=admin, company=company, operator_name=operator_name, accept_url=accept_url,
                 ttl_days=INVITE_TTL_SECONDS // 86400,
             )
             flash(f"Invitation sent to {admin.email}.", "success")
@@ -171,12 +171,12 @@ def register_invite_routes(bp):
 
     @bp.route("/invites/accept-company/<token>", methods=["GET", "POST"])
     def accept_company_invite(token: str):
-        uid = mail_service.read_token(token, "tenant-company-invite", INVITE_TTL_SECONDS)
+        uid = mail_service.read_token(token, "operator-company-invite", INVITE_TTL_SECONDS)
         if uid is None:
             flash("This invitation link is invalid or has expired.", "danger")
             return redirect(url_for("auth.login"))
         user = User.query.filter_by(id=int(uid)) \
-                         .execution_options(skip_tenant_filter=True).first()
+                         .execution_options(skip_operator_filter=True).first()
         if user is None:
             flash("Account not found.", "danger")
             return redirect(url_for("auth.login"))
@@ -184,7 +184,7 @@ def register_invite_routes(bp):
             flash("This invitation has already been accepted. Please sign in.", "info")
             return redirect(url_for("auth.login"))
 
-        form = AcceptTenantInviteForm()
+        form = AcceptOperatorInviteForm()
         if form.validate_on_submit():
             user.set_password(form.password.data)
             user.is_active = True
@@ -224,7 +224,7 @@ def register_invite_routes(bp):
         return redirect(url_for("admin.invites_list"))
 
     # ------------------------------------------------------------------ team --
-    # A tenant can span multiple locations, so a Location Manager must be
+    # An operator can span multiple locations, so a Location Manager must be
     # scoped to exactly one of them. Always Super-Admin-only to send — never
     # delegable to an existing Manager, same guard as Platform Manager creation.
 
@@ -246,7 +246,7 @@ def register_invite_routes(bp):
 
             role = UserRole.LOCATION_MANAGER if form.role.data == "location_manager" else UserRole.MANAGER
             u = User(
-                tenant_id=getattr(g, "tenant_id", None),
+                operator_id=getattr(g, "operator_id", None),
                 email=email,
                 full_name=form.full_name.data.strip(),
                 role=role,
@@ -257,14 +257,14 @@ def register_invite_routes(bp):
             db.session.add(u)
             db.session.commit()
 
-            token = mail_service.make_token(u.id, "tenant-team-invite")
+            token = mail_service.make_token(u.id, "operator-team-invite")
             accept_url = url_for("admin.accept_team_invite", token=token, _external=True)
-            tenant_name = getattr(g.tenant, "name", None) if getattr(g, "tenant", None) else current_app.config.get("APP_NAME")
+            operator_name = getattr(g.operator, "name", None) if getattr(g, "operator", None) else current_app.config.get("APP_NAME")
             mail_service.send(
-                subject=f"You're invited to join the {tenant_name} team",
+                subject=f"You're invited to join the {operator_name} team",
                 recipient=u.email,
-                template="tenant_team_invite",
-                user=u, tenant_name=tenant_name, accept_url=accept_url,
+                template="operator_team_invite",
+                user=u, operator_name=operator_name, accept_url=accept_url,
                 role_label=("Location Manager" if role == UserRole.LOCATION_MANAGER else "Manager"),
                 location=(u.managed_location if u.managed_location_id else None),
                 ttl_days=INVITE_TTL_SECONDS // 86400,
@@ -275,12 +275,12 @@ def register_invite_routes(bp):
 
     @bp.route("/invites/accept-team/<token>", methods=["GET", "POST"])
     def accept_team_invite(token: str):
-        uid = mail_service.read_token(token, "tenant-team-invite", INVITE_TTL_SECONDS)
+        uid = mail_service.read_token(token, "operator-team-invite", INVITE_TTL_SECONDS)
         if uid is None:
             flash("This invitation link is invalid or has expired.", "danger")
             return redirect(url_for("auth.login"))
         user = User.query.filter_by(id=int(uid)) \
-                         .execution_options(skip_tenant_filter=True).first()
+                         .execution_options(skip_operator_filter=True).first()
         if user is None:
             flash("Account not found.", "danger")
             return redirect(url_for("auth.login"))
@@ -288,7 +288,7 @@ def register_invite_routes(bp):
             flash("This invitation has already been accepted. Please sign in.", "info")
             return redirect(url_for("auth.login"))
 
-        form = AcceptTenantInviteForm()
+        form = AcceptOperatorInviteForm()
         if form.validate_on_submit():
             user.set_password(form.password.data)
             user.is_active = True
@@ -320,9 +320,9 @@ def register_invite_routes(bp):
         ).filter(User.role.in_([UserRole.MANAGER, UserRole.LOCATION_MANAGER])).first_or_404()
         token = mail_service.make_token(u.id, "password-reset")
         reset_url = url_for("auth.reset_password", token=token, _external=True)
-        tenant_name = getattr(g.tenant, "name", None) if getattr(g, "tenant", None) else current_app.config.get("APP_NAME")
+        operator_name = getattr(g.operator, "name", None) if getattr(g, "operator", None) else current_app.config.get("APP_NAME")
         mail_service.send(
-            subject=f"Reset your {tenant_name} password",
+            subject=f"Reset your {operator_name} password",
             recipient=u.email,
             template="password_reset",
             user=u, reset_url=reset_url, ttl_hours=2,

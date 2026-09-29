@@ -31,7 +31,7 @@ admin_bp = Blueprint("admin", __name__, template_folder="../../templates")
 @admin_bp.route("/")
 @admin_required
 def dashboard():
-    # Seat/ConferenceRoom/SeatBooking/RoomBooking have no tenant_id of their
+    # Seat/ConferenceRoom/SeatBooking/RoomBooking have no operator_id of their
     # own (scoped only via Location), so the ambient auto-scoping listener
     # doesn't filter them — these joins scope them explicitly.
     stats = {
@@ -69,16 +69,16 @@ def locations_list():
 def location_new():
     form = LocationForm()
     if form.validate_on_submit():
-        ok, msg = tier_limits.check_limit(getattr(g, "tenant", None), "location")
+        ok, msg = tier_limits.check_limit(getattr(g, "operator", None), "location")
         if not ok:
             flash(msg, "warning")
             return render_template("admin/locations/form.html", form=form, title="New location")
-        loc = Location(tenant_id=getattr(g, "tenant_id", None))
+        loc = Location(operator_id=getattr(g, "operator_id", None))
         form.populate_obj(loc)
         db.session.add(loc)
-        if getattr(g, "tenant", None) and g.tenant.primary_location_id is None:
+        if getattr(g, "operator", None) and g.operator.primary_location_id is None:
             db.session.flush()
-            g.tenant.primary_location_id = loc.id
+            g.operator.primary_location_id = loc.id
         db.session.commit()
         flash("Location created.", "success")
         return redirect(url_for("admin.location_detail", location_id=loc.id))
@@ -113,7 +113,7 @@ def floor_new(location_id: int):
     loc = Location.query.get_or_404(location_id)
     form = FloorForm()
     if form.validate_on_submit():
-        floor = Floor(tenant_id=loc.tenant_id, location_id=loc.id,
+        floor = Floor(operator_id=loc.operator_id, location_id=loc.id,
                   level=form.level.data, name=form.name.data)
         db.session.add(floor)
         db.session.commit()
@@ -140,11 +140,11 @@ def seat_new(location_id: int):
     form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in loc.floors]
     if form.validate_on_submit():
         resource = "private_office" if form.seat_type.data == SeatType.PRIVATE_OFFICE.value else "seat"
-        ok, msg = tier_limits.check_limit(getattr(g, "tenant", None), resource)
+        ok, msg = tier_limits.check_limit(getattr(g, "operator", None), resource)
         if not ok:
             flash(msg, "warning")
             return render_template("admin/seats/form.html", form=form, location=loc, title="New seat")
-        seat = Seat(tenant_id=loc.tenant_id, location_id=loc.id)
+        seat = Seat(operator_id=loc.operator_id, location_id=loc.id)
         form.populate_obj(seat)
         db.session.add(seat)
         db.session.commit()
@@ -184,11 +184,11 @@ def room_new(location_id: int):
     form = RoomForm()
     form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in loc.floors]
     if form.validate_on_submit():
-        ok, msg = tier_limits.check_limit(getattr(g, "tenant", None), "room")
+        ok, msg = tier_limits.check_limit(getattr(g, "operator", None), "room")
         if not ok:
             flash(msg, "warning")
             return render_template("admin/rooms/form.html", form=form, location=loc, title="New room")
-        room = ConferenceRoom(tenant_id=loc.tenant_id, location_id=loc.id)
+        room = ConferenceRoom(operator_id=loc.operator_id, location_id=loc.id)
         form.populate_obj(room)
         db.session.add(room)
         db.session.commit()
@@ -394,19 +394,19 @@ def operator_documents():
     form = DocumentUploadForm()
     if form.validate_on_submit():
         f = form.file.data
-        tenant_id = getattr(g, "tenant_id", None)
+        operator_id = getattr(g, "operator_id", None)
         stored = storage_service.upload(
-            namespace=f"operators/{tenant_id}/documents",
+            namespace=f"operators/{operator_id}/documents",
             filename=f.filename,
             stream=f.stream,
             content_type=f.mimetype,
             scope="operator",
         )
         db.session.add(Document(
-            tenant_id=tenant_id,
+            operator_id=operator_id,
             kind=DocumentKind(form.kind.data),
             owner_type="operator",
-            owner_id=tenant_id,
+            owner_id=operator_id,
             filename=f.filename,
             content_type=f.mimetype,
             size_bytes=stored.size_bytes,
@@ -431,14 +431,14 @@ def company_documents(company_id: int):
     if form.validate_on_submit():
         f = form.file.data
         stored = storage_service.upload(
-            namespace=f"operators/{getattr(g, 'tenant_id', 'unscoped')}/companies/{c.id}",
+            namespace=f"operators/{getattr(g, 'operator_id', 'unscoped')}/companies/{c.id}",
             filename=f.filename,
             stream=f.stream,
             content_type=f.mimetype,
             scope="operator",
         )
         doc = Document(
-            tenant_id=getattr(g, "tenant_id", None),
+            operator_id=getattr(g, "operator_id", None),
             kind=DocumentKind(form.kind.data),
             owner_type="company",
             owner_id=c.id,

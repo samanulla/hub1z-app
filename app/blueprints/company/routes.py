@@ -107,7 +107,7 @@ def employee_new():
         if emp_count >= c.max_employees:
             flash(f"Employee limit ({c.max_employees}) reached.", "warning")
             return redirect(url_for("company.employees"))
-        ok, msg = tier_limits.check_limit(getattr(g, "tenant", None), "person")
+        ok, msg = tier_limits.check_limit(getattr(g, "operator", None), "person")
         if not ok:
             flash(msg, "warning")
             return redirect(url_for("company.employees"))
@@ -116,7 +116,7 @@ def employee_new():
             flash("That email is already registered under this workspace.", "warning")
             return redirect(url_for("company.employees"))
         u = User(
-            tenant_id=getattr(g, "tenant_id", None),
+            operator_id=getattr(g, "operator_id", None),
             email=email,
             full_name=form.full_name.data.strip(),
             phone=form.phone.data,
@@ -165,7 +165,7 @@ def employee_edit(user_id: int):
         form.seat_allocation_id.data = current_allocation.id if current_allocation else 0
     if form.validate_on_submit():
         email = form.email.data.lower().strip()
-        duplicate = User.query.filter(User.tenant_id == c.tenant_id, User.email == email,
+        duplicate = User.query.filter(User.operator_id == c.operator_id, User.email == email,
                                       User.id != employee.id).first()
         if duplicate:
             flash("That email is already registered under this workspace.", "warning")
@@ -195,7 +195,7 @@ def accept_invite(token: str):
         flash("This invitation link is invalid or has expired.", "danger")
         return redirect(url_for("auth.login"))
     user = User.query.filter_by(id=int(uid)) \
-                     .execution_options(skip_tenant_filter=True).first()
+                     .execution_options(skip_operator_filter=True).first()
     if user is None:
         flash("Account not found.", "danger")
         return redirect(url_for("auth.login"))
@@ -252,7 +252,7 @@ def plans():
             flash("You already have a subscription request awaiting review.", "warning")
         else:
             change = SubscriptionChangeRequest(
-                tenant_id=getattr(g, "tenant_id", None),
+                operator_id=getattr(g, "operator_id", None),
                 company_id=c.id,
                 subscription_id=active_subs[0].id if active_subs else None,
                 requested_plan_id=form.plan_id.data,
@@ -422,7 +422,7 @@ def payment_submission_new(invoice_id: int):
             flash("Reported amount cannot exceed the invoice balance.", "warning")
         else:
             db.session.add(PaymentSubmission(
-                tenant_id=getattr(g, "tenant_id", None),
+                operator_id=getattr(g, "operator_id", None),
                 invoice_id=invoice.id,
                 company_id=c.id,
                 amount=form.amount.data,

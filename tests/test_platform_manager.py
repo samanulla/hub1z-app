@@ -4,7 +4,7 @@ os.environ.setdefault("FLASK_ENV", "testing")
 
 from app import create_app
 from app.extensions import db
-from app.models import User, UserRole, Tenant, TenantStatus
+from app.models import User, UserRole, Operator, OperatorStatus
 
 
 def _app():
@@ -15,8 +15,8 @@ def _app():
                       "LOCAL_STORAGE_DIR": "./var/test-uploads"})
     with app.app_context():
         db.create_all()
-        t = Tenant(slug="adyarspace", name="Adyar Space",
-                   primary_domain="adyarspace.coworkhub.io", status=TenantStatus.ACTIVE)
+        t = Operator(slug="adyarspace", name="Adyar Space",
+                   primary_domain="adyarspace.coworkhub.io", status=OperatorStatus.ACTIVE)
         db.session.add(t); db.session.commit()
     return app
 
@@ -38,7 +38,7 @@ def test_owner_pages_render():
     c = app.test_client()
     _login(c, "platform@coworkhub.io", "OwnerPass123!")
     for path in ("/platform/", "/platform/team", "/platform/team/new",
-                "/platform/reports", "/platform/billing", "/platform/tenants"):
+                "/platform/reports", "/platform/billing", "/platform/operators"):
         r = c.get(path)
         assert r.status_code == 200, f"{path} -> {r.status_code}: {r.data[:500]}"
 
@@ -52,20 +52,20 @@ def test_owner_can_create_manager_with_partial_permissions():
     r = c.post("/platform/team/new", data={
         "full_name": "Ravi Manager", "email": "ravi@coworkhub.io",
         "password": "ManagerPass123!", "is_active": "y",
-        "perm_reports": "y",  # only reports — tenants/billing left unchecked
+        "perm_reports": "y",  # only reports — operators/billing left unchecked
     }, follow_redirects=False)
     assert r.status_code == 302
 
     with app.app_context():
-        mgr = User.query.filter_by(email="ravi@coworkhub.io").execution_options(skip_tenant_filter=True).first()
+        mgr = User.query.filter_by(email="ravi@coworkhub.io").execution_options(skip_operator_filter=True).first()
         assert mgr is not None
         assert mgr.role == UserRole.PLATFORM_MANAGER
         assert mgr.get_platform_permissions() == ["reports"]
         assert mgr.has_platform_permission("reports") is True
-        assert mgr.has_platform_permission("tenants") is False
+        assert mgr.has_platform_permission("operators") is False
 
 
-def test_manager_without_tenants_permission_is_forbidden():
+def test_manager_without_operators_permission_is_forbidden():
     app = _app()
     _seed_owner(app)
     with app.app_context():
@@ -85,8 +85,8 @@ def test_manager_without_tenants_permission_is_forbidden():
     r = c.get("/platform/reports")
     assert r.status_code == 200
 
-    # Tenants is not granted.
-    r = c.get("/platform/tenants")
+    # Operators is not granted.
+    r = c.get("/platform/operators")
     assert r.status_code == 403
 
     # Managing the platform team is always Owner-only, regardless of grants.
@@ -96,18 +96,18 @@ def test_manager_without_tenants_permission_is_forbidden():
     assert r.status_code == 403
 
 
-def test_manager_with_tenants_permission_can_manage_tenants():
+def test_manager_with_operators_permission_can_manage_operators():
     app = _app()
     _seed_owner(app)
     with app.app_context():
         mgr = User(email="mgr2@coworkhub.io", full_name="Mgr2", role=UserRole.PLATFORM_MANAGER, is_active=True)
         mgr.set_password("ManagerPass123!")
-        mgr.set_platform_permissions(["tenants"])
+        mgr.set_platform_permissions(["operators"])
         db.session.add(mgr); db.session.commit()
 
     c = app.test_client()
     _login(c, "mgr2@coworkhub.io", "ManagerPass123!")
-    r = c.get("/platform/tenants")
+    r = c.get("/platform/operators")
     assert r.status_code == 200
     assert b"Adyar Space" in r.data
 
@@ -118,7 +118,7 @@ def test_deactivated_manager_cannot_log_in():
     with app.app_context():
         mgr = User(email="gone@coworkhub.io", full_name="Gone", role=UserRole.PLATFORM_MANAGER, is_active=False)
         mgr.set_password("ManagerPass123!")
-        mgr.set_platform_permissions(["tenants", "billing", "reports"])
+        mgr.set_platform_permissions(["operators", "billing", "reports"])
         db.session.add(mgr); db.session.commit()
 
     c = app.test_client()
@@ -135,7 +135,7 @@ def test_manager_edit_page_prefills_permission_checkboxes():
     with app.app_context():
         mgr = User(email="mgr3@coworkhub.io", full_name="Mgr3", role=UserRole.PLATFORM_MANAGER, is_active=True)
         mgr.set_password("ManagerPass123!")
-        mgr.set_platform_permissions(["tenants"])
+        mgr.set_platform_permissions(["operators"])
         db.session.add(mgr); db.session.commit()
         mgr_id = mgr.id
 
@@ -144,5 +144,5 @@ def test_manager_edit_page_prefills_permission_checkboxes():
     r = c.get(f"/platform/team/{mgr_id}/edit")
     assert r.status_code == 200
     html = r.data.decode()
-    assert 'checked' in html.split('id="perm_tenants"')[0][-40:]
+    assert 'checked' in html.split('id="perm_operators"')[0][-40:]
     assert 'checked' not in html.split('id="perm_billing"')[0][-40:]

@@ -6,17 +6,19 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
-class Location(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class Location(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "locations"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
 
-    name = Column(String(150), nullable=False, unique=True)
-    code = Column(String(20), nullable=False, unique=True)
+    __table_args__ = (
+        db.UniqueConstraint("operator_id", "name", name="uq_locations_operator_name"),
+        db.UniqueConstraint("operator_id", "code", name="uq_locations_operator_code"),
+    )
+    name = Column(String(150), nullable=False)
+    code = Column(String(20), nullable=False)
     address_line1 = Column(String(255), nullable=False)
     address_line2 = Column(String(255))
     city = Column(String(80), nullable=False)
@@ -40,11 +42,9 @@ class Location(db.Model, PkMixin, TimestampMixin, TenantScoped):
         return f"<Location {self.code}>"
 
 
-class Floor(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class Floor(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "floors"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"), nullable=False)
     level = Column(Integer, nullable=False)          # e.g. 1, 2, 3
     name = Column(String(80), nullable=False)        # e.g. "Ground", "Level 5 — Sales"
@@ -56,9 +56,10 @@ class Floor(db.Model, PkMixin, TimestampMixin, TenantScoped):
     rooms = relationship("ConferenceRoom", back_populates="floor", cascade="all, delete-orphan")
 
 
-class Amenity(db.Model, PkMixin):
+class Amenity(db.Model, PkMixin, OperatorScoped):
     __tablename__ = "amenities"
-    name = Column(String(80), nullable=False, unique=True)
+    __table_args__ = (db.UniqueConstraint("operator_id", "name", name="uq_amenities_operator_name"),)
+    name = Column(String(80), nullable=False)
     icon = Column(String(80))
 
 

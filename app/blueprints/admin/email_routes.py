@@ -13,7 +13,7 @@ from .forms import EmailTemplateForm
 
 _SAMPLE_CONTEXT = {
     "user": {"full_name": "Jane Doe", "email": "jane@example.com"},
-    "tenant": {"name": "Adyar Coworks", "support_email": "support@adyar-coworks.hub1z.com"},
+    "operator": {"name": "Adyar Coworks", "support_email": "support@adyar-coworks.hub1z.com"},
     "company": {"name": "Acme Robotics"},
     "booking": {"room_name": "Hudson", "start_at": "2026-01-15 14:00",
                 "end_at": "2026-01-15 15:00", "credits_used": 1,

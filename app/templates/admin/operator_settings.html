@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Workspace settings{% endblock %}
+
+{% block content %}
+<h3>Workspace settings</h3>
+<div class="card"><div class="card-body">
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+    <h6>Branding</h6>
+    <div class="row">
+      <div class="col-md-6">{{ field(form.logo_url) }}</div>
+      <div class="col-md-3">{{ field(form.brand_color) }}</div>
+      <div class="col-md-3">{{ field(form.support_email) }}</div>
+    </div>
+    {{ field(form.tagline) }}
+
+    <hr>
+    <p class="text-muted small">Choose the primary location whose address will appear on new invoices for {{ operator.name }}.</p>
+    {{ field(form.primary_location_id) }}
+    <hr>
+    <h6>Manual payment details</h6>
+    <p class="text-muted small">These details are displayed publicly. No payment gateway is connected.</p>
+    {{ field(form.payment_instructions) }}
+    <div class="row">
+      <div class="col-md-4">{{ field(form.payment_upi_id) }}</div>
+      <div class="col-md-4">{{ field(form.payment_gpay) }}</div>
+      <div class="col-md-4">{{ field(form.payment_bank_details) }}</div>
+    </div>
+    <button class="btn btn-dark">Save settings</button>
+  </form>
+</div></div>
+{% endblock %}

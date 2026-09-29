@@ -1,7 +1,7 @@
-"""Tenant admin/manager sets up a company's subscription — moved here from a
+"""Operator admin/manager sets up a company's subscription — moved here from a
 former company self-checkout (/company/plans used to let a Company Admin
 subscribe to any plan/quantity instantly, disconnected from actual seat
-inventory). Subscribing is now tenant-controlled, same as seat allocations.
+inventory). Subscribing is now operator-controlled, same as seat allocations.
 """
 from __future__ import annotations
 
@@ -87,7 +87,7 @@ def register_subscription_routes(bp):
             subscription = change.subscription
             if subscription is None:
                 subscription = Subscription(
-                    tenant_id=change.tenant_id,
+                    operator_id=change.operator_id,
                     company_id=change.company_id,
                     plan_id=plan.id,
                     quantity=change.requested_quantity,

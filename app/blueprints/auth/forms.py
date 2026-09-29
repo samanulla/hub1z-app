@@ -35,9 +35,9 @@ class RegisterCompanyForm(FlaskForm):
     submit = SubmitField("Create company account")
 
 
-class RegisterTenantForm(FlaskForm):
+class RegisterOperatorForm(FlaskForm):
     """Self-serve: a coworking operator creates an account with no platform
-    staff involved. Lands as a time-boxed trial — see auth.register_tenant."""
+    staff involved. Lands as a time-boxed trial — see auth.register_operator."""
     business_name = StringField("Business name", validators=[DataRequired(), Length(max=200)])
     country_code = SelectField("Country", choices=[
         ("IN", "India"),
@@ -83,7 +83,7 @@ class ChangePasswordForm(FlaskForm):
     submit = SubmitField("Change password")
 
 
-class TenantPickerForm(FlaskForm):
+class OperatorPickerForm(FlaskForm):
     workspace = StringField("Workspace slug", validators=[DataRequired(), Length(max=40)])
     submit = SubmitField("Continue")
 

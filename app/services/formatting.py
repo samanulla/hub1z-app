@@ -37,7 +37,7 @@ def _settings():
 def _cfg(key: str):
     from flask import g, has_request_context
     if has_request_context():
-        t = getattr(g, "tenant", None)
+        t = getattr(g, "operator", None)
         if t is not None:
             val = getattr(t, key, None)
             if val not in (None, ""):

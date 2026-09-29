@@ -1,7 +1,7 @@
 {% extends "public/base_marketing.html" %}
 {% block title %}Pricing | {{ app_name }}{% endblock %}
 {% block body %}
-<nav class="marketing-nav solid"><a class="brand" href="/"><span class="brand-dot"></span> {{ app_name }}</a><div class="nav-links"><a class="nav-link" href="/features">Features</a><a class="nav-link btn-nav-cta" href="/auth/register/tenant">Start free</a></div></nav>
+<nav class="marketing-nav solid"><a class="brand" href="/"><span class="brand-dot"></span> {{ app_name }}</a><div class="nav-links"><a class="nav-link" href="/features">Features</a><a class="nav-link btn-nav-cta" href="/auth/register/operator">Start free</a></div></nav>
 
 <section class="section" style="padding-top:9rem;">
   <div class="container-x">
@@ -33,7 +33,7 @@
           <hr class="divider" style="margin:1.6rem 0;">
           <div class="small" style="color:var(--ink); margin-bottom:.8rem;">{% if plan.tier.max_seats is not none %}Up to {{ plan.tier.max_seats }} members{% else %}For multi-city operators{% endif %}</div>
           <ul class="small" style="list-style:none; padding:0; margin:0; color:var(--ink-soft); flex:1;">{% for feature in plan.features %}<li style="margin:.8rem 0; padding-left:1.3rem; position:relative;"><span style="position:absolute; left:0; color:var(--saffron);">+</span>{{ feature }}</li>{% endfor %}</ul>
-          <a class="{{ 'btn-ink' if plan.popular else 'btn-outline-ink' }}" style="margin-top:1.5rem; text-align:center;" href="/auth/register/tenant">Start free trial</a>
+          <a class="{{ 'btn-ink' if plan.popular else 'btn-outline-ink' }}" style="margin-top:1.5rem; text-align:center;" href="/auth/register/operator">Start free trial</a>
         </div>
       </div>
       {% else %}<div class="p-4 text-muted">Pricing is being prepared. Start a free trial to explore the platform.</div>{% endfor %}
