@@ -25,6 +25,8 @@ class Company(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     name = Column(String(200), nullable=False, index=True)
     legal_name = Column(String(255))
     tax_id = Column(String(64))
+    pan = Column(String(20))
+    gst_state = Column(String(2))      # GST state code (place of supply)
     industry = Column(String(120))
     website = Column(String(255))
     billing_email = Column(String(255), nullable=False)

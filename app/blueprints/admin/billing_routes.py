@@ -15,7 +15,8 @@ from ...models import (
     CreditNote, CreditNoteStatus, Refund, RefundStatus,
     Company, User, UserRole,
 )
-from ...services.billing_service import next_invoice_number
+from ...services import billing_service
+from ...services.billing_service import next_invoice_number, recompute_invoice as _recompute_invoice
 from ...services.formatting import format_money
 from ...services import audit_service
 from ...utils.decorators import admin_required, super_admin_required
@@ -35,12 +36,6 @@ def _next_credit_number() -> str:
             .order_by(CreditNote.id.desc()).first())
     seq = 1 if last is None else int(last.number.split("-")[-1]) + 1
     return f"{cn_prefix}-{ts}-{seq:05d}"
-
-
-def _recompute_invoice(inv: Invoice) -> None:
-    subtotal = sum((Decimal(li.amount or 0) for li in inv.line_items), Decimal("0"))
-    inv.subtotal = subtotal
-    inv.total_amount = subtotal + Decimal(inv.tax_amount or 0)
 
 
 def _refresh_invoice_status(inv: Invoice) -> None:
@@ -68,21 +63,12 @@ def register_billing_routes(bp):
                 flash("Choose a company or an individual.", "warning")
             else:
                 today = date.today()
-                inv = Invoice(
-                    number=next_invoice_number(),
-                    company_id=company_id, user_id=user_id,
-                    period_start=today, period_end=today,
-                    due_date=today + timedelta(days=15),
-                    status=InvoiceStatus.DRAFT,
-                    subtotal=0, total_amount=0,
-                )
-                from ...services.billing_service import billing_snapshot_for_operator
-                inv.operator_id = getattr(g, "operator_id", None)
                 operator = getattr(g, "operator", None)
-                inv.currency = operator.currency_code if operator else "USD"
-                for key, value in billing_snapshot_for_operator(operator).items():
-                    setattr(inv, key, value)
-                db.session.add(inv)
+                inv = billing_service.open_invoice(
+                    operator, company_id=company_id, user_id=user_id, subscription_id=None,
+                    period_start=today, period_end=today, due_date=today + timedelta(days=15),
+                    status=InvoiceStatus.DRAFT,
+                )
                 db.session.commit()
                 return redirect(url_for("admin.invoice_detail", invoice_id=inv.id))
         companies = Company.query.order_by(Company.name).all()
@@ -119,14 +105,11 @@ def register_billing_routes(bp):
 
         form = InvoiceLineItemForm()
         if form.validate_on_submit():
-            line = InvoiceLineItem(
-                invoice_id=inv.id,
-                description=form.description.data,
-                quantity=form.quantity.data,
-                unit_price=form.unit_price.data,
-                amount=(Decimal(form.quantity.data) * Decimal(form.unit_price.data)).quantize(Decimal("0.01")),
+            rate = form.tax_rate.data
+            billing_service.add_line(
+                inv, form.description.data, form.quantity.data, form.unit_price.data, "other", date.today(),
+                rate=None if rate is None else Decimal(rate),
             )
-            db.session.add(line)
             db.session.flush()
             _recompute_invoice(inv)
             db.session.commit()
@@ -139,8 +122,8 @@ def register_billing_routes(bp):
     @admin_required
     def invoice_line_delete(invoice_id: int, line_id: int):
         inv = Invoice.query.get_or_404(invoice_id)
-        line = InvoiceLineItem.query.get_or_404(line_id)
-        db.session.delete(line)
+        line = InvoiceLineItem.query.filter_by(id=line_id, invoice_id=inv.id).first_or_404()
+        inv.line_items.remove(line)
         db.session.flush()
         _recompute_invoice(inv)
         db.session.commit()
@@ -187,6 +170,7 @@ def register_billing_routes(bp):
         db.session.add(p)
         inv.amount_paid = Decimal(inv.amount_paid or 0) + Decimal(form.amount.data)
         _refresh_invoice_status(inv)
+        billing_service.after_payment(inv)
         db.session.commit()
         flash(f"Recorded {format_money(form.amount.data)} payment.", "success")
         return redirect(url_for("admin.invoice_detail", invoice_id=inv.id))
@@ -212,6 +196,7 @@ def register_billing_routes(bp):
             ))
             invoice.amount_paid = Decimal(invoice.amount_paid or 0) + Decimal(submission.amount)
             _refresh_invoice_status(invoice)
+            billing_service.after_payment(invoice)
             submission.status = PaymentSubmissionStatus.ACCEPTED
             flash("Reported payment accepted and recorded.", "success")
         elif decision == "reject":

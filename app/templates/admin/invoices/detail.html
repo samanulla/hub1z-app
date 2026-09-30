@@ -13,6 +13,12 @@
       · {{ invoice.period_start }} → {{ invoice.period_end }}
       · Due {{ invoice.due_date }}
     </div>
+    {% if invoice.seller_gstin or invoice.seller_pan or invoice.buyer_gstin %}
+    <div class="text-muted small">
+      {% if invoice.seller_gstin %}Seller GSTIN {{ invoice.seller_gstin }}{% endif %}{% if invoice.seller_pan %} · PAN {{ invoice.seller_pan }}{% endif %}
+      {% if invoice.buyer_gstin %} · Buyer GSTIN {{ invoice.buyer_gstin }}{% endif %}
+    </div>
+    {% endif %}
   </div>
   <div>
     {% if invoice.status.value == 'draft' %}
@@ -39,7 +45,7 @@
     <div class="card mb-3"><div class="card-body">
       <h6>Line items</h6>
       <table class="table table-sm mb-2">
-        <thead><tr><th>Description</th><th class="text-end">Qty</th><th class="text-end">Unit</th><th class="text-end">Amount</th><th></th></tr></thead>
+        <thead><tr><th>Description</th><th class="text-end">Qty</th><th class="text-end">Unit</th><th class="text-end">Amount</th><th class="text-end">GST</th><th></th></tr></thead>
         <tbody>
           {% for li in invoice.line_items %}
           <tr>
@@ -47,6 +53,7 @@
             <td class="text-end">{{ li.quantity }}</td>
             <td class="text-end">{{ li.unit_price | money }}</td>
             <td class="text-end">{{ li.amount | money }}</td>
+            <td class="text-end text-muted">{{ li.tax_rate }}%</td>
             <td class="text-end">
               {% if invoice.status.value in ('draft','issued') %}
               <form method="post" action="{{ url_for('admin.invoice_line_delete', invoice_id=invoice.id, line_id=li.id) }}"
@@ -58,7 +65,7 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="5" class="text-muted text-center py-3">No line items.</td></tr>
+          <tr><td colspan="6" class="text-muted text-center py-3">No line items.</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -66,9 +73,10 @@
       {% if invoice.status.value in ('draft','issued') %}
       <form method="post" action="{{ url_for('admin.invoice_line_add', invoice_id=invoice.id) }}" class="row g-2 align-items-end mt-2">
         {{ line_form.hidden_tag() }}
-        <div class="col-md-6">{{ line_form.description(class="form-control", placeholder="Description") }}</div>
+        <div class="col-md-4">{{ line_form.description(class="form-control", placeholder="Description") }}</div>
         <div class="col-md-2">{{ line_form.quantity(class="form-control", placeholder="Qty") }}</div>
         <div class="col-md-2">{{ line_form.unit_price(class="form-control", placeholder="Unit price") }}</div>
+        <div class="col-md-2">{{ line_form.tax_rate(class="form-control", placeholder="GST %") }}</div>
         <div class="col-md-2"><button class="btn btn-dark w-100">Add</button></div>
       </form>
       {% endif %}
@@ -148,7 +156,14 @@
       <h6>Summary</h6>
       <table class="table table-sm mb-0">
         <tr><th>Subtotal</th><td class="text-end">{{ invoice.subtotal | money }}</td></tr>
-        <tr><th>Tax</th><td class="text-end">{{ invoice.tax_amount | money }}</td></tr>
+        {% if invoice.igst_amount > 0 %}
+        <tr><th>IGST</th><td class="text-end">{{ invoice.igst_amount | money }}</td></tr>
+        {% elif invoice.tax_amount > 0 %}
+        <tr><th>CGST</th><td class="text-end">{{ invoice.cgst_amount | money }}</td></tr>
+        <tr><th>SGST</th><td class="text-end">{{ invoice.sgst_amount | money }}</td></tr>
+        {% else %}
+        <tr><th>GST</th><td class="text-end">{{ invoice.tax_amount | money }}</td></tr>
+        {% endif %}
         <tr class="table-secondary"><th>Total</th><td class="text-end"><strong>{{ invoice.total_amount | money }}</strong></td></tr>
         <tr><th>Paid</th><td class="text-end">{{ invoice.amount_paid | money }}</td></tr>
         <tr class="{{ 'table-success' if invoice.balance_due <= 0 else 'table-warning' }}">

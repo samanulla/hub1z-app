@@ -389,6 +389,9 @@
     <div class="side-group">
       <div class="side-group-label">Billing &amp; finance</div>
       <a class="side-link {{ 'active' if request.endpoint and (request.endpoint.startswith('admin.invoice') or request.endpoint == 'admin.payment_new' or request.endpoint == 'admin.payment_submission_review' or request.endpoint == 'admin.billing_run') }}" href="{{ url_for('admin.invoices_list') }}">Invoices</a>
+      {% if current_user.is_super_admin or current_user.is_platform_owner %}
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.billing_') and request.endpoint != 'admin.billing_run' }}" href="{{ url_for('admin.billing_settings') }}">Billing settings</a>
+      {% endif %}
       <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.credit_note') }}" href="{{ url_for('admin.credit_notes') }}">Credit notes</a>
       <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.refund') }}" href="{{ url_for('admin.refunds') }}">Refunds</a>
       <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.expense') and 'categor' not in request.endpoint }}" href="{{ url_for('admin.expenses_list') }}">Expenses</a>

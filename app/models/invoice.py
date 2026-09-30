@@ -37,6 +37,9 @@ class Invoice(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     subtotal = Column(Numeric(10, 2), default=0, nullable=False)
     tax_amount = Column(Numeric(10, 2), default=0, nullable=False)
+    cgst_amount = Column(Numeric(10, 2), default=0, nullable=False)
+    sgst_amount = Column(Numeric(10, 2), default=0, nullable=False)
+    igst_amount = Column(Numeric(10, 2), default=0, nullable=False)
     total_amount = Column(Numeric(10, 2), default=0, nullable=False)
     amount_paid = Column(Numeric(10, 2), default=0, nullable=False)
     currency = Column(String(3), default="USD", nullable=False)
@@ -51,6 +54,17 @@ class Invoice(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     billing_state = Column(String(80))
     billing_country = Column(String(80))
     billing_postal_code = Column(String(20))
+
+    # Parties as they were when the invoice was raised (tax invoices must not change later).
+    seller_gstin = Column(String(20))
+    seller_pan = Column(String(20))
+    seller_state = Column(String(2))      # GST state code
+    buyer_gstin = Column(String(20))
+    buyer_pan = Column(String(20))
+    buyer_state = Column(String(2))
+
+    # Late fees have been billed on this invoice up to (not including) this date.
+    late_fee_charged_through = Column(Date)
 
     company = relationship("Company", back_populates="invoices")
     line_items = relationship("InvoiceLineItem", back_populates="invoice", cascade="all, delete-orphan")
@@ -69,7 +83,11 @@ class InvoiceLineItem(db.Model, PkMixin, OperatorScoped):
     description = Column(String(255), nullable=False)
     quantity = Column(Numeric(10, 2), default=1, nullable=False)
     unit_price = Column(Numeric(10, 2), default=0, nullable=False)
-    amount = Column(Numeric(10, 2), default=0, nullable=False)
+    amount = Column(Numeric(10, 2), default=0, nullable=False)      # before tax
+    line_type = Column(String(20), default="other", nullable=False)  # plan / deposit / late_fee / ...
+    tax_rate = Column(Numeric(5, 2), default=0, nullable=False)
+    tax_amount = Column(Numeric(10, 2), default=0, nullable=False)
+    sac_code = Column(String(12))
 
     invoice = relationship("Invoice", back_populates="line_items")
 

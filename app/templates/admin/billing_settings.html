@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Billing settings{% endblock %}
+
+{% block content %}
+<h3>Billing settings</h3>
+<p class="text-muted">How invoices go out, the terms a new agreement starts from, and the GST on each kind of charge.
+Changing these never rewrites existing invoices or agreements.</p>
+
+<div class="card mb-3"><div class="card-body">
+  <h6>Your tax details</h6>
+  <p class="text-muted small">Printed on every invoice. The state decides whether a company pays CGST + SGST (same state) or IGST (different state).</p>
+  <form method="post" action="{{ url_for('admin.billing_tax_details_save') }}" novalidate>
+    {{ tax_form.hidden_tag() }}
+    <div class="row">
+      <div class="col-md-6">{{ field(tax_form.company_legal_name) }}</div>
+      <div class="col-md-6">{{ field(tax_form.gst_state) }}</div>
+    </div>
+    <div class="row">
+      <div class="col-md-6">{{ field(tax_form.gstin) }}</div>
+      <div class="col-md-6">{{ field(tax_form.pan) }}</div>
+    </div>
+    <button class="btn btn-dark">Save tax details</button>
+  </form>
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+  <h6>Invoice timing and default terms</h6>
+  <form method="post" action="{{ url_for('admin.billing_settings_save') }}" novalidate>
+    {{ settings_form.hidden_tag() }}
+    <div class="row">
+      <div class="col-md-3">{{ field(settings_form.invoice_issue_day) }}</div>
+      <div class="col-md-3">{{ field(settings_form.due_day) }}</div>
+      <div class="col-md-3">{{ field(settings_form.late_fee_mode) }}</div>
+      <div class="col-md-3">{{ field(settings_form.late_fee_value) }}</div>
+    </div>
+    <div class="row">
+      <div class="col-md-3">{{ field(settings_form.late_fee_grace_days) }}</div>
+      <div class="col-md-3">{{ field(settings_form.term_months) }}</div>
+      <div class="col-md-3">{{ field(settings_form.lock_in_months) }}</div>
+      <div class="col-md-3">{{ field(settings_form.notice_months) }}</div>
+    </div>
+    <div class="row">
+      <div class="col-md-3">{{ field(settings_form.deposit_months) }}</div>
+      <div class="col-md-3">{{ field(settings_form.deposit_refund_days) }}</div>
+      <div class="col-md-3">{{ field(settings_form.escalation_percent) }}</div>
+      <div class="col-md-3">{{ field(settings_form.escalation_after_months) }}</div>
+    </div>
+    {{ field(settings_form.early_exit_rule) }}
+    <p class="text-muted small">Late fees can be changed per company on its agreement when it is created.</p>
+    <button class="btn btn-dark">Save billing settings</button>
+  </form>
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+  <h6>GST rates</h6>
+  <p class="text-muted small">Anything without its own rate below is charged at your default of {{ default_rate }}%.
+  The security deposit is never taxed. A new rate applies from its date; earlier invoices are unchanged.</p>
+  <table class="table table-sm">
+    <thead><tr><th>Charge</th><th>GST %</th><th>SAC</th><th>From</th><th></th></tr></thead>
+    <tbody>
+      {% for r in rates %}
+      <tr>
+        <td>{{ charge_names.get(r.charge_type, r.charge_type) }}</td>
+        <td>{{ r.rate }}</td>
+        <td>{{ r.sac_code or '—' }}</td>
+        <td>{{ r.effective_from }}</td>
+        <td class="text-end">
+          <form method="post" action="{{ url_for('admin.billing_tax_rate_delete', rate_id=r.id) }}" class="d-inline"
+                onsubmit="return confirm('Remove this rate?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-link text-danger">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="text-muted text-center py-3">No specific rates. Everything is charged at {{ default_rate }}%.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="{{ url_for('admin.billing_tax_rate_add') }}" class="row g-2 align-items-end" novalidate>
+    {{ rate_form.hidden_tag() }}
+    <div class="col-md-3">{{ rate_form.charge_type.label(class="form-label") }}{{ rate_form.charge_type(class="form-select") }}</div>
+    <div class="col-md-2">{{ rate_form.rate.label(class="form-label") }}{{ rate_form.rate(class="form-control") }}</div>
+    <div class="col-md-2">{{ rate_form.sac_code.label(class="form-label") }}{{ rate_form.sac_code(class="form-control") }}</div>
+    <div class="col-md-3">{{ rate_form.effective_from.label(class="form-label") }}{{ rate_form.effective_from(class="form-control") }}</div>
+    <div class="col-md-2"><button class="btn btn-dark w-100">Add rate</button></div>
+  </form>
+</div></div>
+{% endblock %}

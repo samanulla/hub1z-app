@@ -73,6 +73,7 @@ class Operator(db.Model, PkMixin, TimestampMixin):
     tax_label = Column(String(30), default="GST", nullable=False)
     company_legal_name = Column(String(200))
     gstin = Column(String(20))
+    gst_state = Column(String(2))      # GST state code of the operator's registration
     pan = Column(String(20))
     invoice_prefix = Column(String(10), default="INV", nullable=False)
 

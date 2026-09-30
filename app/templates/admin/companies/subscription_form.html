@@ -4,16 +4,42 @@
 
 {% block content %}
 <h3>Add subscription for {{ company.name }}</h3>
-<div class="card"><div class="card-body">
-  <form method="post" novalidate>
-    {{ form.hidden_tag() }}
+<form method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="card mb-3"><div class="card-body">
     <div class="row">
       <div class="col-md-6">{{ field(form.plan_id, autofocus=true) }}</div>
       <div class="col-md-3">{{ field(form.quantity) }}</div>
       <div class="col-md-3">{{ field(form.start_date) }}</div>
     </div>
-    <button class="btn btn-dark">Add subscription</button>
-    <a class="btn btn-link" href="{{ url_for('admin.company_detail', company_id=company.id) }}">Cancel</a>
-  </form>
-</div></div>
+    {{ field(form.price_includes_tax) }}
+  </div></div>
+
+  <div class="card mb-3"><div class="card-body">
+    <h6>Agreement terms</h6>
+    <p class="text-muted small">Started from your defaults in Billing settings. Change anything that was negotiated for this agreement.</p>
+    <div class="row">
+      <div class="col-md-3">{{ field(form.term_months) }}</div>
+      <div class="col-md-3">{{ field(form.lock_in_months) }}</div>
+      <div class="col-md-3">{{ field(form.notice_months) }}</div>
+      <div class="col-md-3">{{ field(form.due_day) }}</div>
+    </div>
+    <div class="row">
+      <div class="col-md-3">{{ field(form.deposit_months) }}</div>
+      <div class="col-md-3">{{ field(form.deposit_amount) }}</div>
+      <div class="col-md-3">{{ field(form.deposit_refund_days) }}</div>
+      <div class="col-md-3">{{ field(form.early_exit_rule) }}</div>
+    </div>
+    <div class="row">
+      <div class="col-md-3">{{ field(form.escalation_percent) }}</div>
+      <div class="col-md-3">{{ field(form.escalation_after_months) }}</div>
+      <div class="col-md-2">{{ field(form.late_fee_mode) }}</div>
+      <div class="col-md-2">{{ field(form.late_fee_value) }}</div>
+      <div class="col-md-2">{{ field(form.late_fee_grace_days) }}</div>
+    </div>
+  </div></div>
+
+  <button class="btn btn-dark">Add subscription</button>
+  <a class="btn btn-link" href="{{ url_for('admin.company_detail', company_id=company.id) }}">Cancel</a>
+</form>
 {% endblock %}

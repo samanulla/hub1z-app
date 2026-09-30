@@ -9,7 +9,7 @@ from datetime import date, datetime
 from decimal import Decimal
 import json
 
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, g
 from flask_login import current_user
 
 from ...extensions import db
@@ -18,8 +18,15 @@ from ...models import (
     SubscriptionChangeRequest, SubscriptionRequestStatus,
 )
 from ...utils.decorators import manager_or_super_required
-from ...services import audit_service, credit_service
+from ...services import audit_service, credit_service, billing_service
+from ...services.gst import money
+from ...models import BillingSettings
 from .forms import AdminSubscribeForm
+
+_TERM_FIELDS = (
+    "term_months", "lock_in_months", "notice_months", "due_day", "deposit_refund_days", "escalation_percent",
+    "escalation_after_months", "late_fee_mode", "late_fee_value", "late_fee_grace_days", "early_exit_rule",
+)
 
 
 def register_subscription_routes(bp):
@@ -42,6 +49,7 @@ def register_subscription_routes(bp):
                 unit_price=Decimal(plan.base_price),
                 start_date=form.start_date.data,
                 status=SubscriptionStatus.ACTIVE,
+                price_includes_tax=bool(form.price_includes_tax.data),
                 pricing_snapshot=json.dumps({
                     "plan_id": plan.id, "plan_version": plan.version, "base_price": str(plan.base_price),
                     "billing_unit": plan.billing_unit.value, "billing_cycle": plan.billing_cycle.value,
@@ -52,7 +60,17 @@ def register_subscription_routes(bp):
                 }),
             )
             db.session.add(sub)
+            defaults = BillingSettings.for_operator(g.operator_id)
+            for name in _TERM_FIELDS:
+                value = getattr(form, name).data if name in request.form else None
+                setattr(sub, name, getattr(defaults, name) if value is None else value)
+            if form.deposit_amount.data is not None:
+                sub.deposit_amount = money(form.deposit_amount.data)
+            else:
+                months = form.deposit_months.data if form.deposit_months.data is not None else defaults.deposit_months
+                sub.deposit_amount = money(Decimal(sub.unit_price) * sub.quantity * months)
             db.session.flush()
+            billing_service.create_deposit_invoice(sub)
             credits = credit_service.auto_allocate_for_subscription(sub, actor=current_user)
             db.session.commit()
             audit_service.record("subscription.created", "subscription", sub.id,
@@ -66,6 +84,10 @@ def register_subscription_routes(bp):
             return redirect(url_for("admin.company_detail", company_id=company.id))
         if not form.is_submitted():
             form.start_date.data = date.today()
+            defaults = BillingSettings.for_operator(g.operator_id)
+            for name in _TERM_FIELDS:
+                getattr(form, name).data = getattr(defaults, name)
+            form.deposit_months.data = defaults.deposit_months
         return render_template("admin/companies/subscription_form.html", form=form, company=company)
 
     @bp.route("/companies/<int:company_id>/subscriptions/<int:sub_id>/cancel", methods=["POST"])
@@ -102,6 +124,8 @@ def register_subscription_routes(bp):
                 )
                 db.session.add(subscription)
                 db.session.flush()
+                billing_service.apply_default_terms(subscription)
+                billing_service.create_deposit_invoice(subscription)
                 change.subscription_id = subscription.id
                 credit_service.auto_allocate_for_subscription(subscription, actor=current_user)
             else:

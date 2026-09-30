@@ -477,7 +477,7 @@ def invoices_list():
 @manager_or_super_required
 def billing_run():
     from ...services.billing_service import run_monthly_billing
-    invoices = run_monthly_billing()
+    invoices = run_monthly_billing(operator_id=g.operator_id, respect_issue_day=False)
     flash(f"Generated {len(invoices)} invoice(s).", "success")
     return redirect(url_for("admin.invoices_list"))
 

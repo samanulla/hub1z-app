@@ -52,15 +52,17 @@ def release_no_shows_cmd() -> None:
 def run_scheduled_jobs_cmd(month: str | None) -> None:
     """Materialize recurring bookings and generate idempotent invoices."""
     from datetime import datetime
-    from .services.billing_service import run_monthly_billing
+    from .services.billing_service import run_agreement_jobs, run_monthly_billing
     from .services.booking_service import materialize_recurring_room_bookings, release_no_shows
 
     target_month = datetime.strptime(f"{month}-01", "%Y-%m-%d").date() if month else None
     bookings = materialize_recurring_room_bookings()
+    agreements = run_agreement_jobs()
     invoices = run_monthly_billing(target_month)
     credits = credit_service.run_all_cycles()
     no_shows = release_no_shows()
     click.echo(f"Created {bookings} recurring booking(s); generated {len(invoices)} invoice(s); "
+               f"agreements: {agreements['ended']} ended, {agreements['proposed']} rate revision(s) proposed; "
                f"credits: {credits['granted']} granted, {credits['expired']} expired; "
                f"{no_shows['released']} no-show(s) released.")
 

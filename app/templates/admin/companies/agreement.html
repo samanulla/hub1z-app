@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Agreement{% endblock %}
+
+{% block content %}
+{% set late = {'none': 'None', 'per_day': 'per day late', 'interest': '% a year'} %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="mb-0">Agreement: {{ company.name if company else sub.user.full_name }}
+      <span class="badge bg-secondary">{{ sub.status.value }}</span></h3>
+    <div class="text-muted">{{ sub.plan.name }} × {{ sub.quantity }} from {{ sub.start_date }}</div>
+  </div>
+  {% if company %}<a class="btn btn-outline-secondary" href="{{ url_for('admin.company_detail', company_id=company.id) }}">Back to company</a>{% endif %}
+</div>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card h-100"><div class="card-body">
+      <h6>Terms</h6>
+      <table class="table table-sm mb-0">
+        <tr><td>Price per seat now</td><td class="text-end">{{ current_price | money }}</td></tr>
+        <tr><td>Monthly total now</td><td class="text-end">{{ (current_price * sub.quantity) | money }}{% if sub.price_includes_tax %} (incl. GST){% else %} + GST{% endif %}</td></tr>
+        <tr><td>Term</td><td class="text-end">{{ sub.term_months }} months, to {{ sub.term_ends_on }}</td></tr>
+        <tr><td>Lock-in</td><td class="text-end">{{ sub.lock_in_months }} months, to {{ sub.lock_in_ends_on }}</td></tr>
+        <tr><td>Notice period</td><td class="text-end">{{ sub.notice_months }} months</td></tr>
+        <tr><td>Invoice due</td><td class="text-end">day {{ sub.due_day }} of the month</td></tr>
+        <tr><td>Late fee</td><td class="text-end">{% if sub.late_fee_mode == 'none' %}None{% else %}{{ sub.late_fee_value }} {{ late[sub.late_fee_mode] }}{% if sub.late_fee_grace_days %}, after {{ sub.late_fee_grace_days }} grace day(s){% endif %}{% endif %}</td></tr>
+        <tr><td>Yearly increase</td><td class="text-end">{% if sub.escalation_percent %}{{ sub.escalation_percent }}% after {{ sub.escalation_after_months }} months{% else %}None{% endif %}</td></tr>
+        <tr><td>Leaving inside the lock-in</td><td class="text-end">{{ 'Remaining lock-in fees' if sub.early_exit_rule == 'remaining_fees' else 'Deposit forfeited' }}</td></tr>
+      </table>
+    </div></div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card h-100"><div class="card-body">
+      <h6>Notice</h6>
+      {% if sub.terminate_on %}
+        <p class="mb-1">Notice given on <b>{{ sub.notice_given_on }}</b>. The agreement ends on <b>{{ sub.terminate_on }}</b>.</p>
+        {% if held > 0 %}<p class="text-muted small mb-0">Deposit of {{ held | money }} is due back within {{ sub.deposit_refund_days }} days, by {{ refund_by }}.</p>{% endif %}
+      {% elif sub.status.value == 'active' %}
+        <p class="text-muted small">Notice of {{ sub.notice_months }} month(s) is needed. Leaving before {{ sub.lock_in_ends_on }} costs
+        {{ 'the remaining lock-in fees' if sub.early_exit_rule == 'remaining_fees' else 'the security deposit' }}.</p>
+        <form method="post" action="{{ url_for('admin.subscription_notice', company_id=company.id, sub_id=sub.id) }}" class="row g-2 align-items-end"
+              onsubmit="return confirm('Record notice? This sets the end date and may raise an early exit charge.');">
+          {{ notice_form.hidden_tag() }}
+          <div class="col-8">{{ notice_form.notice_date(class="form-control") }}</div>
+          <div class="col-4"><button class="btn btn-outline-dark w-100">Record notice</button></div>
+        </form>
+      {% else %}
+        <p class="text-muted mb-0">This agreement is not active.</p>
+      {% endif %}
+    </div></div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card"><div class="card-body">
+      <h6>Security deposit <span class="text-muted">agreed {{ sub.deposit_amount | money }} · held {{ held | money }}</span></h6>
+      <table class="table table-sm">
+        <thead><tr><th>Date</th><th>Entry</th><th>Note</th><th class="text-end">Amount</th></tr></thead>
+        <tbody>
+          {% for e in entries %}
+          <tr><td>{{ e.entry_date }}</td><td>{{ e.entry_type }}</td><td>{{ e.note or '' }}</td>
+              <td class="text-end">{{ '-' if e.entry_type != 'received' }}{{ e.amount | money }}</td></tr>
+          {% else %}
+          <tr><td colspan="4" class="text-muted text-center py-2">Nothing received yet. It is recorded when the deposit invoice is paid.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if held > 0 %}
+      <form method="post" action="{{ url_for('admin.subscription_deposit', company_id=company.id, sub_id=sub.id) }}" class="row g-2 align-items-end">
+        {{ deposit_form.hidden_tag() }}
+        <div class="col-md-3">{{ deposit_form.entry_type(class="form-select") }}</div>
+        <div class="col-md-2">{{ deposit_form.amount(class="form-control", placeholder="Amount") }}</div>
+        <div class="col-md-3">{{ deposit_form.entry_date(class="form-control") }}</div>
+        <div class="col-md-4">{{ deposit_form.note(class="form-control", placeholder="Note") }}</div>
+        <div class="col-12"><button class="btn btn-sm btn-outline-dark">Record</button></div>
+      </form>
+      {% endif %}
+    </div></div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card"><div class="card-body">
+      <h6>Yearly increases</h6>
+      <p class="text-muted small">Proposed 30 days before they are due. Nothing changes on invoices until you confirm.</p>
+      <table class="table table-sm mb-0">
+        <thead><tr><th>From</th><th>Increase</th><th class="text-end">Price per seat</th><th></th></tr></thead>
+        <tbody>
+          {% for r in revisions %}
+          <tr>
+            <td>{{ r.effective_from }}</td>
+            <td>{{ r.percent }}%</td>
+            <td class="text-end">{{ r.old_unit_price | money }} → {{ r.new_unit_price | money }}</td>
+            <td class="text-end">
+              {% if r.status == 'proposed' %}
+              <form method="post" action="{{ url_for('admin.subscription_revision', company_id=company.id, sub_id=sub.id, rev_id=r.id, decision='confirm') }}" class="d-inline-flex gap-1">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input name="percent" class="form-control form-control-sm" style="width:5rem" placeholder="{{ r.percent }}%">
+                <button class="btn btn-sm btn-dark">Confirm</button>
+              </form>
+              <form method="post" action="{{ url_for('admin.subscription_revision', company_id=company.id, sub_id=sub.id, rev_id=r.id, decision='dismiss') }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sm btn-outline-secondary">Dismiss</button>
+              </form>
+              {% else %}<span class="badge bg-secondary">{{ r.status }}</span>{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-muted text-center py-2">None yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <div class="col-12">
+    <div class="card"><div class="card-body">
+      <h6>Invoices</h6>
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Number</th><th>Period</th><th>Due</th><th>Status</th><th class="text-end">Total</th><th class="text-end">Paid</th></tr></thead>
+        <tbody>
+          {% for i in invoices %}
+          <tr>
+            <td><a href="{{ url_for('admin.invoice_detail', invoice_id=i.id) }}">{{ i.number }}</a></td>
+            <td>{{ i.period_start }} → {{ i.period_end }}</td><td>{{ i.due_date }}</td>
+            <td><span class="badge bg-secondary">{{ i.status.value }}</span></td>
+            <td class="text-end">{{ i.total_amount | money }}</td><td class="text-end">{{ i.amount_paid | money }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-muted text-center py-2">No invoices yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

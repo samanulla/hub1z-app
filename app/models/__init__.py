@@ -16,6 +16,7 @@ from .pricing import (
 from .subscription import Subscription, SubscriptionStatus, SubscriptionChangeRequest, SubscriptionRequestStatus
 from .booking import SeatBooking, RoomBooking, RoomBlock, BookingStatus
 from .invoice import Invoice, InvoiceLineItem, InvoiceStatus, Payment, PaymentSubmission, PaymentSubmissionStatus
+from .billing import BillingSettings, TaxRate, RateRevision, DepositEntry
 from .document import Document, DocumentKind
 from .staff import StaffMember, EmploymentType, StaffStatus, Department
 from .payroll import (

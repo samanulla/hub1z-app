@@ -12,6 +12,13 @@ from ...models import (
     ExpenseStatus, EmailKind,
 )
 from ...services.locale_data import TIMEZONE_CHOICES
+from ...services.gst import INDIAN_STATES, CHARGE_TYPES
+
+STATE_CHOICES = [("", "Not set")] + INDIAN_STATES
+LATE_FEE_CHOICES = [("none", "No late fee"), ("per_day", "Fixed amount per day late"),
+                    ("interest", "Interest, % a year on the unpaid amount")]
+EARLY_EXIT_CHOICES = [("remaining_fees", "Pay the remaining lock-in fees"),
+                      ("forfeit_deposit", "Forfeit the security deposit")]
 
 
 def _enum_choices(enum_cls):
@@ -153,7 +160,10 @@ class PricingPlanForm(FlaskForm):
 class CompanyForm(FlaskForm):
     name = StringField("Company name", validators=[DataRequired(), Length(max=200)])
     legal_name = StringField("Legal name", validators=[Optional(), Length(max=255)])
-    tax_id = StringField("Tax ID", validators=[Optional(), Length(max=64)])
+    tax_id = StringField("GSTIN / Tax ID", validators=[Optional(), Length(max=64)])
+    pan = StringField("PAN", validators=[Optional(), Length(max=20)])
+    gst_state = SelectField("State (for GST)", choices=STATE_CHOICES, validators=[Optional()],
+                            description="Decides CGST + SGST or IGST. Taken from the GSTIN when left blank.")
     industry = StringField("Industry", validators=[Optional(), Length(max=120)])
     website = StringField("Website", validators=[Optional(), Length(max=255)])
     billing_email = StringField("Billing email", validators=[DataRequired(), Email(), Length(max=255)])
@@ -305,6 +315,8 @@ class InvoiceLineItemForm(FlaskForm):
     description = StringField("Description", validators=[DataRequired(), Length(max=255)])
     quantity = DecimalField("Qty", default=1, validators=[DataRequired(), NumberRange(min=0.01)])
     unit_price = DecimalField("Unit price", validators=[DataRequired(), NumberRange(min=0)])
+    tax_rate = DecimalField("GST %", validators=[Optional(), NumberRange(min=0, max=100)],
+                            description="Leave blank for the standard rate.")
     submit = SubmitField("Add line")
 
 
@@ -450,10 +462,74 @@ class AcceptOperatorInviteForm(FlaskForm):
 
 # --------------------------------------------------------- subscriptions --
 
-class AdminSubscribeForm(FlaskForm):
+class TermsForm(FlaskForm):
+    """Agreement terms; used for the operator's defaults and for each agreement.
+    Anything left out falls back to the operator's defaults (or the current value)."""
+    term_months = IntegerField("Term (months)", validators=[Optional(), NumberRange(min=1, max=120)])
+    lock_in_months = IntegerField("Lock-in (months)", validators=[Optional(), NumberRange(min=0, max=120)])
+    notice_months = IntegerField("Notice period (months)", validators=[Optional(), NumberRange(min=0, max=24)])
+    due_day = IntegerField("Invoice due day of month", validators=[Optional(), NumberRange(min=1, max=28)])
+    deposit_refund_days = IntegerField("Deposit refunded within (days after exit)",
+                                       validators=[Optional(), NumberRange(min=0, max=365)])
+    escalation_percent = DecimalField("Yearly increase (%)", validators=[Optional(), NumberRange(min=0, max=100)],
+                                      description="Proposed for you to confirm; never applied automatically.")
+    escalation_after_months = IntegerField("First increase after (months)",
+                                           validators=[Optional(), NumberRange(min=0, max=120)])
+    late_fee_mode = SelectField("Late fee", choices=LATE_FEE_CHOICES, default="none")
+    late_fee_value = DecimalField("Late fee value (amount per day, or % a year)",
+                                  validators=[Optional(), NumberRange(min=0)])
+    late_fee_grace_days = IntegerField("Grace days before a late fee", validators=[Optional(), NumberRange(min=0, max=90)])
+    early_exit_rule = SelectField("Leaving inside the lock-in", choices=EARLY_EXIT_CHOICES, default="remaining_fees")
+
+
+class AdminSubscribeForm(TermsForm):
     """Operator admin/manager sets up a company's subscription — tied to real
     seat inventory the operator manages, not a company self-checkout."""
     plan_id = SelectField("Plan", coerce=int, validators=[DataRequired()])
     quantity = IntegerField("Seats / users", default=1, validators=[NumberRange(min=1)])
     start_date = DateField("Start date", validators=[DataRequired()])
+    deposit_months = IntegerField("Security deposit (months of fee)", validators=[Optional(), NumberRange(min=0, max=24)])
+    deposit_amount = DecimalField("or a fixed deposit amount", validators=[Optional(), NumberRange(min=0)],
+                                  description="Overrides the months above when filled in.")
+    price_includes_tax = BooleanField("The agreed price already includes GST")
     submit = SubmitField("Add subscription")
+
+
+class BillingSettingsForm(TermsForm):
+    invoice_issue_day = IntegerField("Invoices are issued on day", validators=[Optional(), NumberRange(min=1, max=28)])
+    deposit_months = IntegerField("Default security deposit (months of fee)", validators=[Optional(), NumberRange(min=0, max=24)])
+    submit = SubmitField("Save billing settings")
+
+
+class OperatorTaxForm(FlaskForm):
+    company_legal_name = StringField("Legal name on invoices", validators=[Optional(), Length(max=200)])
+    gstin = StringField("GSTIN", validators=[Optional(), Length(max=20)])
+    pan = StringField("PAN", validators=[Optional(), Length(max=20)])
+    gst_state = SelectField("State of registration", choices=STATE_CHOICES, validators=[Optional()])
+    submit = SubmitField("Save tax details")
+
+
+class TaxRateForm(FlaskForm):
+    charge_type = SelectField("Charge", choices=CHARGE_TYPES)
+    rate = DecimalField("GST %", validators=[DataRequired(), NumberRange(min=0, max=100)])
+    sac_code = StringField("SAC code", validators=[Optional(), Length(max=12)])
+    effective_from = DateField("Effective from", validators=[DataRequired()])
+    submit = SubmitField("Add rate")
+
+
+class NoticeForm(FlaskForm):
+    notice_date = DateField("Notice given on", validators=[DataRequired()])
+    submit = SubmitField("Record notice")
+
+
+class DepositEntryForm(FlaskForm):
+    entry_type = SelectField("Action", choices=[("deduction", "Deduct (dues, damages)"), ("refund", "Refund")])
+    amount = DecimalField("Amount", validators=[DataRequired(), NumberRange(min=0.01)])
+    entry_date = DateField("Date", validators=[DataRequired()])
+    note = StringField("Note", validators=[Optional(), Length(max=255)])
+    submit = SubmitField("Record")
+
+
+class RevisionDecisionForm(FlaskForm):
+    percent = DecimalField("Increase (%)", validators=[Optional(), NumberRange(min=0, max=100)])
+    submit = SubmitField("Confirm")
