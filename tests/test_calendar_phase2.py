@@ -51,7 +51,7 @@ def _local(dt):
     return (dt + timedelta(hours=5, minutes=30)).strftime("%Y-%m-%dT%H:%M")
 
 
-def test_other_people_see_only_booked_but_the_company_and_operator_see_details(world):
+def test_only_the_bookers_company_sees_a_meeting_everyone_else_including_the_operator_sees_blocked(world):
     _fund(world)
     start = _start(days=3)
     create_room_booking(user=db.session.get(User, world["e1"]), room=db.session.get(ConferenceRoom, world["room"]),
@@ -59,8 +59,9 @@ def test_other_people_see_only_booked_but_the_company_and_operator_see_details(w
     url = f"/book/locations/{_loc_id()}/calendar?date={start.date().isoformat()}"
     seen = {who: _login(world, email).get(url).data
             for who, email in (("colleague", "e2@cr.com"), ("operator", "owner@cr.com"), ("outsider", "solo@cr.com"))}
-    assert b"Secret pitch" in seen["colleague"] and b"Secret pitch" in seen["operator"]
-    assert b"Secret pitch" not in seen["outsider"] and b'class="lbl">Booked<' in seen["outsider"]
+    assert b"Secret pitch" in seen["colleague"]
+    for who in ("operator", "outsider"):
+        assert b"Secret pitch" not in seen[who] and b'class="lbl">Blocked<' in seen[who], who
 
 
 def test_operator_blocks_take_a_room_out_of_use_without_credits(world):

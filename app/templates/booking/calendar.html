@@ -21,7 +21,7 @@
   .slot.available.past { background: var(--cream-2); }
   .slot.mine { background: var(--saffron); }
   .slot.company { background: rgba(124,58,237,.28); }
-  .slot.booked { background: var(--ink); color: var(--cream); }
+  .slot.taken { background: var(--ink); color: var(--cream); }
   .slot.blocked { background: repeating-linear-gradient(45deg, #e5dfd0, #e5dfd0 5px, #f3ede1 5px, #f3ede1 10px); }
   .slot.selected { outline: 2px solid var(--ink); outline-offset: -2px; background: rgba(245,182,66,.55) !important; }
   .slot .lbl { display: block; font-size: .68rem; line-height: 26px; padding: 0 .3rem; white-space: nowrap;
@@ -75,8 +75,8 @@
   <span><i style="background: rgba(43,74,62,.15)"></i>Available</span>
   <span><i style="background: var(--saffron)"></i>Yours</span>
   {% if current_user.company_id %}<span><i style="background: rgba(124,58,237,.28)"></i>Your company</span>{% endif %}
-  <span><i style="background: var(--ink)"></i>Booked</span>
-  <span><i style="background: repeating-linear-gradient(45deg,#e5dfd0,#e5dfd0 3px,#f3ede1 3px,#f3ede1 6px)"></i>Blocked</span>
+  <span><i style="background: var(--ink)"></i>Blocked (taken by someone else)</span>
+  {% if current_user.is_admin %}<span><i style="background: repeating-linear-gradient(45deg,#e5dfd0,#e5dfd0 3px,#f3ede1 3px,#f3ede1 6px)"></i>Closed by you</span>{% endif %}
   <span><i style="background: var(--cream-2)"></i>Past</span>
 </div>
 

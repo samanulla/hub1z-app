@@ -1,8 +1,8 @@
 """View-model for the shared room calendar: what each viewer sees in every 30-minute slot.
 
-Everyone at an operator sees the same grid, so availability is honest and first-come. What a booked slot
-reveals depends on the viewer: the operator sees everything, a company sees its own people's meetings,
-everyone else just sees "Booked".
+Everyone at an operator sees the same grid, so availability is honest and first-come. What a taken slot
+reveals is private to the client: only the booker (and, for a company, its own people) see what a
+meeting is; everyone else, including the operator, just sees "Blocked".
 """
 from __future__ import annotations
 
@@ -44,14 +44,11 @@ def _slot_times(loc) -> list[time]:
 
 
 def _booking_cell(b, viewer) -> tuple[str, str]:
-    detail = f"{b.title or 'Meeting'} \u00b7 {b.user.full_name if b.user else ''}".rstrip(" \u00b7")
     if b.user_id == viewer.id:
         return "mine", b.title or "Your booking"
-    if viewer.is_admin:
-        return "booked", detail
     if viewer.company_id and b.company_id == viewer.company_id:
-        return "company", detail
-    return "booked", "Booked"
+        return "company", f"{b.title or 'Meeting'} \u00b7 {b.user.full_name if b.user else ''}".rstrip(" \u00b7")
+    return "taken", "Blocked"
 
 
 def build_calendar(*, loc, rooms, day: date, view: str, week_room, viewer, now: datetime | None = None) -> dict:
@@ -101,8 +98,9 @@ def build_calendar(*, loc, rooms, day: date, view: str, week_room, viewer, now: 
             hit = next((x for x in entries[col["room"].id] if x[1].start_at < e and x[1].end_at > s), None)
             if hit:
                 kind, obj = hit
-                if kind == "block":
-                    cell["state"], cell["label"] = "blocked", ((obj.reason or "Blocked") if viewer.is_admin else "Unavailable")
+                if kind == "block":  # the operator's own closure: only the operator sees why
+                    cell["state"], cell["label"] = (("blocked", obj.reason or "Blocked") if viewer.is_admin
+                                                    else ("taken", "Blocked"))
                 else:
                     cell["state"], cell["label"] = _booking_cell(obj, viewer)
                 cell["first"] = obj.start_at >= s or idx == 0
