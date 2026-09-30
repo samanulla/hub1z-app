@@ -235,12 +235,12 @@
       <div class="col-md-4">
         <div class="eyebrow">Say hello</div>
         <p style="color: rgba(251,247,240,.65); margin-top: 1rem;">
-          {% if operator and operator.support_email %}{{ operator.support_email }}{% else %}hello@hub1z.com{% endif %}
+          {% if operator and operator.support_email %}{{ operator.support_email }}{% else %}contact@hub1z.com{% endif %}
         </p>
       </div>
     </div>
     <div style="border-top: 1px solid rgba(251,247,240,.15); padding-top: 2rem; color: rgba(251,247,240,.5); font-size: .85rem; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; align-items: center;">
-      <span>© {{ operator.name if operator else app_name }} · Made in India</span>
+      <span>© {{ operator.name if operator else app_name }}</span>
       <a href="{{ url_for('public_legal_imprint') }}" style="color: rgba(251,247,240,.6);">Legal</a>
       <a href="{{ url_for('public_terms') }}" style="color: rgba(251,247,240,.6);">Terms of Service</a>
       <a href="{{ url_for('public_privacy') }}" style="color: rgba(251,247,240,.6);">Privacy Policy</a>
