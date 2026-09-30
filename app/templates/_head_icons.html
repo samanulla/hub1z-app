@@ -1,0 +1,7 @@
+{% if operator and operator.logo_url %}
+<link rel="icon" href="{{ operator.logo_url }}">
+{% else %}
+<link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/brand/hub1z-icon.svg') }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/brand/favicon-32.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/brand/apple-touch-icon.png') }}">
+{% endif %}

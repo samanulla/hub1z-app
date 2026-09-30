@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ app_name }}{% endblock %} · {{ operator.name if operator else app_name }}</title>
+  {% include "_head_icons.html" %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -13,6 +14,7 @@
   <link href="{{ url_for('static', filename='css/hub1z-bootstrap.css') }}" rel="stylesheet">
 </head>
 {% set authed = current_user.is_authenticated %}
+{% from "_macros.html" import powered_by with context %}
 <body class="h-ui {{ '' if authed else 'h-public' }}">
 <div class="h-shell">
   {% if authed %}
@@ -20,14 +22,20 @@
     <a class="h-brand" href="{{ url_for('index') }}">
       {% if operator and operator.logo_url %}
         <img src="{{ operator.logo_url }}" alt="{{ operator.name }}" style="height:30px;">
+        {{ operator.name }}
+      {% elif operator %}
+        <span class="h-brand-mark">{{ operator.name[:1] | upper }}</span>
+        {{ operator.name }}
       {% else %}
-        <span class="h-brand-mark">h</span>
+        <img class="h-brand-logo" src="{{ url_for('static', filename='img/brand/hub1z-logo-light.svg') }}" alt="Hub1z">
       {% endif %}
-      {{ operator.name if operator else app_name }}
     </a>
     <div class="h-persona"><small>Signed in as</small><b>{{ current_user.role.value.replace('_', ' ') | title }}</b></div>
     {% include "_sidebar.html" %}
-    <div class="h-side-foot">© {{ app_name }} · <a href="/healthz">health</a></div>
+    <div class="h-side-foot">
+      {{ powered_by(on_dark=true) }}
+      <div>© {{ operator.name if operator else app_name }} · <a href="/healthz">health</a></div>
+    </div>
   </aside>
   {% endif %}
 
@@ -40,10 +48,13 @@
         <a class="h-brand on-light" href="{{ url_for('index') }}">
           {% if operator and operator.logo_url %}
             <img src="{{ operator.logo_url }}" alt="{{ operator.name }}" style="height:30px;">
+            {{ operator.name }}
+          {% elif operator %}
+            <span class="h-brand-mark">{{ operator.name[:1] | upper }}</span>
+            {{ operator.name }}
           {% else %}
-            <span class="h-brand-mark">h</span>
+            <img class="h-brand-logo" src="{{ url_for('static', filename='img/brand/hub1z-logo.svg') }}" alt="Hub1z">
           {% endif %}
-          {{ operator.name if operator else app_name }}
         </a>
       {% endif %}
       <div class="h-top-actions">
@@ -80,6 +91,7 @@
 
       {% block content %}{% endblock %}
     </main>
+    {% if not authed %}<footer class="h-public-foot">{{ powered_by() }}</footer>{% endif %}
   </div>
 </div>
 

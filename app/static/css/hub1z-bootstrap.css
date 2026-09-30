@@ -10,7 +10,7 @@ body.h-ui {
 }
 .h-ui .h-org { font-weight: 600; font-size: 14px; color: var(--h-ink-2); }
 .h-ui .h-brand.on-light { color: var(--h-ink) !important; padding: 0; }
-.h-ui.h-public .h-content { max-width: 1120px; margin: 0 auto; padding-top: 44px; }
+.h-ui.h-public .h-content { max-width: 1120px; margin: 0 auto; padding-top: 44px; flex: 1 0 auto; }
 .h-ui .h-side-foot a { color: #8b93b4; }
 .h-ui .h-content > h3:first-child, .h-ui .h-content > .d-flex:first-child h3, .h-ui .h-content h3.page-title { font-size: 22px; }
 .h-ui .h-content h4 { font-size: 17px; }

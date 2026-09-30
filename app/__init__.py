@@ -99,10 +99,17 @@ def _register_error_handlers(app: Flask) -> None:
 def _register_context(app: Flask) -> None:
     @app.context_processor
     def inject_globals():
-        from flask import g
+        from flask import g, has_request_context
+        base = app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
+        portal_url = f"https://{base}"
+        if has_request_context() and (app.debug or app.testing):
+            # Local runs use http and a port; production is always https on the bare domain.
+            port = request.host.partition(":")[2]
+            portal_url = f"{request.scheme}://{base}{':' + port if port else ''}"
         return {
             "app_name": app.config.get("APP_NAME", "hub1z"),
             "operator": getattr(g, "operator", None),
+            "portal_url": portal_url,
         }
 
 

@@ -1,3 +1,11 @@
+{# "Powered by" + the H mark, linking to the Platform home page. Import with `with context` (needs portal_url). #}
+{% macro powered_by(on_dark=false) %}
+<a class="h-powered{{ ' on-dark' if on_dark }}" href="{{ portal_url }}" title="Hub1z" aria-label="Powered by Hub1z"{% if operator %} target="_blank" rel="noopener"{% endif %}>
+  <span>Powered by</span>
+  <img src="{{ url_for('static', filename='img/brand/hub1z-icon' ~ ('-light' if on_dark else '') ~ '.svg') }}" alt="Hub1z" width="15" height="16">
+</a>
+{% endmacro %}
+
 {# Reusable form field renderer for Bootstrap 5 #}
 {% macro field(f, autofocus=false) %}
 <div class="mb-3">
