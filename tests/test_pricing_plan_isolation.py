@@ -2,7 +2,7 @@
 
 1. A Company, Custom plan negotiated for one company must never be visible
    or subscribable by another company in the same workspace.
-2. A Company, Custom plan must never appear on the tenant's public,
+2. A Company, Custom plan must never appear on the operator's public,
    unauthenticated marketing site.
 3. An Enterprise platform tier with no monthly price and no negotiated base
    price must not crash the platform billing page.
@@ -18,7 +18,7 @@ from app.extensions import db
 from app.models import (
     BillingCycle, BillingUnit, Company, CompanyStatus, LocationScope,
     OperatorSubscription, PlanScope, PlanStatus, PlanType, PricingPlan,
-    PricingTier, SubscriptionChangeRequest, Tenant, TenantStatus, TierStatus,
+    PricingTier, SubscriptionChangeRequest, Operator, OperatorStatus, TierStatus,
     User, UserRole,
 )
 
@@ -43,26 +43,26 @@ def test_company_cannot_see_or_request_other_companys_custom_plan():
     app = _app()
     host = "isoco.hub1z.com"
     with app.app_context():
-        tenant = Tenant(slug="isoco", name="Iso Co Workspace", primary_domain=host,
-                        status=TenantStatus.ACTIVE)
-        db.session.add(tenant); db.session.flush()
-        company_a = Company(tenant_id=tenant.id, name="Company A", billing_email="a@example.com",
+        operator = Operator(slug="isoco", name="Iso Co Workspace", primary_domain=host,
+                        status=OperatorStatus.ACTIVE)
+        db.session.add(operator); db.session.flush()
+        company_a = Company(operator_id=operator.id, name="Company A", billing_email="a@example.com",
                             status=CompanyStatus.ACTIVE)
-        company_b = Company(tenant_id=tenant.id, name="Company B", billing_email="b@example.com",
+        company_b = Company(operator_id=operator.id, name="Company B", billing_email="b@example.com",
                             status=CompanyStatus.ACTIVE)
         db.session.add_all([company_a, company_b]); db.session.flush()
-        admin_a = User(tenant_id=tenant.id, email="admin-a@example.com", full_name="Admin A",
+        admin_a = User(operator_id=operator.id, email="admin-a@example.com", full_name="Admin A",
                       role=UserRole.COMPANY_ADMIN, company_id=company_a.id, is_active=True)
         admin_a.set_password("AdminAPass123!")
         db.session.add(admin_a)
         standard_plan = PricingPlan(
-            tenant_id=tenant.id, name="Standard Company Plan", scope=PlanScope.COMPANY_STANDARD,
+            operator_id=operator.id, name="Standard Company Plan", scope=PlanScope.COMPANY_STANDARD,
             plan_type=PlanType.DEDICATED_DESK, billing_unit=BillingUnit.PER_SEAT,
             billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("1000"),
             location_scope=LocationScope.ALL, status=PlanStatus.ACTIVE, is_active=True,
         )
         custom_plan_b = PricingPlan(
-            tenant_id=tenant.id, name="Northwind Custom Deal", scope=PlanScope.COMPANY_CUSTOM,
+            operator_id=operator.id, name="Northwind Custom Deal", scope=PlanScope.COMPANY_CUSTOM,
             company_id=company_b.id, plan_type=PlanType.DEDICATED_DESK,
             billing_unit=BillingUnit.PER_SEAT, billing_cycle=BillingCycle.MONTHLY,
             base_price=Decimal("5000"), location_scope=LocationScope.ALL,
@@ -97,20 +97,20 @@ def test_public_membership_page_excludes_company_custom_plan():
     app = _app()
     host = "publicco.hub1z.com"
     with app.app_context():
-        tenant = Tenant(slug="publicco", name="Public Co Workspace", primary_domain=host,
-                        status=TenantStatus.ACTIVE)
-        db.session.add(tenant); db.session.flush()
-        company = Company(tenant_id=tenant.id, name="Only Company", billing_email="c@example.com",
+        operator = Operator(slug="publicco", name="Public Co Workspace", primary_domain=host,
+                        status=OperatorStatus.ACTIVE)
+        db.session.add(operator); db.session.flush()
+        company = Company(operator_id=operator.id, name="Only Company", billing_email="c@example.com",
                           status=CompanyStatus.ACTIVE)
         db.session.add(company); db.session.flush()
         db.session.add(PricingPlan(
-            tenant_id=tenant.id, name="Public Standard Plan", scope=PlanScope.COMPANY_STANDARD,
+            operator_id=operator.id, name="Public Standard Plan", scope=PlanScope.COMPANY_STANDARD,
             plan_type=PlanType.HOT_DESK, billing_unit=BillingUnit.PER_SEAT,
             billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("500"),
             location_scope=LocationScope.ALL, status=PlanStatus.ACTIVE, is_active=True,
         ))
         db.session.add(PricingPlan(
-            tenant_id=tenant.id, name="Private Negotiated Deal", scope=PlanScope.COMPANY_CUSTOM,
+            operator_id=operator.id, name="Private Negotiated Deal", scope=PlanScope.COMPANY_CUSTOM,
             company_id=company.id, plan_type=PlanType.DEDICATED_DESK,
             billing_unit=BillingUnit.PER_SEAT, billing_cycle=BillingCycle.MONTHLY,
             base_price=Decimal("9999"), location_scope=LocationScope.ALL,
@@ -128,22 +128,22 @@ def test_public_membership_page_excludes_company_custom_plan():
 def test_enterprise_tier_without_negotiated_price_does_not_crash_billing():
     app = _app()
     with app.app_context():
-        tenant = Tenant(slug="entco", name="Enterprise Co", primary_domain="entco.hub1z.com",
-                        status=TenantStatus.ACTIVE, plan_tier="enterprise")
+        operator = Operator(slug="entco", name="Enterprise Co", primary_domain="entco.hub1z.com",
+                        status=OperatorStatus.ACTIVE, plan_tier="enterprise")
         owner = User(email="owner2@hub1z.com", full_name="Owner", role=UserRole.PLATFORM_OWNER, is_active=True)
         owner.set_password("OwnerPass123!")
         enterprise = PricingTier(key="enterprise", name="Enterprise", monthly_price=None,
                                  annual_price=None, status=TierStatus.ACTIVE, is_active=True,
                                  max_locations=None, included_active_contracted_seats=None)
-        db.session.add_all([tenant, owner, enterprise])
+        db.session.add_all([operator, owner, enterprise])
         db.session.commit()
-        tenant_id = tenant.id
+        operator_id = operator.id
         enterprise_id = enterprise.id
 
     client = app.test_client()
     _login(client, "owner2@hub1z.com", "OwnerPass123!", "hub1z.com")
 
-    save = client.post(f"/platform/billing/{tenant_id}/subscription", data={
+    save = client.post(f"/platform/billing/{operator_id}/subscription", data={
         "tier_id": enterprise_id, "billing_cycle": "monthly",
         "additional_free_seats": "0", "additional_free_locations": "0",
         "discount_amount": "0", "premium_modules_amount": "0",
@@ -152,7 +152,7 @@ def test_enterprise_tier_without_negotiated_price_does_not_crash_billing():
     assert save.status_code == 302
 
     with app.app_context():
-        subscription = OperatorSubscription.query.filter_by(tenant_id=tenant_id).one()
+        subscription = OperatorSubscription.query.filter_by(operator_id=operator_id).one()
         assert subscription.pricing_snapshot is not None
         assert '"monthly_price": null' in subscription.pricing_snapshot
 

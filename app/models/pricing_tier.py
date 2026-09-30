@@ -1,12 +1,12 @@
-"""Pricing tiers — platform-defined tenant plan tiers with resource limits.
+"""Pricing tiers — platform-defined operator plan tiers with resource limits.
 
-Distinct from a tenant's own PricingPlan (what a tenant charges ITS
+Distinct from an operator's own PricingPlan (what an operator charges ITS
 companies/individuals for desks and rooms) — this is what the platform
-itself sells to tenants, and what caps a tenant's own inventory size.
+itself sells to operators, and what caps an operator's own inventory size.
 Introducing a new tier, or editing an existing one's limits/price, is a
-Platform Super Admin-only action; a tenant's plan_tier just references
+Platform Super Admin-only action; an operator's plan_tier just references
 PricingTier.key by string (no hard FK, so retiring a tier never breaks an
-existing tenant already on it).
+existing operator already on it).
 """
 from __future__ import annotations
 
@@ -54,10 +54,10 @@ class PricingTier(db.Model, PkMixin, TimestampMixin):
     monthly_price = Column(Numeric(10, 2), nullable=True)  # null = custom/contact us
     annual_price = Column(Numeric(10, 2), nullable=True)
     annual_discount = Column(Numeric(10, 2), nullable=False, default=0)
-    is_active = Column(Boolean, default=True, nullable=False)  # retired tiers stay valid for tenants already on them
+    is_active = Column(Boolean, default=True, nullable=False)  # retired tiers stay valid for operators already on them
     status = Column(Enum(TierStatus), nullable=False, default=TierStatus.DRAFT)
 
-    # Resource caps for tenants on this tier. null = unlimited.
+    # Resource caps for operators on this tier. null = unlimited.
     max_locations = Column(Integer, nullable=True)
     max_seats = Column(Integer, nullable=True)              # hot + dedicated desks
     included_active_contracted_seats = Column(Integer, nullable=True)
@@ -106,7 +106,7 @@ class OperatorSubscription(db.Model, PkMixin, TimestampMixin):
     """
     __tablename__ = "operator_subscriptions"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False,
+    operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"), nullable=False,
                        unique=True, index=True)
     tier_id = Column(Integer, ForeignKey("pricing_tiers.id", ondelete="SET NULL"), nullable=True)
     billing_cycle = Column(String(10), nullable=False, default="monthly")
@@ -124,15 +124,15 @@ class OperatorSubscription(db.Model, PkMixin, TimestampMixin):
     contract_end_date = Column(Date)
     pricing_snapshot = Column(Text)
 
-    tenant = relationship("Tenant", foreign_keys=[tenant_id])
+    operator = relationship("Operator", foreign_keys=[operator_id])
     tier = relationship("PricingTier", foreign_keys=[tier_id])
 
 
 class OperatorUsageSnapshot(db.Model, PkMixin, TimestampMixin):
     __tablename__ = "operator_usage_snapshots"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"), nullable=False, index=True)
     recorded_on = Column(Date, nullable=False, index=True)
     active_contracted_seats = Column(Integer, nullable=False, default=0)
 
-    tenant = relationship("Tenant", foreign_keys=[tenant_id])
+    operator = relationship("Operator", foreign_keys=[operator_id])

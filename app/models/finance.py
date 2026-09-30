@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class CreditNoteStatus(str, enum.Enum):
@@ -16,13 +16,12 @@ class CreditNoteStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-class CreditNote(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class CreditNote(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "credit_notes"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
 
-    number = Column(String(30), unique=True, nullable=False, index=True)
+    __table_args__ = (db.UniqueConstraint("operator_id", "number", name="uq_credit_notes_operator_number"),)
+    number = Column(String(30), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -50,7 +49,7 @@ class RefundStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-class Refund(db.Model, PkMixin, TimestampMixin):
+class Refund(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "refunds"
 
     payment_id = Column(Integer, ForeignKey("payments.id", ondelete="CASCADE"),

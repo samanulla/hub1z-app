@@ -10,13 +10,15 @@ from decimal import Decimal
 
 from flask import current_app
 from sqlalchemy import and_, or_
+from sqlalchemy.exc import IntegrityError
 
 from ..extensions import db
 from ..models import (
-    Seat, SeatBooking, ConferenceRoom, RoomBooking, BookingStatus,
-    User, Subscription, SubscriptionStatus,
+    Seat, SeatBooking, ConferenceRoom, RoomBooking, RoomBlock, BookingStatus,
+    User, CreditSettings, Operator, OperatorStatus,
     SeatAllocation, AllocationStatus, Location,
 )
+from . import credit_service
 
 
 class BookingError(Exception):
@@ -134,7 +136,7 @@ def create_seat_booking(*, user: User, seat: Seat, start: datetime, end: datetim
     _validate_window(start, end)
     if not seat.is_active:
         raise BookingError("Seat is inactive.")
-    if seat.tenant_id and user.tenant_id and seat.tenant_id != user.tenant_id:
+    if seat.operator_id and user.operator_id and seat.operator_id != user.operator_id:
         raise BookingError("Seat does not belong to your workspace.")
     _validate_location_hours(seat.location, start, end)
     if check_seat_conflict(seat.id, start, end, booker=user):
@@ -142,7 +144,7 @@ def create_seat_booking(*, user: User, seat: Seat, start: datetime, end: datetim
 
     q = quote_seat(seat, start, end)
     booking = SeatBooking(
-        tenant_id=seat.tenant_id or user.tenant_id,
+        operator_id=seat.operator_id or user.operator_id,
         seat_id=seat.id,
         user_id=user.id,
         company_id=user.company_id,
@@ -171,37 +173,24 @@ def check_room_conflict(room_id: int, start: datetime, end: datetime,
     return db.session.query(q.exists()).scalar()
 
 
-def _active_subscription_for(user: User) -> Subscription | None:
-    """Return the highest-credit active subscription the user can draw from."""
-    q = Subscription.query.filter(Subscription.status == SubscriptionStatus.ACTIVE)
-    if user.company_id:
-        q = q.filter(or_(Subscription.user_id == user.id,
-                         Subscription.company_id == user.company_id))
-    else:
-        q = q.filter(Subscription.user_id == user.id)
-    return q.order_by(Subscription.meeting_credits_balance.desc()).first()
-
-
 def quote_room(user: User, room: ConferenceRoom, start: datetime, end: datetime) -> Quote:
-    hours = _hours_between(start, end)
-    hourly_rate = Decimal(room.hourly_rate or 0)
-
-    sub = _active_subscription_for(user)
-    credits_available = sub.meeting_credits_balance if sub else 0
-    credits_needed = int((hours * room.credit_cost_per_hour).to_integral_value(rounding="ROUND_UP"))
-    credits_used = min(credits_needed, credits_available)
-
-    # 1 credit = 1 hour of room use in this model
-    billable_hours = max(hours - Decimal(credits_used) / Decimal(room.credit_cost_per_hour or 1),
-                         Decimal(0))
-    subtotal = (hourly_rate * billable_hours).quantize(Decimal("0.01"))
-
-    return Quote(
-        hours=hours,
-        subtotal=subtotal,
-        credits_used=credits_used,
-        credits_available=credits_available,
-    )
+    """Credits cover what they can (bonus, complimentary, then purchased); the rest is cash at the
+    room's rate, or the booking is refused when the operator turned pay-per-use off."""
+    try:
+        slots = credit_service.slots_between(start, end)
+    except credit_service.CreditError as e:
+        raise BookingError(str(e))
+    needed = slots * room.credits_per_slot
+    hours = Decimal(slots) / 2
+    available = credit_service.balance(room.operator_id, **credit_service.subject_for(user))["total"]
+    used = min(needed, available)
+    shortfall = needed - used
+    if shortfall and not CreditSettings.for_operator(room.operator_id).pay_per_use_enabled:
+        raise BookingError(f"This booking needs {needed} credits and you have {available}. "
+                           "Buy more credits to book it.")
+    subtotal = (Decimal(room.cash_rate_per_hour) * hours * Decimal(shortfall) / Decimal(needed)
+                ).quantize(Decimal("0.01"))
+    return Quote(hours=hours, subtotal=subtotal, credits_used=used, credits_available=available)
 
 
 def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, end: datetime,
@@ -210,39 +199,19 @@ def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, en
                         recurring_booking_id: int | None = None,
                         for_user: User | None = None,
                         waive_charge: bool = False) -> RoomBooking:
-    """``user`` is the actor performing the booking (used for the tenant/
+    """``user`` is the actor performing the booking (used for the operator/
     permission check). ``for_user`` is who the meeting is actually for —
     defaults to ``user`` for a normal self-booking. Only an admin actor may
     book on behalf of someone else or waive the charge/credits.
     """
-    booked_for = for_user or user
-    _validate_window(start, end)
-    if not room.is_active:
-        raise BookingError("Room is inactive.")
-    if room.tenant_id and user.tenant_id and room.tenant_id != user.tenant_id:
-        raise BookingError("Room does not belong to your workspace.")
-    if for_user is not None:
-        if not user.is_admin:
-            raise BookingError("Only an operator admin/manager can book on behalf of someone else.")
-        if room.tenant_id and booked_for.tenant_id != room.tenant_id:
-            raise BookingError("That person does not belong to your workspace.")
-    if attendees > room.capacity:
-        raise BookingError(f"Room capacity is {room.capacity}.")
-    _validate_location_hours(room.location, start, end)
-    if check_room_conflict(room.id, start, end):
-        raise BookingError("Room already booked for this time.")
-
-    if waive_charge and not user.is_admin:
-        raise BookingError("Only an operator admin/manager can waive credits/charges.")
-
-    if waive_charge:
-        q = Quote(hours=_hours_between(start, end), subtotal=Decimal("0"),
-                  credits_used=0, credits_available=0)
-    else:
-        q = quote_room(booked_for, room, start, end)
+    # First come, first served: bookings of one room queue up on its row lock, and the
+    # database's no-overlap rule is the backstop.
+    db.session.query(ConferenceRoom.id).filter(ConferenceRoom.id == room.id).with_for_update().first()
+    booked_for, q = _prepare_room_booking(user=user, room=room, start=start, end=end, attendees=attendees,
+                                          for_user=for_user, waive_charge=waive_charge)
 
     booking = RoomBooking(
-        tenant_id=room.tenant_id or booked_for.tenant_id,
+        operator_id=room.operator_id or booked_for.operator_id,
         room_id=room.id,
         user_id=booked_for.id,
         company_id=booked_for.company_id,
@@ -257,21 +226,85 @@ def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, en
         recurring_booking_id=recurring_booking_id,
     )
     db.session.add(booking)
-
-    if q.credits_used:
-        sub = _active_subscription_for(booked_for)
-        if sub:
-            sub.meeting_credits_balance = max(0, sub.meeting_credits_balance - q.credits_used)
-
-    db.session.commit()
+    try:
+        db.session.flush()
+        if q.credits_used:
+            credit_service.spend(booking.operator_id, **credit_service.subject_for(booked_for),
+                                 credits=q.credits_used, booking=booking, actor=user)
+        db.session.commit()
+    except credit_service.CreditError as e:
+        db.session.rollback()
+        raise BookingError(str(e))
+    except IntegrityError:
+        db.session.rollback()
+        raise BookingError("Room already booked for this time.")
     return booking
+
+
+def room_blocked(room_id: int, start: datetime, end: datetime) -> bool:
+    return db.session.query(RoomBlock.query.filter(
+        RoomBlock.room_id == room_id, RoomBlock.start_at < end, RoomBlock.end_at > start).exists()).scalar()
+
+
+def _prepare_room_booking(*, user: User, room: ConferenceRoom, start: datetime, end: datetime,
+                          attendees: int, for_user: User | None, waive_charge: bool) -> tuple[User, Quote]:
+    """Every rule a room booking must pass, in one place, so the live preview and the real booking agree."""
+    booked_for = for_user or user
+    _validate_window(start, end)
+    if not room.is_active:
+        raise BookingError("Room is inactive.")
+    if room.operator_id and user.operator_id and room.operator_id != user.operator_id:
+        raise BookingError("Room does not belong to your workspace.")
+    if for_user is not None:
+        if not user.is_admin:
+            raise BookingError("Only an operator admin/manager can book on behalf of someone else.")
+        if room.operator_id and booked_for.operator_id != room.operator_id:
+            raise BookingError("That person does not belong to your workspace.")
+    if attendees > room.capacity:
+        raise BookingError(f"Room capacity is {room.capacity}.")
+    try:
+        credit_service.slots_between(start, end)
+    except credit_service.CreditError as e:
+        raise BookingError(str(e))
+    _validate_location_hours(room.location, start, end)
+    if room_blocked(room.id, start, end):
+        raise BookingError("This room is not available at that time.")
+    if check_room_conflict(room.id, start, end):
+        raise BookingError("Room already booked for this time.")
+    if waive_charge and not user.is_admin:
+        raise BookingError("Only an operator admin/manager can waive credits/charges.")
+
+    if waive_charge:
+        return booked_for, Quote(hours=_hours_between(start, end), subtotal=Decimal("0"),
+                                 credits_used=0, credits_available=0)
+    q = quote_room(booked_for, room, start, end)
+    if not user.is_admin:  # an operator booking for someone is not held to the company's own rules
+        try:
+            credit_service.check_company_rules(booked_for, q.credits_used, start.date())
+        except credit_service.CreditError as e:
+            raise BookingError(str(e))
+    return booked_for, q
+
+
+def preview_room(*, user: User, room: ConferenceRoom, start: datetime, end: datetime, attendees: int = 1,
+                 for_user: User | None = None, waive_charge: bool = False) -> dict:
+    """What booking this room would do, without booking it (drives the calendar's side panel)."""
+    try:
+        booked_for, q = _prepare_room_booking(user=user, room=room, start=start, end=end, attendees=attendees,
+                                              for_user=for_user, waive_charge=waive_charge)
+    except BookingError as e:
+        return {"ok": False, "message": str(e)}
+    needed = 0 if waive_charge else credit_service.slots_between(start, end) * room.credits_per_slot
+    breakdown = credit_service.preview_spend(room.operator_id, credit_service.subject_for(booked_for), q.credits_used)
+    return {"ok": True, "credits_needed": needed, "credits_used": q.credits_used, "breakdown": breakdown,
+            "cash": str(q.subtotal), "hours": str(q.hours), "available": q.credits_available}
 
 
 # ------------------------------------------------------------- lifecycle --
 
 def cancel_booking(booking, actor: User) -> None:
     """Works for SeatBooking or RoomBooking."""
-    if booking.status in {BookingStatus.CANCELLED, BookingStatus.COMPLETED}:
+    if booking.status in {BookingStatus.CANCELLED, BookingStatus.COMPLETED, BookingStatus.NO_SHOW}:
         raise BookingError("Booking cannot be cancelled in its current state.")
 
     is_owner = booking.user_id == actor.id
@@ -285,19 +318,53 @@ def cancel_booking(booking, actor: User) -> None:
 
     # Refund credits for room bookings
     if isinstance(booking, RoomBooking) and booking.credits_used:
-        sub = _active_subscription_for(booking.user)
-        if sub:
-            sub.meeting_credits_balance += booking.credits_used
+        credit_service.refund_booking(booking, actor)
 
     booking.status = BookingStatus.CANCELLED
     db.session.commit()
 
 
-def check_in(booking) -> None:
+CHECK_IN_OPENS = timedelta(minutes=15)
+
+
+def can_check_in(booking, actor: User, now: datetime | None = None) -> bool:
+    """Whether this person may check in to this room booking right now."""
+    now = now or datetime.utcnow()
+    return (booking.status == BookingStatus.CONFIRMED and booking.start_at - CHECK_IN_OPENS <= now < booking.end_at
+            and (booking.user_id == actor.id or actor.is_admin
+                 or (actor.is_company_admin and booking.company_id == actor.company_id)))
+
+
+def check_in(booking, now: datetime | None = None) -> None:
+    now = now or datetime.utcnow()
     if booking.status != BookingStatus.CONFIRMED:
         raise BookingError("Only confirmed bookings can be checked in.")
+    if now < booking.start_at - CHECK_IN_OPENS:
+        raise BookingError("Check-in opens 15 minutes before the start.")
+    if now >= booking.end_at:
+        raise BookingError("This booking has already ended.")
     booking.status = BookingStatus.CHECKED_IN
     db.session.commit()
+
+
+def release_no_shows(now: datetime | None = None) -> dict:
+    """Free rooms nobody checked in to (their credits stay spent) and close finished meetings."""
+    now = now or datetime.utcnow()
+    released = completed = 0
+    for op in (Operator.query.execution_options(skip_operator_filter=True)
+               .filter(Operator.status.in_([OperatorStatus.ACTIVE, OperatorStatus.TRIAL])).all()):
+        wait = timedelta(minutes=CreditSettings.for_operator(op.id).no_show_minutes)
+        rows = (RoomBooking.query.execution_options(skip_operator_filter=True)
+                .filter(RoomBooking.operator_id == op.id))
+        for b in rows.filter(RoomBooking.status == BookingStatus.CONFIRMED, RoomBooking.start_at <= now - wait).all():
+            b.status = BookingStatus.NO_SHOW
+            credit_service.forfeit_booking(b)
+            released += 1
+        for b in rows.filter(RoomBooking.status == BookingStatus.CHECKED_IN, RoomBooking.end_at <= now).all():
+            b.status = BookingStatus.COMPLETED
+            completed += 1
+    db.session.commit()
+    return {"released": released, "completed": completed}
 
 
 def complete(booking) -> None:

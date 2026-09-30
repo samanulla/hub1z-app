@@ -14,7 +14,8 @@ from ...models import (
     SeatBooking, RoomBooking, BookingStatus, Invoice, Subscription, SubscriptionStatus,
     Location, DayPass, DayPassStatus, User, UserRole,
 )
-from ...services.booking_service import cancel_booking, BookingError
+from ...services import credit_service
+from ...services.booking_service import cancel_booking, can_check_in, BookingError
 from ...utils.decorators import member_required, member_or_admin_required
 
 member_bp = Blueprint("member", __name__, template_folder="../../templates")
@@ -38,7 +39,7 @@ def dashboard():
         (Subscription.company_id == current_user.company_id),
         Subscription.status == SubscriptionStatus.ACTIVE,
     ).all()
-    credits = sum(s.meeting_credits_balance for s in subs)
+    credits = credit_service.balance(current_user.operator_id, **credit_service.subject_for(current_user))["total"]
     invoices = (Invoice.query
                 .filter((Invoice.user_id == current_user.id) |
                         (Invoice.company_id == current_user.company_id))
@@ -61,7 +62,8 @@ def bookings():
     room_bookings = (RoomBooking.query.filter_by(user_id=current_user.id)
                      .order_by(RoomBooking.start_at.desc()).limit(100).all())
     return render_template("member/bookings.html",
-                           seat_bookings=seat_bookings, room_bookings=room_bookings)
+                           seat_bookings=seat_bookings, room_bookings=room_bookings,
+                           now=datetime.utcnow(), can_check_in=can_check_in)
 
 
 @member_bp.route("/bookings/seat/<int:booking_id>/cancel", methods=["POST"])
@@ -122,7 +124,7 @@ def day_pass_new():
     recipient = current_user
     if current_user.is_admin and recipient_id:
         # Operators can issue a day pass on behalf of any individual/employee
-        # in their own workspace — never someone else's tenant.
+        # in their own workspace — never someone else's operator.
         recipient = User.query.filter(
             User.id == recipient_id,
             User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL]),
@@ -132,7 +134,7 @@ def day_pass_new():
             return redirect(url_for("member.day_passes"))
 
     dp = DayPass(
-        tenant_id=getattr(g, "tenant_id", None),
+        operator_id=getattr(g, "operator_id", None),
         user_id=recipient.id,
         location_id=loc.id,
         pass_date=pd,

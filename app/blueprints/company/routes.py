@@ -13,14 +13,15 @@ from ...models import (
     User, UserRole, PricingPlan, PlanScope, Subscription, SubscriptionStatus,
     SubscriptionChangeRequest, SubscriptionRequestStatus,
     Seat, SeatType, SeatAllocation, AllocationStatus, Invoice, InvoiceStatus, PaymentSubmission,
-    PaymentSubmissionStatus, SeatBooking, RoomBooking,
+    PaymentSubmissionStatus, SeatBooking, RoomBooking, CompanyCreditPolicy, CreditAllocation,
 )
 from ...utils.decorators import company_admin_required
 from .forms import (
     InviteEmployeeForm, AcceptInviteForm, CompanyProfileForm,
     SubscriptionRequestForm, EmployeeAllocationForm, CompanySeatAllocationForm, PaymentSubmissionForm,
+    CreditRulesForm,
 )
-from ...services import mail_service, tier_limits
+from ...services import mail_service, tier_limits, credit_service
 
 INVITE_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
 
@@ -31,6 +32,31 @@ def _own_company():
     if not current_user.company_id:
         abort(403)
     return current_user.company
+
+
+@company_bp.route("/credits", methods=["GET", "POST"])
+@company_admin_required
+def credits():
+    """Balances, who may book rooms with the company's credits, and how much each person may use."""
+    c = _own_company()
+    policy = CompanyCreditPolicy.for_company(c.operator_id, c.id)
+    form = CreditRulesForm(obj=policy)
+    employees = User.query.filter_by(company_id=c.id, role=UserRole.EMPLOYEE).order_by(User.full_name).all()
+    if form.validate_on_submit():
+        policy.booking_mode = form.booking_mode.data
+        policy.per_employee_monthly_cap = form.per_employee_monthly_cap.data
+        allowed = set(request.form.getlist("allowed", type=int))
+        for e in employees:
+            e.credit_booking_allowed = e.id in allowed
+        db.session.commit()
+        flash("Credit rules saved.", "success")
+        return redirect(url_for("company.credits"))
+    return render_template(
+        "company/credits.html", company=c, form=form, employees=employees,
+        balance=credit_service.balance(c.operator_id, company_id=c.id),
+        allocation=CreditAllocation.query.filter_by(company_id=c.id).first(),
+        used=credit_service.usage_by_employee(c.operator_id, c.id, date.today()),
+    )
 
 
 def _company_subscription_capacity(company):
@@ -61,8 +87,7 @@ def dashboard():
         "employees": User.query.filter_by(company_id=c.id, role=UserRole.EMPLOYEE).count(),
         "allocations": SeatAllocation.query.filter_by(company_id=c.id, status=AllocationStatus.ACTIVE).count(),
         "active_subs": Subscription.query.filter_by(company_id=c.id, status=SubscriptionStatus.ACTIVE).count(),
-        "meeting_credits": sum(s.meeting_credits_balance for s in
-                               Subscription.query.filter_by(company_id=c.id, status=SubscriptionStatus.ACTIVE).all()),
+        "meeting_credits": credit_service.balance(c.operator_id, company_id=c.id)["total"],
         "open_invoices": Invoice.query.filter(Invoice.company_id == c.id,
                                               Invoice.status.in_(["issued", "partial", "overdue"])).count(),
     }
@@ -107,7 +132,7 @@ def employee_new():
         if emp_count >= c.max_employees:
             flash(f"Employee limit ({c.max_employees}) reached.", "warning")
             return redirect(url_for("company.employees"))
-        ok, msg = tier_limits.check_limit(getattr(g, "tenant", None), "person")
+        ok, msg = tier_limits.check_limit(getattr(g, "operator", None), "person")
         if not ok:
             flash(msg, "warning")
             return redirect(url_for("company.employees"))
@@ -116,7 +141,7 @@ def employee_new():
             flash("That email is already registered under this workspace.", "warning")
             return redirect(url_for("company.employees"))
         u = User(
-            tenant_id=getattr(g, "tenant_id", None),
+            operator_id=getattr(g, "operator_id", None),
             email=email,
             full_name=form.full_name.data.strip(),
             phone=form.phone.data,
@@ -165,7 +190,7 @@ def employee_edit(user_id: int):
         form.seat_allocation_id.data = current_allocation.id if current_allocation else 0
     if form.validate_on_submit():
         email = form.email.data.lower().strip()
-        duplicate = User.query.filter(User.tenant_id == c.tenant_id, User.email == email,
+        duplicate = User.query.filter(User.operator_id == c.operator_id, User.email == email,
                                       User.id != employee.id).first()
         if duplicate:
             flash("That email is already registered under this workspace.", "warning")
@@ -195,7 +220,7 @@ def accept_invite(token: str):
         flash("This invitation link is invalid or has expired.", "danger")
         return redirect(url_for("auth.login"))
     user = User.query.filter_by(id=int(uid)) \
-                     .execution_options(skip_tenant_filter=True).first()
+                     .execution_options(skip_operator_filter=True).first()
     if user is None:
         flash("Account not found.", "danger")
         return redirect(url_for("auth.login"))
@@ -252,7 +277,7 @@ def plans():
             flash("You already have a subscription request awaiting review.", "warning")
         else:
             change = SubscriptionChangeRequest(
-                tenant_id=getattr(g, "tenant_id", None),
+                operator_id=getattr(g, "operator_id", None),
                 company_id=c.id,
                 subscription_id=active_subs[0].id if active_subs else None,
                 requested_plan_id=form.plan_id.data,
@@ -422,7 +447,7 @@ def payment_submission_new(invoice_id: int):
             flash("Reported amount cannot exceed the invoice balance.", "warning")
         else:
             db.session.add(PaymentSubmission(
-                tenant_id=getattr(g, "tenant_id", None),
+                operator_id=getattr(g, "operator_id", None),
                 invoice_id=invoice.id,
                 company_id=c.id,
                 amount=form.amount.data,

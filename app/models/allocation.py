@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
+from .operator import OperatorScoped
 
 
 class AllocationStatus(str, enum.Enum):
@@ -15,7 +16,7 @@ class AllocationStatus(str, enum.Enum):
     ENDED = "ended"
 
 
-class SeatAllocation(db.Model, PkMixin, TimestampMixin):
+class SeatAllocation(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     """A dedicated seat/office assignment. Either to a company (any employee can use)
     or to a specific user (individual member or a named employee)."""
     __tablename__ = "seat_allocations"

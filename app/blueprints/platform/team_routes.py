@@ -25,7 +25,7 @@ def register_team_routes(bp):
     @bp.route("/team")
     @platform_owner_required
     def team_list():
-        staff = (User.query.execution_options(skip_tenant_filter=True)
+        staff = (User.query.execution_options(skip_operator_filter=True)
                  .filter(User.role.in_([UserRole.PLATFORM_OWNER, UserRole.PLATFORM_MANAGER]))
                  .order_by(User.role.desc(), User.full_name).all())
         return render_template("platform/team_list.html", staff=staff,
@@ -37,7 +37,7 @@ def register_team_routes(bp):
         form = PlatformManagerForm()
         if form.validate_on_submit():
             email = form.email.data.lower().strip()
-            if User.query.execution_options(skip_tenant_filter=True) \
+            if User.query.execution_options(skip_operator_filter=True) \
                          .filter_by(email=email).first():
                 flash("A user with that email already exists.", "warning")
                 return render_template("platform/manager_form.html", form=form,
@@ -68,7 +68,7 @@ def register_team_routes(bp):
     @bp.route("/team/<int:user_id>/edit", methods=["GET", "POST"])
     @platform_owner_required
     def manager_edit(user_id: int):
-        u = (User.query.execution_options(skip_tenant_filter=True)
+        u = (User.query.execution_options(skip_operator_filter=True)
              .filter_by(id=user_id, role=UserRole.PLATFORM_MANAGER).first_or_404())
         form = PlatformManagerForm(obj=u)
         if not form.is_submitted():
@@ -79,7 +79,7 @@ def register_team_routes(bp):
 
         if form.validate_on_submit():
             email = form.email.data.lower().strip()
-            existing = (User.query.execution_options(skip_tenant_filter=True)
+            existing = (User.query.execution_options(skip_operator_filter=True)
                         .filter(User.email == email, User.id != u.id).first())
             if existing:
                 flash("A user with that email already exists.", "warning")
@@ -103,7 +103,7 @@ def register_team_routes(bp):
     @bp.route("/team/<int:user_id>/deactivate", methods=["POST"])
     @platform_owner_required
     def manager_deactivate(user_id: int):
-        u = (User.query.execution_options(skip_tenant_filter=True)
+        u = (User.query.execution_options(skip_operator_filter=True)
              .filter_by(id=user_id, role=UserRole.PLATFORM_MANAGER).first_or_404())
         u.is_active = False
         db.session.commit()
@@ -114,7 +114,7 @@ def register_team_routes(bp):
     @bp.route("/team/<int:user_id>/activate", methods=["POST"])
     @platform_owner_required
     def manager_activate(user_id: int):
-        u = (User.query.execution_options(skip_tenant_filter=True)
+        u = (User.query.execution_options(skip_operator_filter=True)
              .filter_by(id=user_id, role=UserRole.PLATFORM_MANAGER).first_or_404())
         u.is_active = True
         db.session.commit()

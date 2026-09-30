@@ -6,11 +6,12 @@ from decimal import Decimal
 os.environ.setdefault("FLASK_ENV", "testing")
 
 import pytest
+from flask import g
 
 from app import create_app
 from app.extensions import db
 from app.models import (
-    User, UserRole, SystemSettings,
+    User, UserRole, SystemSettings, Operator, OperatorStatus,
     Location, Floor, Seat, SeatType, ConferenceRoom,
     SeatAllocation, AllocationStatus,
     Invoice, InvoiceStatus, Payment,
@@ -31,7 +32,14 @@ def app():
     })
     with app.app_context():
         db.create_all()
-        yield app
+        op = Operator(slug="fixes", name="Fixes Space", primary_domain="fixes.hub1z.com",
+                      status=OperatorStatus.ACTIVE)
+        db.session.add(op)
+        db.session.commit()
+        # Rows created by the fixtures below are stamped with this operator.
+        with app.test_request_context():
+            g.operator_id = op.id
+            yield app
 
 
 @pytest.fixture

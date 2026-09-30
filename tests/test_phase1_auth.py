@@ -1,10 +1,10 @@
-"""Phase 1: password reset, change password, tenant picker."""
+"""Phase 1: password reset, change password, operator picker."""
 import os
 os.environ.setdefault("FLASK_ENV", "testing")
 
 from app import create_app
 from app.extensions import db
-from app.models import User, UserRole, Tenant, TenantStatus
+from app.models import User, UserRole, Operator, OperatorStatus
 from app.services import mail_service
 
 
@@ -16,8 +16,8 @@ def _app():
                       "LOCAL_STORAGE_DIR": "./var/test-uploads"})
     with app.app_context():
         db.create_all()
-        t = Tenant(slug="coworkhub", name="CoWorkHub",
-                   primary_domain="coworkhub.io", status=TenantStatus.ACTIVE)
+        t = Operator(slug="coworkhub", name="CoWorkHub",
+                   primary_domain="coworkhub.io", status=OperatorStatus.ACTIVE)
         db.session.add(t)
         db.session.commit()
     return app
@@ -25,8 +25,8 @@ def _app():
 
 def _make_user(app, email="user@example.com", password="OldPass123!"):
     with app.app_context():
-        t = Tenant.query.filter_by(slug="coworkhub").first()
-        u = User(tenant_id=t.id, email=email, full_name="User One",
+        t = Operator.query.filter_by(slug="coworkhub").first()
+        u = User(operator_id=t.id, email=email, full_name="User One",
                  role=UserRole.INDIVIDUAL, is_active=True)
         u.set_password(password)
         db.session.add(u); db.session.commit()
@@ -98,7 +98,7 @@ def test_change_password_flow():
     assert r.status_code == 302
     with app.app_context():
         u = User.query.filter_by(email="chg@example.com") \
-                       .execution_options(skip_tenant_filter=True).first()
+                       .execution_options(skip_operator_filter=True).first()
         assert u.check_password("NewPass456!")
 
 
@@ -116,12 +116,12 @@ def test_change_password_wrong_current():
     assert b"Current password is incorrect" in r.data
 
 
-def test_pick_workspace_redirects_to_tenant_domain():
+def test_pick_workspace_redirects_to_operator_domain():
     app = _app()
     with app.app_context():
-        db.session.add(Tenant(slug="adyar", name="Adyar Space",
+        db.session.add(Operator(slug="adyar", name="Adyar Space",
                               primary_domain="adyar.coworkhub.io",
-                              status=TenantStatus.ACTIVE))
+                              status=OperatorStatus.ACTIVE))
         db.session.commit()
     r = app.test_client().post("/auth/pick-workspace",
                                 data={"workspace": "adyar"},

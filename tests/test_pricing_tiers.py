@@ -5,7 +5,7 @@ os.environ.setdefault("FLASK_ENV", "testing")
 from app import create_app
 from app.extensions import db
 from app.models import (
-    User, UserRole, Tenant, TenantStatus, PricingTier, TierStatus, PlatformModule, Location, Floor,
+    User, UserRole, Operator, OperatorStatus, PricingTier, TierStatus, PlatformModule, Location, Floor,
 )
 
 
@@ -82,7 +82,7 @@ def test_manager_cannot_manage_tiers_even_with_billing_permission():
     with app.app_context():
         mgr = User(email="mgr@hub1z.com", full_name="Mgr", role=UserRole.PLATFORM_MANAGER, is_active=True)
         mgr.set_password("MgrPass123!")
-        mgr.set_platform_permissions(["tenants", "billing", "reports"])
+        mgr.set_platform_permissions(["operators", "billing", "reports"])
         db.session.add(mgr); db.session.commit()
 
     c = app.test_client()
@@ -91,29 +91,29 @@ def test_manager_cannot_manage_tiers_even_with_billing_permission():
     assert c.get("/platform/tiers/new").status_code == 403
 
 
-def _seed_tenant_with_tier(app, max_seats=1, max_locations=1, max_rooms=1, max_private_offices=1):
+def _seed_operator_with_tier(app, max_seats=1, max_locations=1, max_rooms=1, max_private_offices=1):
     with app.app_context():
-        t = Tenant(slug="smallco", name="Small Co", primary_domain="smallco.hub1z.com",
-                   status=TenantStatus.ACTIVE, plan_tier="starter")
+        t = Operator(slug="smallco", name="Small Co", primary_domain="smallco.hub1z.com",
+                   status=OperatorStatus.ACTIVE, plan_tier="starter")
         db.session.add(t); db.session.flush()
         db.session.add(PricingTier(key="starter", name="Starter", monthly_price=4999, is_active=True,
                                    max_locations=max_locations, max_seats=max_seats,
                                    max_private_offices=max_private_offices, max_rooms=max_rooms))
-        admin = User(tenant_id=t.id, email="admin@smallco.com", full_name="Admin",
+        admin = User(operator_id=t.id, email="admin@smallco.com", full_name="Admin",
                     role=UserRole.SUPER_ADMIN, is_active=True)
         admin.set_password("AdminPass123!")
         db.session.add(admin)
-        loc = Location(tenant_id=t.id, name="HQ", code="HQ", address_line1="x",
+        loc = Location(operator_id=t.id, name="HQ", code="HQ", address_line1="x",
                        city="c", country="IN", timezone="Asia/Kolkata")
         db.session.add(loc); db.session.flush()
-        fl = Floor(location_id=loc.id, level=1, name="Ground")
+        fl = Floor(operator_id=t.id, location_id=loc.id, level=1, name="Ground")
         db.session.add(fl); db.session.commit()
         return loc.id, fl.id
 
 
 def test_physical_seat_creation_is_not_a_saas_tier_cap():
     app = _app()
-    loc_id, fl_id = _seed_tenant_with_tier(app, max_seats=1)
+    loc_id, fl_id = _seed_operator_with_tier(app, max_seats=1)
     c = app.test_client()
     _login(c, "admin@smallco.com", "AdminPass123!")
 
@@ -133,7 +133,7 @@ def test_physical_seat_creation_is_not_a_saas_tier_cap():
 
 def test_private_offices_are_operational_inventory_not_saas_caps():
     app = _app()
-    loc_id, fl_id = _seed_tenant_with_tier(app, max_seats=1, max_private_offices=1)
+    loc_id, fl_id = _seed_operator_with_tier(app, max_seats=1, max_private_offices=1)
     c = app.test_client()
     _login(c, "admin@smallco.com", "AdminPass123!")
 
@@ -152,13 +152,13 @@ def test_private_offices_are_operational_inventory_not_saas_caps():
 
 def test_rooms_are_not_capped_but_locations_are_enforced():
     app = _app()
-    loc_id, fl_id = _seed_tenant_with_tier(app, max_rooms=0, max_locations=1)
+    loc_id, fl_id = _seed_operator_with_tier(app, max_rooms=0, max_locations=1)
     c = app.test_client()
     _login(c, "admin@smallco.com", "AdminPass123!")
 
     r = c.post(f"/admin/locations/{loc_id}/rooms/new", data={
         "floor_id": fl_id, "code": "R1", "name": "Room 1", "capacity": 4,
-        "hourly_rate": 0, "credit_cost_per_hour": 1,
+        "hourly_rate": 0, "category_id": 0,
     }, follow_redirects=True)
     assert b"Room created" in r.data
 
@@ -170,17 +170,17 @@ def test_rooms_are_not_capped_but_locations_are_enforced():
 
 
 def test_no_tier_configured_fails_open():
-    """A tenant on a plan_tier string with no matching PricingTier row isn't blocked."""
+    """An operator on a plan_tier string with no matching PricingTier row isn't blocked."""
     app = _app()
     with app.app_context():
-        t = Tenant(slug="notier", name="No Tier Co", primary_domain="notier.hub1z.com",
-                   status=TenantStatus.ACTIVE, plan_tier="nonexistent")
+        t = Operator(slug="notier", name="No Tier Co", primary_domain="notier.hub1z.com",
+                   status=OperatorStatus.ACTIVE, plan_tier="nonexistent")
         db.session.add(t); db.session.flush()
-        admin = User(tenant_id=t.id, email="admin@notier.com", full_name="Admin",
+        admin = User(operator_id=t.id, email="admin@notier.com", full_name="Admin",
                     role=UserRole.SUPER_ADMIN, is_active=True)
         admin.set_password("AdminPass123!")
         db.session.add(admin)
-        loc = Location(tenant_id=t.id, name="HQ", code="HQ", address_line1="x",
+        loc = Location(operator_id=t.id, name="HQ", code="HQ", address_line1="x",
                        city="c", country="IN", timezone="Asia/Kolkata")
         db.session.add(loc); db.session.commit()
         loc_id = loc.id

@@ -1,7 +1,7 @@
 """Seeded reference data for operator localisation dropdowns.
 
 Kept as static Python data (not DB tables) since these are stable,
-platform-controlled lists, not per-tenant configurable data.
+platform-controlled lists, not per-operator configurable data.
 """
 from __future__ import annotations
 

@@ -30,11 +30,6 @@
         {% if p.billing_unit.value in ('per_seat', 'per_office', 'flat_fee') %}
         <li>{{ p.included_seat_quantity }} included seat(s)</li>
         {% endif %}
-        {% if p.meeting_room_access_included %}
-        <li>{{ p.included_meeting_credits }} meeting room credits</li>
-        {% else %}
-        <li>No meeting room access</li>
-        {% endif %}
         <li>
           {% if p.location_scope.value == 'all' %}All locations
           {% elif p.locations %}{{ p.locations | map(attribute='name') | join(', ') }}

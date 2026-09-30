@@ -10,7 +10,7 @@ from .config import get_config
 from .extensions import db, migrate, login_manager, csrf, mail, limiter
 from .services.storage import storage_service
 from .services.formatting import register_formatting
-from .services import tenant_resolver
+from .services import operator_resolver
 from .services import secrets_manager
 
 load_dotenv()
@@ -30,7 +30,7 @@ def create_app(config_override: dict | None = None) -> Flask:
     _register_context(app)
     _register_root_routes(app)
     register_formatting(app)
-    tenant_resolver.install(app)
+    operator_resolver.install(app)
 
     return app
 
@@ -99,23 +99,23 @@ def _register_context(app: Flask) -> None:
         from flask import g
         return {
             "app_name": app.config.get("APP_NAME", "hub1z"),
-            "tenant": getattr(g, "tenant", None),
+            "operator": getattr(g, "operator", None),
         }
 
 
 def _register_root_routes(app: Flask) -> None:
-    def tenant_public_data():
+    def operator_public_data():
         from datetime import datetime, timedelta
         from .models import (Location, PricingPlan, PlanScope, SeatBooking, RoomBooking,
                              BookingStatus)
 
-        tenant = getattr(g, "tenant", None)
-        if tenant is None:
+        operator = getattr(g, "operator", None)
+        if operator is None:
             abort(404)
 
         locations = Location.query.filter_by(is_active=True).order_by(Location.name).all()
         # Company-Custom plans are privately negotiated for one company — never
-        # publish them on the tenant's public marketing site.
+        # publish them on the operator's public marketing site.
         plans = (PricingPlan.query.filter_by(is_active=True)
                  .filter(PricingPlan.scope != PlanScope.COMPANY_CUSTOM)
                  .order_by(PricingPlan.base_price).all())
@@ -145,7 +145,7 @@ def _register_root_routes(app: Flask) -> None:
                 "available_rooms": max(0, len(rooms) - booked_rooms),
             })
         return {
-            "tenant": tenant,
+            "operator": operator,
             "locations": locations,
             "plans": plans,
             "availability": availability,
@@ -156,9 +156,9 @@ def _register_root_routes(app: Flask) -> None:
         if current_user.is_authenticated:
             return redirect(url_for("auth.post_login_redirect"))
         from flask import g
-        if getattr(g, "tenant", None):
-            return render_template("public/landing.html", **tenant_public_data())
-        # No tenant resolved (the platform's own apex domain) — a coworking
+        if getattr(g, "operator", None):
+            return render_template("public/landing.html", **operator_public_data())
+        # No operator resolved (the platform's own apex domain) — a coworking
         # business's own site, not the SaaS platform's marketing page.
         from .models import PricingTier
         tiers = PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all()
@@ -172,7 +172,7 @@ def _register_root_routes(app: Flask) -> None:
             ("billing", "Billing that fits your operation", "Run subscriptions, invoices, credit notes, refunds, expenses, and India-first tax settings without stitching together spreadsheets."),
             ("multi-location", "One workspace across locations", "Keep locations, floors, resources, managers, pricing, and reporting connected as your coworking brand expands."),
             ("operator-tools", "Operator tools", "Give managers the dashboards, audit history, reports, payroll, expenses, and reception workflows they need every day."),
-            ("security", "Tenant-safe by design", "Use role-based access, tenant isolation, two-factor authentication, rate limiting, and audit trails across the platform."),
+            ("security", "Operator-safe by design", "Use role-based access, operator isolation, two-factor authentication, rate limiting, and audit trails across the platform."),
         ]
         return render_template("public/features.html", features=features)
 
@@ -192,7 +192,7 @@ def _register_root_routes(app: Flask) -> None:
             ]),
             "billing": ("Billing that fits your operation", "Keep the money trail clear while you grow.", [
                 "Recurring subscription invoices and usage charges",
-                "GST-ready tenant settings, credit notes, refunds, and PDF exports",
+                "GST-ready operator settings, credit notes, refunds, and PDF exports",
                 "Manual payment records for UPI, bank transfer, cards, cash, and cheque",
             ]),
             "multi-location": ("One workspace across locations", "Expand without creating a new operating system for every site.", [
@@ -205,9 +205,9 @@ def _register_root_routes(app: Flask) -> None:
                 "Payroll, expenses, staff records, and email templates",
                 "Reception, visitor check-in, audit logs, and document storage",
             ]),
-            "security": ("Tenant-safe by design", "The platform boundary is part of the product.", [
-                "Role-based access for platform, tenant, company, and member users",
-                "Tenant-scoped data, audit logging, CSRF protection, and rate limiting",
+            "security": ("Operator-safe by design", "The platform boundary is part of the product.", [
+                "Role-based access for platform, operator, company, and member users",
+                "Operator-scoped data, audit logging, CSRF protection, and rate limiting",
                 "TOTP two-factor authentication and secure invitation flows",
             ]),
         }
@@ -302,7 +302,7 @@ def _register_root_routes(app: Flask) -> None:
               "started, though we will pro-rate or credit fees where a service outage on our part clearly "
               "prevented normal use."]),
             ("4. Acceptable Use",
-             ["You agree not to misuse the platform: no attempts to break tenant isolation between Operators, "
+             ["You agree not to misuse the platform: no attempts to break operator isolation between Operators, "
               "no scraping or reverse engineering, no uploading unlawful content, and no using the booking or "
               "messaging tools to spam members outside their own workspace."]),
             ("5. Data and Content Ownership",
@@ -354,14 +354,14 @@ def _register_root_routes(app: Flask) -> None:
              ["We share data with sub-processors that help us run the platform — for example, cloud hosting, "
               "email delivery, and payment or storage providers — under contracts that require them to "
               "protect data at least as strongly as this policy. We do not sell personal data."]),
-            ("5. Tenant isolation",
-             ["Hub1z is a multi-tenant platform: each Operator's data is logically separated from every "
+            ("5. Operator isolation",
+             ["Hub1z is a multi-operator platform: each Operator's data is logically separated from every "
               "other Operator, and Members only see data belonging to the workspace they belong to."]),
             ("6. Data retention",
              ["We retain data for as long as an Operator account is active, plus a limited period afterward "
               "to meet accounting, tax, and legal obligations, after which it is deleted or anonymised."]),
             ("7. Security",
-             ["We use role-based access control, encryption in transit, tenant-scoped database access, and "
+             ["We use role-based access control, encryption in transit, operator-scoped database access, and "
               "audit logging. No system is perfectly secure, and we encourage Operators to enable two-factor "
               "authentication for admin accounts."]),
             ("8. Your rights",
@@ -416,15 +416,15 @@ def _register_root_routes(app: Flask) -> None:
 
     @app.route("/spaces")
     def public_spaces():
-        return render_template("public/tenant_spaces.html", **tenant_public_data())
+        return render_template("public/operator_spaces.html", **operator_public_data())
 
     @app.route("/membership")
     def public_membership():
-        return render_template("public/tenant_membership.html", **tenant_public_data())
+        return render_template("public/operator_membership.html", **operator_public_data())
 
     @app.route("/availability")
     def public_availability():
-        return render_template("public/tenant_availability.html", **tenant_public_data())
+        return render_template("public/operator_availability.html", **operator_public_data())
 
     @app.route("/healthz")
     def healthz():

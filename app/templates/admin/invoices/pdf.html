@@ -22,7 +22,9 @@
       <strong>Invoice #{{ invoice.number or invoice.id }}</strong><br>
       Issued: {{ invoice.issued_at.strftime('%d %b %Y') if invoice.issued_at else '—' }}<br>
       Due:    {{ invoice.due_date.strftime('%d %b %Y') if invoice.due_date else '—' }}<br>
-      Status: {{ invoice.status.value }}
+      Status: {{ invoice.status.value }}{% if invoice.seller_gstin %}<br>
+      GSTIN: {{ invoice.seller_gstin }}{% endif %}{% if invoice.seller_pan %}<br>
+      PAN: {{ invoice.seller_pan }}{% endif %}
     </td>
     <td style="text-align:right;">
       {% if invoice.billing_name or invoice.billing_address %}
@@ -35,7 +37,9 @@
       {% if invoice.company %}
       <strong>Bill to:</strong><br>
       {{ invoice.company.name }}<br>
-      {{ invoice.company.billing_email }}
+      {{ invoice.company.billing_email }}{% if invoice.buyer_gstin %}<br>
+      GSTIN: {{ invoice.buyer_gstin }}{% endif %}{% if invoice.buyer_pan %}<br>
+      PAN: {{ invoice.buyer_pan }}{% endif %}
       {% elif invoice.user %}
       <strong>Bill to:</strong><br>
       {{ invoice.user.full_name }}<br>
@@ -47,7 +51,8 @@
   <table class="items">
     <thead>
       <tr><th>Description</th><th style="text-align:right;">Qty</th>
-          <th style="text-align:right;">Unit</th><th style="text-align:right;">Amount</th></tr>
+          <th style="text-align:right;">Unit</th><th style="text-align:right;">Amount</th>
+          <th style="text-align:right;">GST</th></tr>
     </thead>
     <tbody>
       {% for li in invoice.line_items %}
@@ -56,6 +61,7 @@
         <td style="text-align:right;">{{ li.quantity }}</td>
         <td style="text-align:right;">{{ li.unit_price }}</td>
         <td style="text-align:right;">{{ li.amount }}</td>
+        <td style="text-align:right;">{{ li.tax_rate }}%{% if li.sac_code %}<br><span class="muted">SAC {{ li.sac_code }}</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -63,7 +69,14 @@
 
   <table class="totals">
     <tr><td>Subtotal</td><td style="text-align:right;">{{ invoice.subtotal }}</td></tr>
-    <tr><td>Tax</td><td style="text-align:right;">{{ invoice.tax_amount }}</td></tr>
+    {% if invoice.igst_amount > 0 %}
+    <tr><td>IGST</td><td style="text-align:right;">{{ invoice.igst_amount }}</td></tr>
+    {% elif invoice.tax_amount > 0 %}
+    <tr><td>CGST</td><td style="text-align:right;">{{ invoice.cgst_amount }}</td></tr>
+    <tr><td>SGST</td><td style="text-align:right;">{{ invoice.sgst_amount }}</td></tr>
+    {% else %}
+    <tr><td>GST</td><td style="text-align:right;">{{ invoice.tax_amount }}</td></tr>
+    {% endif %}
     <tr class="grand"><td>Total</td><td style="text-align:right;">{{ invoice.total_amount }}</td></tr>
     <tr><td>Paid</td><td style="text-align:right;">{{ invoice.amount_paid or 0 }}</td></tr>
   </table>

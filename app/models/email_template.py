@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class EmailKind(str, enum.Enum):
@@ -26,13 +26,12 @@ class EmailKind(str, enum.Enum):
     CUSTOM = "custom"
 
 
-class EmailTemplate(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class EmailTemplate(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "email_templates"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
 
-    code = Column(String(80), unique=True, nullable=False, index=True)
+    __table_args__ = (db.UniqueConstraint("operator_id", "code", name="uq_email_templates_operator_code"),)
+    code = Column(String(80), nullable=False, index=True)
     name = Column(String(150), nullable=False)
     kind = Column(Enum(EmailKind), nullable=False, default=EmailKind.CUSTOM, index=True)
     subject = Column(String(255), nullable=False)

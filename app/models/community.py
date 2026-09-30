@@ -18,7 +18,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 # ---------------- Guest pass ----------------
@@ -29,10 +29,8 @@ class GuestPassStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-class GuestPass(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class GuestPass(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "guest_passes"
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     issuer_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
                        nullable=True)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="SET NULL"),
@@ -65,10 +63,8 @@ class VisitorStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-class Visitor(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class Visitor(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "visitors"
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     host_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
                           nullable=True, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"),
@@ -90,10 +86,8 @@ class Visitor(db.Model, PkMixin, TimestampMixin, TenantScoped):
 
 # ---------------- Community directory (opt-in) ----------------
 
-class CommunityProfile(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class CommunityProfile(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "community_profiles"
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
                      nullable=False, unique=True, index=True)
     headline = Column(String(200), nullable=True)
@@ -107,10 +101,8 @@ class CommunityProfile(db.Model, PkMixin, TimestampMixin, TenantScoped):
 
 # ---------------- Announcements / notice board ----------------
 
-class Announcement(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class Announcement(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "announcements"
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"),
                          nullable=True, index=True)  # NULL = all locations
     author_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
@@ -126,11 +118,9 @@ class Announcement(db.Model, PkMixin, TimestampMixin, TenantScoped):
 
 # ---------------- Printing credits ----------------
 
-class PrintingLedger(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class PrintingLedger(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     """Positive = credited, negative = used."""
     __tablename__ = "printing_ledger"
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
                      nullable=False, index=True)
     delta = Column(Integer, nullable=False)   # +credits, -pages
@@ -155,10 +145,8 @@ class TicketPriority(str, enum.Enum):
     URGENT = "urgent"
 
 
-class SupportTicket(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class SupportTicket(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "support_tickets"
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     submitter_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
                           nullable=True, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"),
@@ -183,10 +171,8 @@ class LockerStatus(str, enum.Enum):
     MAINTENANCE = "maintenance"
 
 
-class Locker(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class Locker(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "lockers"
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"),
                          nullable=False, index=True)
     code = Column(String(40), nullable=False)
@@ -210,10 +196,8 @@ class ReferralStatus(str, enum.Enum):
     EXPIRED = "expired"
 
 
-class Referral(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class Referral(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "referrals"
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     referrer_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
                          nullable=False, index=True)
     referred_email = Column(String(255), nullable=False, index=True)

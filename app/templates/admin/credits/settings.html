@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Credit rules{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">Credit rules &amp; pricing</h3>
+  <a class="btn btn-outline-dark btn-sm" href="{{ url_for('admin.credits_overview') }}">Back to credits</a>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6"><div class="card"><div class="card-body">
+    <h5>Pool &amp; rules</h5>
+    <form method="post">
+      {{ form.hidden_tag() }}
+      {{ field(form.complimentary_share_pct) }}
+      {{ field(form.reserve_pct) }}
+      {{ field(form.pool_mode) }}
+      {{ field(form.capacity_days_per_month) }}
+      {{ field(form.rollover_enabled) }}
+      {{ field(form.rollover_cap) }}
+      {{ field(form.purchased_expiry_months) }}
+      {{ field(form.pay_per_use_enabled) }}
+      {{ field(form.no_show_minutes) }}
+      <button class="btn btn-dark">Save settings</button>
+    </form>
+  </div></div></div>
+
+  <div class="col-lg-6">
+    <div class="card mb-4"><div class="card-body">
+      <h5>Room categories</h5>
+      <p class="text-muted small">Pick a category on each room. Executive rooms cost more credits and more cash.</p>
+      <table class="table table-sm">
+        <thead><tr><th>Name</th><th>Credits / 30 min</th><th>Cash / hour</th><th></th></tr></thead>
+        <tbody>
+          {% for c in categories %}
+          <tr>
+            <td>{{ c.name }}{% if not c.is_active %} <span class="badge bg-secondary">inactive</span>{% endif %}</td>
+            <td>{{ c.credits_per_slot }}</td><td>{{ c.hourly_rate | money }}</td>
+            <td class="text-end"><a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.credits_category_edit', category_id=c.id) }}">Edit</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <form method="post" action="{{ url_for('admin.credits_category_new') }}" class="row g-2 align-items-end">
+        {{ category_form.hidden_tag() }}
+        <div class="col-md-4">{{ category_form.name(class="form-control", placeholder="Name") }}</div>
+        <div class="col-md-3">{{ category_form.credits_per_slot(class="form-control", placeholder="Credits", value=1) }}</div>
+        <div class="col-md-3">{{ category_form.hourly_rate(class="form-control", placeholder="Rs / hour") }}</div>
+        <div class="col-md-2"><button class="btn btn-dark w-100">Add</button></div>
+      </form>
+    </div></div>
+
+    <div class="card"><div class="card-body">
+      <h5>Seat bands</h5>
+      <p class="text-muted small">Suggested monthly credits by company size. You can always allocate a different number.</p>
+      <table class="table table-sm">
+        <thead><tr><th>Seats</th><th>Monthly credits</th><th></th></tr></thead>
+        <tbody>
+          {% for b in bands %}
+          <tr>
+            <td>{{ b.min_seats }} &ndash; {{ b.max_seats }}</td><td>{{ b.monthly_credits }}</td>
+            <td class="text-end">
+              <form method="post" action="{{ url_for('admin.credits_band_delete', band_id=b.id) }}" class="d-inline">
+                {{ band_form.hidden_tag() }}
+                <button class="btn btn-sm btn-outline-danger">Remove</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="text-muted">No bands yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <form method="post" action="{{ url_for('admin.credits_band_new') }}" class="row g-2 align-items-end">
+        {{ band_form.hidden_tag() }}
+        <div class="col-md-3">{{ band_form.min_seats(class="form-control", placeholder="From") }}</div>
+        <div class="col-md-3">{{ band_form.max_seats(class="form-control", placeholder="To") }}</div>
+        <div class="col-md-4">{{ band_form.monthly_credits(class="form-control", placeholder="Credits") }}</div>
+        <div class="col-md-2"><button class="btn btn-dark w-100">Add</button></div>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

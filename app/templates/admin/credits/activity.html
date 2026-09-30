@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Credit activity{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">Credit activity</h3>
+  <a class="btn btn-outline-dark btn-sm" href="{{ url_for('admin.credits_overview') }}">Back to credits</a>
+</div>
+
+<form method="get" class="row g-2 mb-3">
+  <div class="col-md-4">
+    <select name="subject" class="form-select">
+      <option value="">Everyone</option>
+      {% for value, label in subjects %}<option value="{{ value }}" {{ 'selected' if value == subject }}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <select name="type" class="form-select">
+      <option value="">All activity</option>
+      {% for t in types %}<option value="{{ t }}" {{ 'selected' if t == kind }}>{{ t.title() }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-md-2"><button class="btn btn-dark w-100">Filter</button></div>
+</form>
+
+<table class="table bg-white shadow-sm">
+  <thead><tr><th>When</th><th>Who</th><th>Credits</th><th>Type</th><th>Bucket</th><th>Note</th><th>By</th></tr></thead>
+  <tbody>
+    {% for e in entries %}
+    <tr>
+      <td class="text-nowrap">{{ e.created_at.strftime('%d %b %Y %H:%M') }}</td>
+      <td>{% if e.lot.company %}{{ e.lot.company.name }}{% elif e.lot.user %}{{ e.lot.user.full_name }}{% endif %}</td>
+      <td class="{{ 'text-success' if e.amount > 0 else 'text-danger' }}">{{ '%+d' % e.amount }}</td>
+      <td>{{ e.entry_type.value }}</td>
+      <td>{{ e.lot.bucket.value }}</td>
+      <td>{{ e.note or "" }}</td>
+      <td>{{ e.actor.full_name if e.actor else "system" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="text-center text-muted py-4">No credit activity yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

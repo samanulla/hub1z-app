@@ -4,15 +4,15 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, g
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, g, abort
 from flask_login import login_user, logout_user, login_required, current_user
 
 from ...extensions import db, limiter
-from ...models import User, UserRole, Company, CompanyStatus, Tenant, TenantStatus
+from ...models import User, UserRole, Company, CompanyStatus, Operator, OperatorStatus
 from ...services import mail_service, tier_limits
 from .forms import (
-    LoginForm, RegisterIndividualForm, RegisterCompanyForm, RegisterTenantForm,
-    ForgotPasswordForm, ResetPasswordForm, ChangePasswordForm, TenantPickerForm,
+    LoginForm, RegisterIndividualForm, RegisterCompanyForm, RegisterOperatorForm,
+    ForgotPasswordForm, ResetPasswordForm, ChangePasswordForm, OperatorPickerForm,
     TotpVerifyForm, TotpEnableForm,
 )
 
@@ -36,13 +36,13 @@ auth_bp = Blueprint("auth", __name__, template_folder="../../templates")
 
 
 def _notify_new_company_signup(company, admin_user):
-    """Email the tenant's super admins that a new company self-registered."""
-    from ...models import Tenant
-    tid = getattr(g, "tenant_id", None)
+    """Email the operator's super admins that a new company self-registered."""
+    from ...models import Operator
+    tid = getattr(g, "operator_id", None)
     if tid is None:
         return
-    admins = User.query.filter_by(role=UserRole.SUPER_ADMIN, tenant_id=tid) \
-                       .execution_options(skip_tenant_filter=True).all()
+    admins = User.query.filter_by(role=UserRole.SUPER_ADMIN, operator_id=tid) \
+                       .execution_options(skip_operator_filter=True).all()
     for a in admins:
         try:
             mail_service.send(
@@ -63,22 +63,22 @@ def login():
 
     form = LoginForm()
     if form.validate_on_submit():
-        # Bypass the ambient tenant-scoping filter here and check the
+        # Bypass the ambient operator-scoping filter here and check the
         # boundary explicitly and strictly: that listener intentionally lets
-        # tenant_id IS NULL rows (shared/global data) through on any tenant
+        # operator_id IS NULL rows (shared/global data) through on any operator
         # subdomain, and skips filtering entirely on the platform apex — both
         # are fine for ordinary data, but wrong for login. A platform-staff
-        # account (tenant_id is None) must only sign in on the apex; a
-        # tenant account must only sign in on its own subdomain.
-        user = (User.query.execution_options(skip_tenant_filter=True)
+        # account (operator_id is None) must only sign in on the apex; a
+        # operator account must only sign in on its own subdomain.
+        user = (User.query.execution_options(skip_operator_filter=True)
                .filter_by(email=form.email.data.lower().strip()).first())
-        resolved_tenant_id = getattr(g, "tenant_id", None)
-        if user and user.tenant_id != resolved_tenant_id:
+        resolved_operator_id = getattr(g, "operator_id", None)
+        if user and user.operator_id != resolved_operator_id:
             user = None
         if user and user.check_password(form.password.data) and user.is_active:
-            if user.tenant_id and user.tenant and user.tenant.is_trial_expired:
+            if user.operator_id and user.operator and user.operator.is_trial_expired:
                 flash(f"This workspace's trial ended on "
-                     f"{user.tenant.trial_ends_at.strftime('%d-%b-%Y')}. "
+                     f"{user.operator.trial_ends_at.strftime('%d-%b-%Y')}. "
                      f"Contact {current_app.config['APP_NAME']} to continue.", "warning")
                 return render_template("auth/login.html", form=form)
             next_url = _safe_next(request.args.get("next"))
@@ -108,19 +108,21 @@ def register_individual():
         return redirect(url_for("auth.post_login_redirect"))
 
     from flask import g
-    tenant = getattr(g, "tenant", None)
+    operator = getattr(g, "operator", None)
+    if operator is None:
+        abort(404)
 
     form = RegisterIndividualForm()
     if form.validate_on_submit():
         email = form.email.data.lower().strip()
-        ok, tier_msg = tier_limits.check_limit(tenant, "person")
+        ok, tier_msg = tier_limits.check_limit(operator, "person")
         if User.query.filter_by(email=email).first():
             flash("An account with that email already exists.", "warning")
         elif not ok:
             flash(tier_msg, "warning")
         else:
             user = User(
-                tenant_id=tenant.id if tenant else None,
+                operator_id=operator.id if operator else None,
                 email=email,
                 full_name=form.full_name.data.strip(),
                 phone=form.phone.data,
@@ -130,7 +132,7 @@ def register_individual():
             db.session.add(user)
             db.session.commit()
             login_user(user)
-            flash(f"Welcome to {tenant.name if tenant else current_app.config['APP_NAME']}!", "success")
+            flash(f"Welcome to {operator.name if operator else current_app.config['APP_NAME']}!", "success")
             return redirect(url_for("member.dashboard"))
     return render_template("auth/register_individual.html", form=form)
 
@@ -141,7 +143,9 @@ def register_company():
         return redirect(url_for("auth.post_login_redirect"))
 
     from flask import g
-    tenant = getattr(g, "tenant", None)
+    operator = getattr(g, "operator", None)
+    if operator is None:
+        abort(404)
 
     form = RegisterCompanyForm()
     if form.validate_on_submit():
@@ -152,13 +156,13 @@ def register_company():
         if Company.query.filter_by(name=form.company_name.data.strip()).first():
             flash("A company with that name already exists.", "warning")
             return render_template("auth/register_company.html", form=form)
-        ok, tier_msg = tier_limits.check_limit(tenant, "person")
+        ok, tier_msg = tier_limits.check_limit(operator, "person")
         if not ok:
             flash(tier_msg, "warning")
             return render_template("auth/register_company.html", form=form)
 
         company = Company(
-            tenant_id=tenant.id if tenant else None,
+            operator_id=operator.id if operator else None,
             name=form.company_name.data.strip(),
             billing_email=form.billing_email.data.lower().strip(),
             status=CompanyStatus.PROSPECT,
@@ -167,7 +171,7 @@ def register_company():
         db.session.flush()
 
         admin = User(
-            tenant_id=tenant.id if tenant else None,
+            operator_id=operator.id if operator else None,
             email=admin_email,
             full_name=form.admin_full_name.data.strip(),
             role=UserRole.COMPANY_ADMIN,
@@ -177,7 +181,7 @@ def register_company():
         db.session.add(admin)
         db.session.commit()
 
-        # Notify tenant super admins so they can approve.
+        # Notify operator super admins so they can approve.
         _notify_new_company_signup(company, admin)
 
         login_user(admin)
@@ -186,29 +190,29 @@ def register_company():
     return render_template("auth/register_company.html", form=form)
 
 
-@auth_bp.route("/register/tenant", methods=["GET", "POST"])
-def register_tenant():
+@auth_bp.route("/register/operator", methods=["GET", "POST"])
+def register_operator():
     """Self-serve: a coworking business signs itself up directly, no
     platform staff involved. Lands as a time-boxed TRIAL so they can try the
     platform; a Platform Super Admin/Manager still has to Approve it
-    (/platform/tenants/<id>/approve) to lift the trial deadline."""
+    (/platform/operators/<id>/approve) to lift the trial deadline."""
     if current_user.is_authenticated:
         return redirect(url_for("auth.post_login_redirect"))
 
-    form = RegisterTenantForm()
+    form = RegisterOperatorForm()
     if form.validate_on_submit():
         slug = form.slug.data.lower().strip()
         admin_email = form.admin_email.data.lower().strip()
 
-        if Tenant.query.execution_options(skip_tenant_filter=True).filter_by(slug=slug).first():
+        if Operator.query.execution_options(skip_operator_filter=True).filter_by(slug=slug).first():
             flash("That URL slug is already taken.", "warning")
-            return render_template("auth/register_tenant.html", form=form)
-        if User.query.execution_options(skip_tenant_filter=True).filter_by(email=admin_email).first():
+            return render_template("auth/register_operator.html", form=form)
+        if User.query.execution_options(skip_operator_filter=True).filter_by(email=admin_email).first():
             flash("An account with that email already exists.", "warning")
-            return render_template("auth/register_tenant.html", form=form)
+            return render_template("auth/register_operator.html", form=form)
 
         base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
-        trial_days = current_app.config.get("TENANT_TRIAL_DAYS", 14)
+        trial_days = current_app.config.get("OPERATOR_TRIAL_DAYS", 14)
         regional_defaults = {
             "IN": ("INR", "₹", "en_IN", "Asia/Kolkata"),
             "GB": ("GBP", "£", "en_GB", "Europe/London"),
@@ -218,9 +222,9 @@ def register_tenant():
         currency, symbol, locale, timezone = regional_defaults.get(
             form.country_code.data, regional_defaults["IN"]
         )
-        t = Tenant(
+        t = Operator(
             slug=slug, name=form.business_name.data.strip(),
-            primary_domain=f"{slug}.{base}", status=TenantStatus.TRIAL,
+            primary_domain=f"{slug}.{base}", status=OperatorStatus.TRIAL,
             trial_ends_at=datetime.utcnow() + timedelta(days=trial_days),
             country_code=form.country_code.data,
             currency_code=currency, currency_symbol=symbol,
@@ -230,7 +234,7 @@ def register_tenant():
         db.session.flush()
 
         admin = User(
-            tenant_id=t.id, email=admin_email,
+            operator_id=t.id, email=admin_email,
             full_name=form.admin_full_name.data.strip(),
             role=UserRole.SUPER_ADMIN, is_active=True, email_verified=False,
         )
@@ -242,7 +246,7 @@ def register_tenant():
         flash(f"Welcome! Your {trial_days}-day free trial has started — "
              f"explore everything, and we'll be in touch to get you fully set up.", "success")
         return redirect(url_for("admin.dashboard"))
-    return render_template("auth/register_tenant.html", form=form)
+    return render_template("auth/register_operator.html", form=form)
 
 
 @auth_bp.route("/post-login")
@@ -293,7 +297,7 @@ def reset_password(token: str):
         flash("This password-reset link is invalid or has expired. Request a new one.", "danger")
         return redirect(url_for("auth.forgot_password"))
     user = User.query.filter_by(id=int(user_id)) \
-                     .execution_options(skip_tenant_filter=True).first()
+                     .execution_options(skip_operator_filter=True).first()
     if user is None or not user.is_active:
         flash("Account not found.", "danger")
         return redirect(url_for("auth.login"))
@@ -325,16 +329,16 @@ def change_password():
 @auth_bp.route("/pick-workspace", methods=["GET", "POST"])
 def pick_workspace():
     """At the apex domain, let a user type their workspace slug and get redirected."""
-    form = TenantPickerForm()
+    form = OperatorPickerForm()
     if form.validate_on_submit():
         slug = form.workspace.data.lower().strip()
-        tenant = Tenant.query.filter_by(slug=slug) \
-                             .execution_options(skip_tenant_filter=True).first()
-        if tenant is None:
+        operator = Operator.query.filter_by(slug=slug) \
+                             .execution_options(skip_operator_filter=True).first()
+        if operator is None:
             flash(f"No workspace found for '{slug}'. Check the spelling.", "warning")
         else:
             base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
-            host = tenant.primary_domain or f"{tenant.slug}.{base}"
+            host = operator.primary_domain or f"{operator.slug}.{base}"
             scheme = "https" if not current_app.debug else request.scheme
             return redirect(f"{scheme}://{host}/auth/login")
     return render_template("auth/pick_workspace.html", form=form)
@@ -343,8 +347,8 @@ def pick_workspace():
 # ------- two-factor auth (TOTP) -------
 
 def _totp_issuer_name() -> str:
-    tenant = getattr(g, "tenant", None)
-    return (tenant.name if tenant else current_app.config.get("APP_NAME", "hub1z"))
+    operator = getattr(g, "operator", None)
+    return (operator.name if operator else current_app.config.get("APP_NAME", "hub1z"))
 
 
 @auth_bp.route("/2fa/login", methods=["GET", "POST"])
@@ -357,7 +361,7 @@ def two_factor_login():
     form = TotpVerifyForm()
     if form.validate_on_submit():
         user = User.query.filter_by(id=int(uid)) \
-                         .execution_options(skip_tenant_filter=True).first()
+                         .execution_options(skip_operator_filter=True).first()
         if user is None or not user.two_factor_secret:
             flash("Please sign in again.", "warning")
             return redirect(url_for("auth.login"))

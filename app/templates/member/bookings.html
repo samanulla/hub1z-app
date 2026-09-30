@@ -42,6 +42,12 @@
       <td>{{ b.total_amount | money }}</td>
       <td><span class="badge bg-secondary">{{ b.status.value }}</span></td>
       <td class="text-end">
+        {% if can_check_in(b, current_user, now) %}
+        <form method="post" action="{{ url_for('book.room_check_in', booking_id=b.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-dark">Check in</button>
+        </form>
+        {% endif %}
         {% if b.status.value in ['confirmed','checked_in'] %}
         <form method="post" action="{{ url_for('member.cancel_room_booking', booking_id=b.id) }}" class="d-inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

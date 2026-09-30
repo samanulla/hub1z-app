@@ -5,14 +5,14 @@
 {% block content %}
 <h3>Invoices</h3>
 
-{% if tenant and (tenant.payment_instructions or tenant.payment_upi_id or tenant.payment_gpay or tenant.payment_bank_details) %}
+{% if operator and (operator.payment_instructions or operator.payment_upi_id or operator.payment_gpay or operator.payment_bank_details) %}
 <div class="card mb-3"><div class="card-body">
-  <h6>Payment options from {{ tenant.name }}</h6>
-  {% if tenant.payment_instructions %}<p class="mb-2">{{ tenant.payment_instructions }}</p>{% endif %}
+  <h6>Payment options from {{ operator.name }}</h6>
+  {% if operator.payment_instructions %}<p class="mb-2">{{ operator.payment_instructions }}</p>{% endif %}
   <ul class="small mb-0">
-    {% if tenant.payment_upi_id %}<li>UPI: {{ tenant.payment_upi_id }}</li>{% endif %}
-    {% if tenant.payment_gpay %}<li>Google Pay: {{ tenant.payment_gpay }}</li>{% endif %}
-    {% if tenant.payment_bank_details %}<li>Bank transfer: {{ tenant.payment_bank_details }}</li>{% endif %}
+    {% if operator.payment_upi_id %}<li>UPI: {{ operator.payment_upi_id }}</li>{% endif %}
+    {% if operator.payment_gpay %}<li>Google Pay: {{ operator.payment_gpay }}</li>{% endif %}
+    {% if operator.payment_bank_details %}<li>Bank transfer: {{ operator.payment_bank_details }}</li>{% endif %}
   </ul>
 </div></div>
 {% endif %}

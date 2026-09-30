@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Individuals{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">Individuals</h3>
+  <a class="btn btn-dark" href="{{ url_for('admin.invite_individual_new') }}">+ Invite individual</a>
+</div>
+
+<div class="card"><div class="card-body p-0">
+  <table class="table mb-0">
+    <thead><tr><th>Name</th><th>Email</th><th>Subscription</th><th></th></tr></thead>
+    <tbody>
+      {% for p in people %}
+      {% set active = subs.get(p.id, []) | selectattr('status.value', 'equalto', 'active') | list %}
+      <tr>
+        <td>{{ p.full_name }}</td>
+        <td>{{ p.email }}</td>
+        <td>
+          {% for s in active %}
+          <a href="{{ url_for('admin.subscription_agreement', sub_id=s.id) }}">{{ s.plan.name }} × {{ s.quantity }}</a>
+          <span class="text-muted small">from {{ s.start_date }}{% if s.terminate_on %}, ends {{ s.terminate_on }}{% endif %}</span>
+          {% else %}<span class="text-muted">None</span>{% endfor %}
+        </td>
+        <td class="text-end">
+          {% if not active %}
+          <a class="btn btn-sm btn-dark" href="{{ url_for('admin.individual_subscription_new', user_id=p.id) }}">Add subscription</a>
+          {% else %}
+          {% for s in active %}
+          <a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.subscription_agreement', sub_id=s.id) }}">Agreement</a>
+          <form method="post" action="{{ url_for('admin.individual_subscription_cancel', user_id=p.id, sub_id=s.id) }}" class="d-inline"
+                onsubmit="return confirm('Cancel this subscription now?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-danger">Cancel</button>
+          </form>
+          {% endfor %}
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="text-center text-muted py-4">No individuals yet. Invite one to get started.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endblock %}

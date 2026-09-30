@@ -12,7 +12,7 @@ from app.models import (
     Payment, PaymentSubmission, PaymentSubmissionStatus, PlanScope, PlanType, PricingPlan,
     Seat, SeatAllocation, SeatType,
     Subscription, SubscriptionChangeRequest, SubscriptionRequestStatus,
-    SubscriptionStatus, Tenant, TenantStatus, User, UserRole,
+    SubscriptionStatus, Operator, OperatorStatus, User, UserRole,
 )
 
 
@@ -31,47 +31,45 @@ def _app():
 
 def _seed(app):
     with app.app_context():
-        tenant = Tenant(slug="workspace", name="Workspace", primary_domain="workspace.hub1z.com",
-                        status=TenantStatus.ACTIVE, payment_upi_id="workspace@upi")
-        db.session.add(tenant)
+        operator = Operator(slug="workspace", name="Workspace", primary_domain="workspace.hub1z.com",
+                        status=OperatorStatus.ACTIVE, payment_upi_id="workspace@upi")
+        db.session.add(operator)
         db.session.flush()
-        operator = User(tenant_id=tenant.id, email="operator@example.com", full_name="Operator",
+        op_admin = User(operator_id=operator.id, email="operator@example.com", full_name="Operator",
                         role=UserRole.SUPER_ADMIN, is_active=True)
-        operator.set_password("OperatorPass123!")
-        company = Company(tenant_id=tenant.id, name="Acme", billing_email="billing@acme.example",
+        op_admin.set_password("OperatorPass123!")
+        company = Company(operator_id=operator.id, name="Acme", billing_email="billing@acme.example",
                           status=CompanyStatus.ACTIVE, max_employees=10)
-        db.session.add_all([operator, company])
+        db.session.add_all([op_admin, company])
         db.session.flush()
-        company_admin = User(tenant_id=tenant.id, email="admin@acme.example", full_name="Company Admin",
+        company_admin = User(operator_id=operator.id, email="admin@acme.example", full_name="Company Admin",
                              role=UserRole.COMPANY_ADMIN, company_id=company.id, is_active=True)
         company_admin.set_password("CompanyPass123!")
-        employee = User(tenant_id=tenant.id, email="employee@acme.example", full_name="Employee",
+        employee = User(operator_id=operator.id, email="employee@acme.example", full_name="Employee",
                 role=UserRole.EMPLOYEE, company_id=company.id, is_active=True)
         employee.set_password("EmployeePass123!")
-        basic = PricingPlan(tenant_id=tenant.id, name="Basic", scope=PlanScope.COMPANY_STANDARD,
+        basic = PricingPlan(operator_id=operator.id, name="Basic", scope=PlanScope.COMPANY_STANDARD,
                             plan_type=PlanType.HOT_DESK,
-                            billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("1000"),
-                            included_meeting_credits=2)
-        growth = PricingPlan(tenant_id=tenant.id, name="Growth", scope=PlanScope.COMPANY_STANDARD,
+                            billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("1000"))
+        growth = PricingPlan(operator_id=operator.id, name="Growth", scope=PlanScope.COMPANY_STANDARD,
                              plan_type=PlanType.DEDICATED_DESK,
-                             billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("2000"),
-                             included_meeting_credits=5)
+                             billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("2000"))
         db.session.add_all([company_admin, employee, basic, growth])
         db.session.flush()
-        location = Location(tenant_id=tenant.id, name="HQ", code="HQ", address_line1="1 Main Street",
+        location = Location(operator_id=operator.id, name="HQ", code="HQ", address_line1="1 Main Street",
                     city="Chennai", country="IN", timezone="Asia/Kolkata")
         db.session.add(location)
         db.session.flush()
-        floor = Floor(tenant_id=tenant.id, location_id=location.id, level=1, name="First floor")
+        floor = Floor(operator_id=operator.id, location_id=location.id, level=1, name="First floor")
         db.session.add(floor)
         db.session.flush()
-        seat = Seat(tenant_id=tenant.id, location_id=location.id, floor_id=floor.id,
+        seat = Seat(operator_id=operator.id, location_id=location.id, floor_id=floor.id,
                 code="HQ-DD-01", seat_type=SeatType.DEDICATED_DESK)
         db.session.add(seat)
-        subscription = Subscription(tenant_id=tenant.id, company_id=company.id, plan_id=basic.id,
+        subscription = Subscription(operator_id=operator.id, company_id=company.id, plan_id=basic.id,
                                     quantity=2, unit_price=basic.base_price, start_date=date.today(),
-                                    status=SubscriptionStatus.ACTIVE, meeting_credits_balance=4)
-        invoice = Invoice(tenant_id=tenant.id, number="INV-TEST-1", company_id=company.id,
+                                    status=SubscriptionStatus.ACTIVE)
+        invoice = Invoice(operator_id=operator.id, number="INV-TEST-1", company_id=company.id,
                           period_start=date.today(), period_end=date.today(), due_date=date.today(),
                           subtotal=Decimal("1000"), total_amount=Decimal("1000"),
                           amount_paid=Decimal("0"), status=InvoiceStatus.ISSUED)
@@ -115,7 +113,6 @@ def test_operator_approves_company_subscription_request():
         assert change.operator_message == "Approved for next billing cycle."
         assert subscription.plan_id == growth_id
         assert subscription.quantity == 4
-        assert subscription.meeting_credits_balance == 20
 
 
 def test_operator_denies_company_subscription_request_with_message():

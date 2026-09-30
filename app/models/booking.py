@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class BookingStatus(str, enum.Enum):
@@ -18,11 +18,9 @@ class BookingStatus(str, enum.Enum):
     NO_SHOW = "no_show"
 
 
-class SeatBooking(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class SeatBooking(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "seat_bookings"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     seat_id = Column(Integer, ForeignKey("seats.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="SET NULL"))
@@ -42,11 +40,9 @@ class SeatBooking(db.Model, PkMixin, TimestampMixin, TenantScoped):
     )
 
 
-class RoomBooking(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class RoomBooking(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "room_bookings"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     room_id = Column(Integer, ForeignKey("conference_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
     recurring_booking_id = Column(Integer, ForeignKey("recurring_room_bookings.id", ondelete="SET NULL"),
                                    nullable=True, index=True)
@@ -69,4 +65,21 @@ class RoomBooking(db.Model, PkMixin, TimestampMixin, TenantScoped):
 
     __table_args__ = (
         Index("ix_room_booking_conflict", "room_id", "start_at", "end_at"),
+    )
+
+
+class RoomBlock(db.Model, PkMixin, TimestampMixin, OperatorScoped):
+    """The operator takes a room out of use (maintenance, internal meeting). Costs no credits."""
+    __tablename__ = "room_blocks"
+
+    room_id = Column(Integer, ForeignKey("conference_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    start_at = Column(DateTime, nullable=False)
+    end_at = Column(DateTime, nullable=False)
+    reason = Column(String(200))
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    room = relationship("ConferenceRoom")
+
+    __table_args__ = (
+        Index("ix_room_block_range", "room_id", "start_at", "end_at"),
     )

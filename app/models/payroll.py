@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class PayFrequency(str, enum.Enum):
@@ -24,7 +24,7 @@ class PayrollStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-class SalaryStructure(db.Model, PkMixin, TimestampMixin):
+class SalaryStructure(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "salary_structures"
 
     staff_id = Column(Integer, ForeignKey("staff_members.id", ondelete="CASCADE"),
@@ -62,11 +62,9 @@ class SalaryStructure(db.Model, PkMixin, TimestampMixin):
         return self.gross - self.total_deductions
 
 
-class PayrollRun(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class PayrollRun(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "payroll_runs"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
 
     period_start = Column(Date, nullable=False)
     period_end = Column(Date, nullable=False)
@@ -81,7 +79,7 @@ class PayrollRun(db.Model, PkMixin, TimestampMixin, TenantScoped):
     payslips = relationship("Payslip", back_populates="run", cascade="all, delete-orphan")
 
 
-class Payslip(db.Model, PkMixin, TimestampMixin):
+class Payslip(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "payslips"
 
     run_id = Column(Integer, ForeignKey("payroll_runs.id", ondelete="CASCADE"),

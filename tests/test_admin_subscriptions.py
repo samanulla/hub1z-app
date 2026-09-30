@@ -5,7 +5,7 @@ os.environ.setdefault("FLASK_ENV", "testing")
 from app import create_app
 from app.extensions import db
 from app.models import (
-    User, UserRole, Tenant, TenantStatus, Company, CompanyStatus,
+    User, UserRole, Operator, OperatorStatus, Company, CompanyStatus,
     PricingPlan, PlanScope, PlanType, BillingCycle, Subscription, SubscriptionChangeRequest,
     SubscriptionRequestStatus, SubscriptionStatus,
 )
@@ -24,25 +24,27 @@ def _app():
 
 def _seed(app):
     with app.app_context():
-        t = Tenant(slug="adyarspace", name="Adyar Space", primary_domain="adyarspace.hub1z.com",
-                  status=TenantStatus.ACTIVE)
+        t = Operator(slug="adyarspace", name="Adyar Space", primary_domain="adyarspace.hub1z.com",
+                  status=OperatorStatus.ACTIVE)
         db.session.add(t); db.session.flush()
-        admin = User(tenant_id=t.id, email="admin@adyarspace.com", full_name="Admin",
+        admin = User(operator_id=t.id, email="admin@adyarspace.com", full_name="Admin",
                     role=UserRole.SUPER_ADMIN, is_active=True)
         admin.set_password("AdminPass123!")
         db.session.add(admin)
-        company = Company(tenant_id=t.id, name="Acme", billing_email="b@acme.example",
+        company = Company(operator_id=t.id, name="Acme", billing_email="b@acme.example",
                           status=CompanyStatus.ACTIVE, max_employees=10)
         db.session.add(company); db.session.flush()
-        ca = User(tenant_id=t.id, email="jane@acme.example", full_name="Jane",
+        ca = User(operator_id=t.id, email="jane@acme.example", full_name="Jane",
                  role=UserRole.COMPANY_ADMIN, company_id=company.id, is_active=True)
         ca.set_password("JanePass123!")
         db.session.add(ca)
-        plan = PricingPlan(tenant_id=t.id, name="Dedicated Desk", scope=PlanScope.COMPANY_STANDARD,
+        plan = PricingPlan(operator_id=t.id, name="Dedicated Desk", scope=PlanScope.COMPANY_STANDARD,
                            plan_type=PlanType.DEDICATED_DESK,
-                           billing_cycle=BillingCycle.MONTHLY, base_price=22000,
-                           included_meeting_credits=20, max_locations=1)
-        db.session.add(plan); db.session.commit()
+                           billing_cycle=BillingCycle.MONTHLY, base_price=22000, max_locations=1)
+        db.session.add(plan)
+        from app.models import SeatBand
+        db.session.add(SeatBand(operator_id=t.id, min_seats=1, max_seats=10, monthly_credits=20))
+        db.session.commit()
         return company.id, plan.id
 
 
@@ -69,7 +71,7 @@ def test_company_admin_can_request_but_not_self_subscribe():
         assert request.status == SubscriptionRequestStatus.PENDING
 
 
-def test_tenant_admin_can_create_subscription_for_company():
+def test_operator_admin_can_create_subscription_for_company():
     app = _app()
     company_id, plan_id = _seed(app)
     c = app.test_client()
@@ -85,7 +87,9 @@ def test_tenant_admin_can_create_subscription_for_company():
         assert sub is not None
         assert sub.quantity == 5
         assert sub.status == SubscriptionStatus.ACTIVE
-        assert sub.meeting_credits_balance == 100  # 20 credits * 5 seats
+        from app.models import CreditAllocation
+        alloc = CreditAllocation.query.filter_by(company_id=company_id).one()
+        assert alloc.monthly_credits == 20  # the 1-10 seat band
 
 
 def test_company_admin_cannot_create_subscription_via_admin_route():
@@ -97,7 +101,7 @@ def test_company_admin_cannot_create_subscription_via_admin_route():
     assert r.status_code == 403
 
 
-def test_tenant_admin_can_cancel_subscription():
+def test_operator_admin_can_cancel_subscription():
     app = _app()
     company_id, plan_id = _seed(app)
     c = app.test_client()

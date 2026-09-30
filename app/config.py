@@ -65,11 +65,11 @@ class BaseConfig:
     PLATFORM_OWNER_PASSWORD = os.getenv("PLATFORM_OWNER_PASSWORD", "ChangeMe123!")
     PLATFORM_SUPPORT_EMAIL = os.getenv("PLATFORM_SUPPORT_EMAIL", "support@hub1z.com")
 
-    # Multi-tenancy
+    # Multi-operator
     DEPLOY_MODE = os.getenv("DEPLOY_MODE", "shared").lower()  # 'shared' | 'dedicated'
-    TENANT_ID = os.getenv("TENANT_ID")  # only used when DEPLOY_MODE=dedicated
+    OPERATOR_ID = os.getenv("OPERATOR_ID")  # only used when DEPLOY_MODE=dedicated
     PLATFORM_BASE_DOMAIN = os.getenv("PLATFORM_BASE_DOMAIN", "hub1z.com")
-    TENANT_TRIAL_DAYS = int(os.getenv("TENANT_TRIAL_DAYS", "14"))
+    OPERATOR_TRIAL_DAYS = int(os.getenv("OPERATOR_TRIAL_DAYS", "14"))
 
 
 class DevelopmentConfig(BaseConfig):

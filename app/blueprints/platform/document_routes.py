@@ -26,7 +26,7 @@ def register_document_routes(bp):
                 scope="platform",
             )
             db.session.add(Document(
-                tenant_id=None,
+                operator_id=None,
                 kind=DocumentKind(form.kind.data),
                 owner_type="platform",
                 owner_id=current_user.id,
@@ -41,7 +41,7 @@ def register_document_routes(bp):
             db.session.commit()
             flash("Platform document uploaded.", "success")
             return redirect(url_for("platform.platform_documents"))
-        documents = (Document.query.execution_options(skip_tenant_filter=True)
+        documents = (Document.query.execution_options(skip_operator_filter=True)
                      .filter_by(owner_type="platform")
                      .order_by(Document.created_at.desc()).all())
         return render_template("platform/documents.html", form=form, documents=documents)

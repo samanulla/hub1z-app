@@ -1,23 +1,23 @@
 from datetime import date, timedelta
 from app import create_app
 from app.extensions import db
-from app.models import Tenant, User, UserRole, Location, ConferenceRoom, Floor
+from app.models import Operator, User, UserRole, Location, ConferenceRoom, Floor
 
 app = create_app()
 app.config["WTF_CSRF_ENABLED"] = False
 
 with app.app_context():
-    t = Tenant.query.execution_options(skip_tenant_filter=True).filter_by(slug="__previewtest__").first()
-    print("tenant exists:", bool(t))
+    t = Operator.query.execution_options(skip_operator_filter=True).filter_by(slug="__previewtest__").first()
+    print("operator exists:", bool(t))
 
-    member = User.query.filter_by(tenant_id=t.id, role=UserRole.INDIVIDUAL).first()
+    member = User.query.filter_by(operator_id=t.id, role=UserRole.INDIVIDUAL).first()
     member.set_password("TestPass123!")
     db.session.commit()
 
-    loc_a = Location.query.filter_by(tenant_id=t.id).first()
-    loc_b = Location.query.filter(Location.tenant_id == t.id, Location.id != loc_a.id).first()
+    loc_a = Location.query.filter_by(operator_id=t.id).first()
+    loc_b = Location.query.filter(Location.operator_id == t.id, Location.id != loc_a.id).first()
     if not loc_b:
-        loc_b = Location(tenant_id=t.id, name="Branch B", code="BR-B", address_line1="2 Side St",
+        loc_b = Location(operator_id=t.id, name="Branch B", code="BR-B", address_line1="2 Side St",
                          city="Chennai", country="IN", timezone="Asia/Kolkata")
         db.session.add(loc_b); db.session.flush()
     floor_b = Floor.query.filter_by(location_id=loc_b.id).first()
@@ -28,9 +28,9 @@ with app.app_context():
     # A room in Location B, opted into cross-location booking.
     room_b = ConferenceRoom.query.filter_by(location_id=loc_b.id).first()
     if not room_b:
-        room_b = ConferenceRoom(tenant_id=t.id, location_id=loc_b.id, floor_id=floor_b.id,
+        room_b = ConferenceRoom(operator_id=t.id, location_id=loc_b.id, floor_id=floor_b.id,
                                 name="Cross Room", code="XROOM", capacity=4, hourly_rate=300,
-                                credit_cost_per_hour=1, is_active=True, cross_location_bookable=True)
+                                is_active=True, cross_location_bookable=True)
         db.session.add(room_b); db.session.flush()
     else:
         room_b.cross_location_bookable = True

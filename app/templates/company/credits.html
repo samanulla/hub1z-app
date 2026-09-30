@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Meeting credits{% endblock %}
+
+{% block content %}
+<h3>Meeting credits</h3>
+<p class="text-muted">1 credit = 30 minutes of a Standard room. Everyone in {{ company.name }} shares these credits.</p>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body">
+    <div class="eyebrow">Left to use</div><div class="fs-3 fw-semibold">{{ balance.total }}</div>
+    <div class="text-muted small">about {{ (balance.total / 2) | round(1) }} hours</div>
+  </div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body">
+    <div class="eyebrow">Monthly allocation</div>
+    <div class="fs-3 fw-semibold">{{ allocation.monthly_credits if allocation else "\u2014" }}</div>
+    {% if allocation and allocation.pending_monthly_credits is not none %}<div class="text-muted small">{{ allocation.pending_monthly_credits }} from {{ allocation.pending_from.strftime('%d %b') }}</div>{% endif %}
+  </div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body">
+    <div class="eyebrow">Complimentary</div><div class="fs-3 fw-semibold">{{ balance.complimentary }}</div>
+  </div></div></div>
+  <div class="col-6 col-md-3"><div class="card"><div class="card-body">
+    <div class="eyebrow">Bonus &amp; purchased</div><div class="fs-3 fw-semibold">{{ balance.bonus + balance.purchased }}</div>
+  </div></div></div>
+</div>
+
+<form method="post">
+  {{ form.hidden_tag() }}
+  <div class="row g-4">
+    <div class="col-lg-5"><div class="card"><div class="card-body">
+      <h5>Who can book rooms</h5>
+      {{ field(form.booking_mode) }}
+      {{ field(form.per_employee_monthly_cap) }}
+      <button class="btn btn-dark">Save rules</button>
+    </div></div></div>
+
+    <div class="col-lg-7"><div class="card"><div class="card-body">
+      <h5>People</h5>
+      <p class="text-muted small">Tick who may book when you choose &ldquo;only the people I choose&rdquo;.</p>
+      <table class="table table-sm mb-0">
+        <thead><tr><th>Name</th><th class="text-center">May book</th><th class="text-end">Used this month</th></tr></thead>
+        <tbody>
+          {% for e in employees %}
+          <tr>
+            <td>{{ e.full_name }}<div class="text-muted small">{{ e.email }}</div></td>
+            <td class="text-center"><input class="form-check-input" type="checkbox" name="allowed" value="{{ e.id }}" {{ 'checked' if e.credit_booking_allowed }}></td>
+            <td class="text-end">{{ used.get(e.id, 0) }}{% if form.per_employee_monthly_cap.data is not none %} / {{ form.per_employee_monthly_cap.data }}{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="text-muted text-center py-3">No employees yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div></div></div>
+  </div>
+</form>
+{% endblock %}

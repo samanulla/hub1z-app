@@ -1,12 +1,12 @@
-"""Tenant Super Admin invites Manager/Location Manager logins — the missing
+"""Operator Super Admin invites Manager/Location Manager logins — the missing
 piece: previously there was no UI at all to create these, only the platform
-CLI (which only supports --platform-owner/--tenant-super-admin)."""
+CLI (which only supports --platform-owner/--operator-super-admin)."""
 import os
 os.environ.setdefault("FLASK_ENV", "testing")
 
 from app import create_app
 from app.extensions import db
-from app.models import User, UserRole, Tenant, TenantStatus, Location
+from app.models import User, UserRole, Operator, OperatorStatus, Location
 from app.services import mail_service
 
 
@@ -21,18 +21,18 @@ def _app():
     return app
 
 
-def _seed_tenant_with_two_locations(app):
+def _seed_operator_with_two_locations(app):
     with app.app_context():
-        t = Tenant(slug="multiloc", name="Multi Loc Co", primary_domain="multiloc.hub1z.com",
-                   status=TenantStatus.ACTIVE)
+        t = Operator(slug="multiloc", name="Multi Loc Co", primary_domain="multiloc.hub1z.com",
+                   status=OperatorStatus.ACTIVE)
         db.session.add(t); db.session.flush()
-        admin = User(tenant_id=t.id, email="admin@multiloc.com", full_name="Admin",
+        admin = User(operator_id=t.id, email="admin@multiloc.com", full_name="Admin",
                     role=UserRole.SUPER_ADMIN, is_active=True)
         admin.set_password("AdminPass123!")
         db.session.add(admin)
-        loc1 = Location(tenant_id=t.id, name="HQ", code="HQ", address_line1="x",
+        loc1 = Location(operator_id=t.id, name="HQ", code="HQ", address_line1="x",
                         city="c", country="IN", timezone="Asia/Kolkata")
-        loc2 = Location(tenant_id=t.id, name="Branch", code="BR", address_line1="y",
+        loc2 = Location(operator_id=t.id, name="Branch", code="BR", address_line1="y",
                         city="c2", country="IN", timezone="Asia/Kolkata")
         db.session.add_all([loc1, loc2]); db.session.commit()
         return loc1.id, loc2.id
@@ -44,7 +44,7 @@ def _login(client, email, password):
 
 def test_invite_location_manager_requires_a_location():
     app = _app()
-    _seed_tenant_with_two_locations(app)
+    _seed_operator_with_two_locations(app)
     c = app.test_client()
     _login(c, "admin@multiloc.com", "AdminPass123!")
 
@@ -59,7 +59,7 @@ def test_invite_location_manager_requires_a_location():
 
 def test_invite_and_accept_location_manager():
     app = _app()
-    loc1_id, loc2_id = _seed_tenant_with_two_locations(app)
+    loc1_id, loc2_id = _seed_operator_with_two_locations(app)
     c = app.test_client()
     _login(c, "admin@multiloc.com", "AdminPass123!")
 
@@ -71,11 +71,11 @@ def test_invite_and_accept_location_manager():
 
     with app.app_context():
         u = User.query.filter_by(email="lee@multiloc.com") \
-                      .execution_options(skip_tenant_filter=True).first()
+                      .execution_options(skip_operator_filter=True).first()
         assert u.role == UserRole.LOCATION_MANAGER
         assert u.managed_location_id == loc2_id
         assert u.is_active is False
-        token = mail_service.make_token(u.id, "tenant-team-invite")
+        token = mail_service.make_token(u.id, "operator-team-invite")
 
     client2 = app.test_client()
     r = client2.post(f"/admin/invites/accept-team/{token}",
@@ -84,13 +84,13 @@ def test_invite_and_accept_location_manager():
     assert r.status_code == 302
     with app.app_context():
         u = User.query.filter_by(email="lee@multiloc.com") \
-                      .execution_options(skip_tenant_filter=True).first()
+                      .execution_options(skip_operator_filter=True).first()
         assert u.is_active is True
 
 
-def test_invite_tenant_wide_manager_has_no_managed_location():
+def test_invite_operator_wide_manager_has_no_managed_location():
     app = _app()
-    _seed_tenant_with_two_locations(app)
+    _seed_operator_with_two_locations(app)
     c = app.test_client()
     _login(c, "admin@multiloc.com", "AdminPass123!")
 
@@ -101,21 +101,21 @@ def test_invite_tenant_wide_manager_has_no_managed_location():
     assert r.status_code == 302
     with app.app_context():
         u = User.query.filter_by(email="mo@multiloc.com") \
-                      .execution_options(skip_tenant_filter=True).first()
+                      .execution_options(skip_operator_filter=True).first()
         assert u.role == UserRole.MANAGER
         assert u.managed_location_id is None
 
 
 def test_manager_cannot_invite_team_members():
     """Sending a team invite is Super-Admin-only, same privilege-escalation
-    guard as Platform Manager creation — an existing tenant Manager can't
+    guard as Platform Manager creation — an existing operator Manager can't
     grow the team themselves."""
     app = _app()
     with app.app_context():
-        t = Tenant(slug="multiloc", name="Multi Loc Co", primary_domain="multiloc.hub1z.com",
-                   status=TenantStatus.ACTIVE)
+        t = Operator(slug="multiloc", name="Multi Loc Co", primary_domain="multiloc.hub1z.com",
+                   status=OperatorStatus.ACTIVE)
         db.session.add(t); db.session.flush()
-        mgr = User(tenant_id=t.id, email="mgr@multiloc.com", full_name="Mgr",
+        mgr = User(operator_id=t.id, email="mgr@multiloc.com", full_name="Mgr",
                   role=UserRole.MANAGER, is_active=True)
         mgr.set_password("MgrPass123!")
         db.session.add(mgr); db.session.commit()
@@ -127,7 +127,7 @@ def test_manager_cannot_invite_team_members():
 
 def test_team_invite_appears_in_invites_list_and_can_be_revoked():
     app = _app()
-    _seed_tenant_with_two_locations(app)
+    _seed_operator_with_two_locations(app)
     c = app.test_client()
     _login(c, "admin@multiloc.com", "AdminPass123!")
     c.post("/admin/invites/team/new", data={

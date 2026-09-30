@@ -1,10 +1,10 @@
-"""The platform's own commercial relationship with its tenants — what an
-operator owes hub1z.com for their subscription. Separate from a tenant's own
+"""The platform's own commercial relationship with its operators — what an
+operator owes hub1z.com for their subscription. Separate from an operator's own
 /admin billing models (app/models/invoice.py, finance.py), which track what
-a tenant charges its member companies/individuals.
+an operator charges its member companies/individuals.
 
-Not TenantScoped on purpose: platform staff must see records across every
-tenant, not just the ambient request tenant.
+Not OperatorScoped on purpose: platform staff must see records across every
+operator, not just the ambient request operator.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ class PlatformInvoiceStatus(str, enum.Enum):
 class PlatformInvoice(db.Model, PkMixin, TimestampMixin):
     __tablename__ = "platform_invoices"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"), nullable=False, index=True)
     number = Column(String(30), unique=True, nullable=False, index=True)
     period_start = Column(Date, nullable=False)
     period_end = Column(Date, nullable=False)
@@ -36,7 +36,7 @@ class PlatformInvoice(db.Model, PkMixin, TimestampMixin):
     status = Column(Enum(PlatformInvoiceStatus), default=PlatformInvoiceStatus.ISSUED, nullable=False, index=True)
     notes = Column(Text)
 
-    tenant = relationship("Tenant")
+    operator = relationship("Operator")
     credit_notes = relationship("PlatformCreditNote", back_populates="invoice")
     refunds = relationship("PlatformRefund", back_populates="invoice")
 
@@ -44,28 +44,28 @@ class PlatformInvoice(db.Model, PkMixin, TimestampMixin):
 class PlatformCreditNote(db.Model, PkMixin, TimestampMixin):
     __tablename__ = "platform_credit_notes"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"), nullable=False, index=True)
     invoice_id = Column(Integer, ForeignKey("platform_invoices.id", ondelete="SET NULL"), nullable=True, index=True)
     number = Column(String(30), unique=True, nullable=False, index=True)
     amount = Column(Numeric(10, 2), nullable=False)
     reason = Column(String(255), nullable=False)
     issued_at = Column(DateTime)
 
-    tenant = relationship("Tenant")
+    operator = relationship("Operator")
     invoice = relationship("PlatformInvoice", back_populates="credit_notes")
 
 
 class PlatformRefund(db.Model, PkMixin, TimestampMixin):
     __tablename__ = "platform_refunds"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True)
+    operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"), nullable=False, index=True)
     invoice_id = Column(Integer, ForeignKey("platform_invoices.id", ondelete="SET NULL"), nullable=True, index=True)
     number = Column(String(30), unique=True, nullable=False, index=True)
     amount = Column(Numeric(10, 2), nullable=False)
     reason = Column(String(255), nullable=False)
     processed_at = Column(DateTime)
 
-    tenant = relationship("Tenant")
+    operator = relationship("Operator")
     invoice = relationship("PlatformInvoice", back_populates="refunds")
 
 

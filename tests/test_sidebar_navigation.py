@@ -5,7 +5,7 @@ os.environ.setdefault("FLASK_ENV", "testing")
 
 from app import create_app
 from app.extensions import db
-from app.models import Tenant, TenantStatus, User, UserRole, Location, Floor, Company, CompanyStatus
+from app.models import Operator, OperatorStatus, User, UserRole, Location, Floor, Company, CompanyStatus
 
 
 def _app():
@@ -27,10 +27,10 @@ def _login(client, email, password, host=None):
 def test_super_admin_sees_full_admin_sidebar():
     app = _app()
     with app.app_context():
-        t = Tenant(slug="side1", name="Side One", primary_domain="side1.hub1z.com",
-                  status=TenantStatus.ACTIVE)
+        t = Operator(slug="side1", name="Side One", primary_domain="side1.hub1z.com",
+                  status=OperatorStatus.ACTIVE)
         db.session.add(t); db.session.flush()
-        u = User(tenant_id=t.id, email="super@side1.com", full_name="Super",
+        u = User(operator_id=t.id, email="super@side1.com", full_name="Super",
                 role=UserRole.SUPER_ADMIN, is_active=True)
         u.set_password("SuperPass123!")
         db.session.add(u); db.session.commit()
@@ -47,13 +47,13 @@ def test_super_admin_sees_full_admin_sidebar():
 def test_location_manager_sees_restricted_admin_sidebar():
     app = _app()
     with app.app_context():
-        t = Tenant(slug="side2", name="Side Two", primary_domain="side2.hub1z.com",
-                  status=TenantStatus.ACTIVE)
+        t = Operator(slug="side2", name="Side Two", primary_domain="side2.hub1z.com",
+                  status=OperatorStatus.ACTIVE)
         db.session.add(t); db.session.flush()
-        loc = Location(tenant_id=t.id, name="HQ", code="HQ", address_line1="x",
+        loc = Location(operator_id=t.id, name="HQ", code="HQ", address_line1="x",
                        city="c", country="IN", timezone="Asia/Kolkata")
         db.session.add(loc); db.session.flush()
-        u = User(tenant_id=t.id, email="loc@side2.com", full_name="Loc Mgr",
+        u = User(operator_id=t.id, email="loc@side2.com", full_name="Loc Mgr",
                 role=UserRole.LOCATION_MANAGER, managed_location_id=loc.id, is_active=True)
         u.set_password("LocPass123!")
         db.session.add(u); db.session.commit()
@@ -106,13 +106,13 @@ def test_platform_manager_with_reports_only_sees_restricted_sidebar():
 def test_company_admin_sees_company_sidebar():
     app = _app()
     with app.app_context():
-        t = Tenant(slug="side4", name="Side Four", primary_domain="side4.hub1z.com",
-                  status=TenantStatus.ACTIVE)
+        t = Operator(slug="side4", name="Side Four", primary_domain="side4.hub1z.com",
+                  status=OperatorStatus.ACTIVE)
         db.session.add(t); db.session.flush()
-        company = Company(tenant_id=t.id, name="Sidebar Co", billing_email="c@side4.com",
+        company = Company(operator_id=t.id, name="Sidebar Co", billing_email="c@side4.com",
                           status=CompanyStatus.ACTIVE)
         db.session.add(company); db.session.flush()
-        u = User(tenant_id=t.id, email="ca@side4.com", full_name="Company Admin",
+        u = User(operator_id=t.id, email="ca@side4.com", full_name="Company Admin",
                 role=UserRole.COMPANY_ADMIN, company_id=company.id, is_active=True)
         u.set_password("CaPass123!")
         db.session.add(u); db.session.commit()
@@ -129,10 +129,10 @@ def test_company_admin_sees_company_sidebar():
 def test_company_and_member_pages_unaffected_by_sidebar():
     app = _app()
     with app.app_context():
-        t = Tenant(slug="side3", name="Side Three", primary_domain="side3.hub1z.com",
-                  status=TenantStatus.ACTIVE)
+        t = Operator(slug="side3", name="Side Three", primary_domain="side3.hub1z.com",
+                  status=OperatorStatus.ACTIVE)
         db.session.add(t); db.session.flush()
-        u = User(tenant_id=t.id, email="ind@side3.com", full_name="Ind",
+        u = User(operator_id=t.id, email="ind@side3.com", full_name="Ind",
                 role=UserRole.INDIVIDUAL, is_active=True)
         u.set_password("IndPass123!")
         db.session.add(u); db.session.commit()

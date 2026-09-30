@@ -10,7 +10,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class DayPassStatus(str, enum.Enum):
@@ -19,11 +19,9 @@ class DayPassStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-class DayPass(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class DayPass(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "day_passes"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
                      nullable=False, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"),

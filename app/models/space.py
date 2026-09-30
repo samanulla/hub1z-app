@@ -7,7 +7,7 @@ from sqlalchemy.orm import relationship
 
 from ..extensions import db
 from ._mixins import PkMixin, TimestampMixin
-from .tenant import TenantScoped
+from .operator import OperatorScoped
 
 
 class SeatType(str, enum.Enum):
@@ -16,11 +16,9 @@ class SeatType(str, enum.Enum):
     PRIVATE_OFFICE = "private_office"
 
 
-class Seat(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class Seat(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "seats"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"), nullable=False, index=True)
     floor_id = Column(Integer, ForeignKey("floors.id", ondelete="CASCADE"), nullable=False, index=True)
     code = Column(String(30), nullable=False, index=True)   # e.g. "L5-HD-014"
@@ -49,24 +47,23 @@ class Seat(db.Model, PkMixin, TimestampMixin, TenantScoped):
         return f"<Seat {self.code} ({self.seat_type.value})>"
 
 
-class ConferenceRoom(db.Model, PkMixin, TimestampMixin, TenantScoped):
+class ConferenceRoom(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "conference_rooms"
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id", ondelete="CASCADE"),
-                       nullable=True, index=True)
     location_id = Column(Integer, ForeignKey("locations.id", ondelete="CASCADE"), nullable=False, index=True)
     floor_id = Column(Integer, ForeignKey("floors.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(120), nullable=False)
     code = Column(String(30), nullable=False)
     capacity = Column(Integer, nullable=False, default=6)
-    hourly_rate = Column(Numeric(10, 2), default=0)
-    credit_cost_per_hour = Column(Integer, default=1, nullable=False)  # meeting-room credits
+    hourly_rate = Column(Numeric(10, 2), default=0)  # cash rate when the room has no category
+    category_id = Column(Integer, ForeignKey("room_categories.id", ondelete="SET NULL"), nullable=True, index=True)
     is_active = Column(Boolean, default=True, nullable=False)
     cross_location_bookable = Column(Boolean, default=False, nullable=False)
     description = Column(Text)
 
     location = relationship("Location", back_populates="rooms")
     floor = relationship("Floor", back_populates="rooms")
+    category = relationship("RoomCategory", foreign_keys=[category_id])
     bookings = relationship("RoomBooking", back_populates="room", cascade="all, delete-orphan")
     amenities = relationship("RoomAmenity", secondary="room_amenity_link", backref="rooms")
 
@@ -77,10 +74,20 @@ class ConferenceRoom(db.Model, PkMixin, TimestampMixin, TenantScoped):
     def __repr__(self) -> str:
         return f"<Room {self.name} cap={self.capacity}>"
 
+    @property
+    def credits_per_slot(self) -> int:
+        """Credits per 30 minutes; a room without a category costs the Standard rate of 1."""
+        return self.category.credits_per_slot if self.category else 1
 
-class RoomAmenity(db.Model, PkMixin):
+    @property
+    def cash_rate_per_hour(self):
+        return self.category.hourly_rate if self.category else (self.hourly_rate or 0)
+
+
+class RoomAmenity(db.Model, PkMixin, OperatorScoped):
     __tablename__ = "room_amenities"
-    name = Column(String(80), nullable=False, unique=True)  # e.g. TV, Whiteboard, VC
+    __table_args__ = (db.UniqueConstraint("operator_id", "name", name="uq_room_amenities_operator_name"),)
+    name = Column(String(80), nullable=False)  # e.g. TV, Whiteboard, VC
 
 
 class RoomAmenityLink(db.Model):

@@ -1,5 +1,5 @@
 """Platform's own invoices/credit notes/refunds/expenses for its
-commercial relationship with operators — separate from a tenant's own
+commercial relationship with operators — separate from an operator's own
 /admin billing of its member companies."""
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from flask import render_template, redirect, url_for, flash
 
 from ...extensions import db
 from ...models import (
-    Tenant, PlatformInvoice, PlatformCreditNote, PlatformRefund, PlatformExpense,
+    Operator, PlatformInvoice, PlatformCreditNote, PlatformRefund, PlatformExpense,
 )
 from ...utils.decorators import platform_permission_required
 from .forms import (
@@ -17,15 +17,15 @@ from .forms import (
 )
 
 
-def _tenant_choices():
+def _operator_choices():
     return [(t.id, t.name) for t in
-            Tenant.query.execution_options(skip_tenant_filter=True).order_by(Tenant.name).all()]
+            Operator.query.execution_options(skip_operator_filter=True).order_by(Operator.name).all()]
 
 
-def _invoice_choices(tenant_id: int | None = None):
+def _invoice_choices(operator_id: int | None = None):
     q = PlatformInvoice.query
-    if tenant_id:
-        q = q.filter_by(tenant_id=tenant_id)
+    if operator_id:
+        q = q.filter_by(operator_id=operator_id)
     return [(0, "\u2014 none \u2014")] + [(i.id, i.number) for i in q.order_by(PlatformInvoice.number).all()]
 
 
@@ -45,7 +45,7 @@ def register_finance_routes(bp):
     @platform_permission_required("billing")
     def finance_invoice_new():
         form = PlatformInvoiceForm()
-        form.tenant_id.choices = _tenant_choices()
+        form.operator_id.choices = _operator_choices()
         if form.validate_on_submit():
             if PlatformInvoice.query.filter_by(number=form.number.data.strip()).first():
                 flash("An invoice with that number already exists.", "warning")
@@ -63,7 +63,7 @@ def register_finance_routes(bp):
     @platform_permission_required("billing")
     def finance_credit_note_new():
         form = PlatformCreditNoteForm()
-        form.tenant_id.choices = _tenant_choices()
+        form.operator_id.choices = _operator_choices()
         form.invoice_id.choices = _invoice_choices()
         if form.validate_on_submit():
             if PlatformCreditNote.query.filter_by(number=form.number.data.strip()).first():
@@ -83,7 +83,7 @@ def register_finance_routes(bp):
     @platform_permission_required("billing")
     def finance_refund_new():
         form = PlatformRefundForm()
-        form.tenant_id.choices = _tenant_choices()
+        form.operator_id.choices = _operator_choices()
         form.invoice_id.choices = _invoice_choices()
         if form.validate_on_submit():
             if PlatformRefund.query.filter_by(number=form.number.data.strip()).first():
