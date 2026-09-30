@@ -1,0 +1,109 @@
+{# Left menu for signed-in users. One menu per role: platform staff, operator team, company admin, member. #}
+{% macro group(label) %}<div class="h-nav-label">{{ label }}</div>{% endmacro %}
+{% macro link(text, icon, href, active=false, badge=none) %}
+<a class="h-nav-link {{ 'active' if active }}" href="{{ href }}"><i class="bi {{ icon }}"></i>{{ text }}{% if badge %}<span class="h-nav-badge">{{ badge }}</span>{% endif %}</a>
+{% endmacro %}
+{% set ep = request.endpoint or '' %}
+
+{% macro space_links(admin=false) %}
+  {{ group('Book & community') }}
+  {{ link('Book', 'bi-calendar-plus-fill', url_for('book.index'), ep in ('book.index', 'book.location_home', 'book.seat_book', 'book.room_book')) }}
+  {{ link('Calendar', 'bi-calendar3', url_for('book.calendar'), ep.startswith('book.') and ep not in ('book.index', 'book.location_home', 'book.seat_book', 'book.room_book')) }}
+  {{ link('Day pass', 'bi-ticket-perforated-fill', url_for('member.day_passes'), ep.startswith('member.day_pass')) }}
+  {{ link('Community', 'bi-people-fill', url_for('community.directory'), ep == 'community.directory') }}
+  {{ link('Announcements', 'bi-megaphone-fill', url_for('community.announcements'), ep == 'community.announcements') }}
+  {{ link('Guest passes', 'bi-person-plus-fill', url_for('community.guest_passes'), ep == 'community.guest_passes') }}
+  {{ link('Visitors', 'bi-door-open-fill', url_for('community.visitors'), ep == 'community.visitors') }}
+  {{ link('Support tickets', 'bi-life-preserver', url_for('community.tickets'), ep == 'community.tickets') }}
+  {{ link('Printing credits', 'bi-printer-fill', url_for('community.printing'), ep == 'community.printing') }}
+  {{ link('Refer & earn', 'bi-gift-fill', url_for('community.referrals'), ep == 'community.referrals') }}
+  {% if admin %}
+    {{ link('Lockers', 'bi-lock-fill', url_for('community.lockers'), ep == 'community.lockers') }}
+    {{ link('Reception', 'bi-person-check-fill', url_for('community.visitors_reception'), ep == 'community.visitors_reception') }}
+  {% endif %}
+{% endmacro %}
+
+{% if current_user.is_platform_staff %}
+  {{ group('Overview') }}
+  {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('platform.dashboard'), ep == 'platform.dashboard') }}
+  {% if current_user.has_platform_permission('operators') %}
+    {{ group('Operators') }}
+    {{ link('Operators', 'bi-buildings-fill', url_for('platform.operators_list'), ep.startswith('platform.operator') and 'invite' not in ep) }}
+    {{ link('Invite operator', 'bi-person-plus-fill', url_for('platform.operator_invite'), ep == 'platform.operator_invite') }}
+  {% endif %}
+  {% if current_user.has_platform_permission('billing') %}
+    {{ group('Billing') }}
+    {{ link('Operator billing', 'bi-receipt', url_for('platform.billing'), ep.startswith('platform.billing')) }}
+    {{ link('Finance', 'bi-graph-up', url_for('platform.finance_dashboard'), ep.startswith('platform.finance')) }}
+    {% if current_user.is_platform_owner %}
+      {{ link('Pricing tiers', 'bi-layers-fill', url_for('platform.tiers_list'), ep.startswith('platform.tier')) }}
+    {% endif %}
+  {% endif %}
+  {% if current_user.has_platform_permission('reports') %}
+    {{ group('Reports') }}
+    {{ link('Reports', 'bi-bar-chart-fill', url_for('platform.reports'), ep == 'platform.reports') }}
+  {% endif %}
+  {% if current_user.is_platform_owner %}
+    {{ group('Owner only') }}
+    {{ link('Platform team', 'bi-people-fill', url_for('platform.team_list'), ep.startswith('platform.team') or ep.startswith('platform.manager')) }}
+    {{ link('Documents', 'bi-folder-fill', url_for('platform.platform_documents'), ep == 'platform.platform_documents') }}
+  {% endif %}
+
+{% elif current_user.is_admin %}
+  {{ group('Overview') }}
+  {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('admin.dashboard'), ep == 'admin.dashboard') }}
+  {{ group('Workspace') }}
+  {{ link('Locations & seats', 'bi-geo-alt-fill', url_for('admin.locations_list'), ep in ('admin.locations_list','admin.location_new','admin.location_detail','admin.location_edit','admin.floor_new','admin.seats_list','admin.seat_new','admin.seat_edit','admin.rooms_list','admin.room_new','admin.room_edit')) }}
+  {{ link('Pricing plans', 'bi-tags-fill', url_for('admin.plans_list'), ep in ('admin.plans_list','admin.plan_new','admin.plan_edit')) }}
+  {{ link('Credits', 'bi-clock-history', url_for('admin.credits_overview'), ep.startswith('admin.credits')) }}
+  {{ link('Seat allocations', 'bi-person-workspace', url_for('admin.allocations'), ep in ('admin.allocations','admin.allocation_end')) }}
+  {{ link('Documents', 'bi-folder-fill', url_for('admin.operator_documents'), ep in ('admin.operator_documents','admin.company_documents')) }}
+  {{ group('People') }}
+  {{ link('Companies', 'bi-building-fill', url_for('admin.companies_list'), ep in ('admin.companies_list','admin.company_new','admin.company_detail','admin.company_edit')) }}
+  {{ link('Individuals', 'bi-person-fill', url_for('admin.individuals_list'), ep.startswith('admin.individual')) }}
+  {% if current_user.is_manager or current_user.is_super_admin or current_user.is_platform_owner %}
+    {{ link('Invites', 'bi-envelope-paper-fill', url_for('admin.invites_list'), ep.startswith('admin.invite') or ep in ('admin.invites_list','admin.accept_member_invite','admin.accept_company_invite','admin.accept_team_invite')) }}
+  {% endif %}
+  {{ link('Staff', 'bi-person-badge-fill', url_for('admin.staff_list'), ep.startswith('admin.staff') or ep == 'admin.salary_new') }}
+  {{ link('Payroll', 'bi-wallet2', url_for('admin.payroll_list'), ep.startswith('admin.payroll')) }}
+  {{ group('Billing & finance') }}
+  {{ link('Invoices', 'bi-receipt', url_for('admin.invoices_list'), ep.startswith('admin.invoice') or ep in ('admin.payment_new','admin.payment_submission_review','admin.billing_run')) }}
+  {% if current_user.is_super_admin or current_user.is_platform_owner %}
+    {{ link('Billing settings', 'bi-sliders', url_for('admin.billing_settings'), ep.startswith('admin.billing_') and ep != 'admin.billing_run') }}
+  {% endif %}
+  {{ link('Credit notes', 'bi-file-earmark-minus-fill', url_for('admin.credit_notes'), ep.startswith('admin.credit_note')) }}
+  {{ link('Refunds', 'bi-arrow-counterclockwise', url_for('admin.refunds'), ep.startswith('admin.refund')) }}
+  {{ link('Expenses', 'bi-journal-text', url_for('admin.expenses_list'), ep.startswith('admin.expense') and 'categor' not in ep) }}
+  {{ link('Expense categories', 'bi-tags', url_for('admin.expense_categories'), 'expense_categor' in ep) }}
+  {{ group('Reports & communications') }}
+  {{ link('Reports', 'bi-bar-chart-fill', url_for('admin.reports_home'), ep.startswith('admin.report')) }}
+  {{ link('Email templates', 'bi-envelope-fill', url_for('admin.email_templates'), ep.startswith('admin.email_template')) }}
+  {{ space_links(admin=true) }}
+  {% if current_user.is_super_admin or current_user.is_platform_owner %}
+    {{ group('Administration') }}
+    {{ link('System settings', 'bi-gear-fill', url_for('admin.settings'), ep == 'admin.settings') }}
+    {{ link('Audit log', 'bi-shield-check', url_for('admin.audit_log'), ep.startswith('admin.audit_log')) }}
+  {% endif %}
+
+{% elif current_user.is_company_admin %}
+  {{ group('Overview') }}
+  {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('company.dashboard'), ep == 'company.dashboard') }}
+  {{ link('Company profile', 'bi-building', url_for('company.profile'), ep == 'company.profile') }}
+  {{ group('People & workspace') }}
+  {{ link('People', 'bi-people-fill', url_for('company.employees'), ep.startswith('company.employee') or ep == 'company.accept_invite') }}
+  {{ link('Seat allocations', 'bi-person-workspace', url_for('company.allocations'), ep.startswith('company.allocation')) }}
+  {{ link('Team activity', 'bi-activity', url_for('company.bookings'), ep == 'company.bookings') }}
+  {{ group('Plan & billing') }}
+  {{ link('Plans & subscriptions', 'bi-layers-fill', url_for('company.plans'), ep == 'company.plans') }}
+  {{ link('Meeting credits', 'bi-clock-history', url_for('company.credits'), ep == 'company.credits') }}
+  {{ link('Subscription history', 'bi-journal-check', url_for('company.subscriptions'), ep == 'company.subscriptions') }}
+  {{ link('Invoices & payments', 'bi-receipt', url_for('company.invoices'), ep.startswith('company.invoice') or ep == 'company.payment_submission_new') }}
+  {{ space_links() }}
+
+{% else %}
+  {{ group('My space') }}
+  {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('member.dashboard'), ep == 'member.dashboard') }}
+  {{ link('Calendar', 'bi-calendar3', url_for('book.calendar'), ep.startswith('book.')) }}
+  {{ link('Announcements', 'bi-megaphone-fill', url_for('community.announcements'), ep == 'community.announcements') }}
+  {{ link('Guest passes', 'bi-person-plus-fill', url_for('community.guest_passes'), ep == 'community.guest_passes') }}
+{% endif %}

@@ -27,7 +27,7 @@ class CreditNote(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="SET NULL"), nullable=True, index=True)
 
     amount = Column(Numeric(12, 2), nullable=False)
-    currency = Column(String(3), default="USD", nullable=False)
+    currency = Column(String(3), default="INR", nullable=False)
     reason = Column(String(255), nullable=False)
     notes = Column(Text)
 

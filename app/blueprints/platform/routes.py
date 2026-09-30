@@ -69,16 +69,8 @@ def _seed_operator_defaults(operator: Operator) -> None:
 @platform_bp.route("/")
 @platform_staff_required
 def dashboard():
-    stats = {
-        "operators": Operator.query.execution_options(skip_operator_filter=True).count(),
-        "active_operators": Operator.query.execution_options(skip_operator_filter=True)
-                                       .filter_by(status=OperatorStatus.ACTIVE).count(),
-        "total_users": User.query.execution_options(skip_operator_filter=True).count(),
-        "total_companies": Company.query.execution_options(skip_operator_filter=True).count(),
-        "total_locations": Location.query.execution_options(skip_operator_filter=True).count(),
-        "total_invoices": Invoice.query.execution_options(skip_operator_filter=True).count(),
-    }
-    return render_template("platform/dashboard.html", stats=stats)
+    from ...services import platform_dashboard
+    return render_template("platform/dashboard.html", dash=platform_dashboard.build())
 
 
 @platform_bp.route("/operators")

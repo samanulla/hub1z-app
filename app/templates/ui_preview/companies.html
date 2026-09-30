@@ -1,0 +1,142 @@
+{% extends "ui_preview/_shell.html" %}
+{% block title %}Companies{% endblock %}
+
+{% block content %}
+{% set status_meta = {
+  'active': ('Active', 'tint-success'), 'onboarding': ('Onboarding', 'tint-info'),
+  'overdue': ('Payment due', 'tint-danger'), 'notice': ('On notice', 'tint-warn') } %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><a href="#">Adyar Space</a><i class="bi bi-chevron-right" style="font-size:10px"></i><span>People</span><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Companies</span></div>
+    <h1>Companies<span class="h-count">{{ companies | length }}</span></h1>
+  </div>
+  <div class="actions">
+    <div class="dropdown">
+      <button class="btn btn-soft" data-bs-toggle="dropdown"><i class="bi bi-download"></i> Export <i class="bi bi-chevron-down" style="font-size:11px"></i></button>
+      <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="#">Export as Excel</a></li><li><a class="dropdown-item" href="#">Export as PDF</a></li></ul>
+    </div>
+    <button class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#addCompany"><i class="bi bi-plus-lg"></i> Add company</button>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-success"><i class="bi bi-building-check"></i></span>
+    <div><div class="label">Active companies</div><div class="value">{{ status_counts.get('active', 0) }}</div><div class="delta up"><i class="bi bi-arrow-up-short"></i>2 <span>joined this month</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-brand"><i class="bi bi-grid-3x3-gap-fill"></i></span>
+    <div style="flex:1"><div class="label">Seats in use</div><div class="value">{{ seats }} <span class="faint" style="font-size:15px;font-weight:500">of {{ capacity }}</span></div>
+    <div class="h-progress mt-1"><span style="width:{{ (seats * 100 / capacity) | round | int }}%"></span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-danger"><i class="bi bi-exclamation-triangle-fill"></i></span>
+    <div><div class="label">Outstanding dues</div><div class="value">{{ outstanding | inr }}</div><div class="delta down"><i class="bi bi-dot"></i>{{ status_counts.get('overdue', 0) }} <span>companies overdue</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-warn"><i class="bi bi-calendar2-event-fill"></i></span>
+    <div><div class="label">Agreements ending in 60 days</div><div class="value">4</div><div class="delta"><span>1 on notice, 3 to renew</span></div></div></div></div>
+</div>
+
+<div data-view-root data-view="grid" data-filter-root>
+  <div class="h-toolbar">
+    <div class="h-search"><i class="bi bi-search"></i><input type="search" data-filter-input placeholder="Search by name, city or GSTIN"></div>
+    <div class="h-pills">
+      <button class="h-pill active" type="button" data-filter-pill="status" data-value="all">All<span class="n">{{ companies | length }}</span></button>
+      {% for key, (label, tint) in status_meta.items() %}
+      <button class="h-pill" type="button" data-filter-pill="status" data-value="{{ key }}">{{ label }}<span class="n">{{ status_counts.get(key, 0) }}</span></button>
+      {% endfor %}
+    </div>
+    <select class="h-select ms-auto"><option>Sort: Name</option><option>Sort: Monthly fee</option><option>Sort: Outstanding</option></select>
+    <div class="h-seg">
+      <button type="button" class="active" data-set-view="grid"><i class="bi bi-grid"></i> Cards</button>
+      <button type="button" data-set-view="list"><i class="bi bi-list-ul"></i> List</button>
+    </div>
+  </div>
+
+  <div class="h-grid">
+    {% for c in companies %}
+    {% set label, tint = status_meta[c.status] %}
+    <article class="h-card h-company" data-item data-status="{{ c.status }}">
+      <div class="top">
+        <span class="h-avatar lg av-{{ loop.index % 6 + 1 }}">{{ c.name | initials }}</span>
+        <div style="flex:1;min-width:0">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <a class="name" href="#">{{ c.name }}</a>
+            <span class="h-chip sm {{ tint }}"><span class="h-dot" style="background:currentColor"></span>{{ label }}</span>
+          </div>
+          <div class="legal">{{ c.legal }}</div>
+          <div class="legal">GSTIN {{ c.gstin }}</div>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">{{ c.plan }}</div><div class="v">{{ c.seats }} seats</div></div>
+        <div class="stat"><div class="k">Monthly fee + GST</div><div class="v">{{ c.fee | inr }}</div></div>
+      </div>
+      <div>
+        <div class="d-flex justify-content-between small mb-1"><span class="muted">Credits this month</span><b>{{ c.used }} / {{ c.credits }}</b></div>
+        {% set pct = (c.used * 100 / c.credits) | round | int %}
+        <div class="h-progress {{ 'bad' if pct >= 95 else ('warn' if pct >= 75 else '') }}"><span style="width:{{ pct }}%"></span></div>
+      </div>
+      <div class="contact">
+        <span><i class="bi bi-person"></i>{{ c.contact }}</span>
+        <span><i class="bi bi-envelope"></i>{{ c.email }}</span>
+        <span><i class="bi bi-telephone"></i>{{ c.phone }}</span>
+        <span><i class="bi bi-geo-alt"></i>{{ c.city }}</span>
+      </div>
+      <div class="foot">
+        <div class="small {{ 'text-danger fw-semibold' if c.due else 'muted' }}">
+          {% if c.due %}<i class="bi bi-exclamation-circle"></i> {{ c.due | inr }} due{% else %}<i class="bi bi-file-earmark-text"></i> {{ c.ends }}{% endif %}
+        </div>
+        <div class="d-flex gap-1">
+          <a class="btn btn-soft btn-sm" href="#"><i class="bi bi-eye"></i> View</a>
+          <a class="btn btn-ghost btn-sm" href="#" title="Invoices"><i class="bi bi-receipt"></i></a>
+          <a class="btn btn-ghost btn-sm" href="#" title="More"><i class="bi bi-three-dots"></i></a>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+
+  <div class="h-card h-listview">
+    <div class="h-card-body pt-3" style="overflow-x:auto">
+      <table class="h-table">
+        <thead><tr><th>Company</th><th>Status</th><th>Plan</th><th class="r">Seats</th><th class="r">Monthly fee</th><th>Contact</th><th>City</th><th>Agreement</th><th></th></tr></thead>
+        <tbody>
+          {% for c in companies %}
+          {% set label, tint = status_meta[c.status] %}
+          <tr data-item data-status="{{ c.status }}">
+            <td><div class="d-flex align-items-center gap-3"><span class="h-avatar sm av-{{ loop.index % 6 + 1 }}">{{ c.name | initials }}</span>
+              <div><b>{{ c.name }}</b><div class="faint small">{{ c.gstin }}</div></div></div></td>
+            <td><span class="h-chip sm {{ tint }}">{{ label }}</span></td>
+            <td class="muted">{{ c.plan }}</td>
+            <td class="r">{{ c.seats }}</td>
+            <td class="r"><b>{{ c.fee | inr }}</b></td>
+            <td><div>{{ c.contact }}</div><div class="faint small">{{ c.email }}</div></td>
+            <td class="muted">{{ c.city }}</td>
+            <td class="muted">{{ c.ends }}</td>
+            <td class="r"><a class="btn btn-soft btn-sm" href="#">View</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="text-center mt-4"><button class="btn btn-soft" type="button">Load more</button></div>
+</div>
+
+<div class="modal fade" id="addCompany" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <form class="modal-content" data-demo-form>
+      <div class="modal-header"><h4>Add company</h4><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6"><label class="form-label">Company name</label><input class="form-control" placeholder="Acme Co"></div>
+          <div class="col-md-6"><label class="form-label">Legal name</label><input class="form-control" placeholder="Acme Co Private Limited"></div>
+          <div class="col-md-4"><label class="form-label">GSTIN</label><input class="form-control" placeholder="33AACCA1234A1Z5"></div>
+          <div class="col-md-4"><label class="form-label">PAN</label><input class="form-control" placeholder="AACCA1234A"></div>
+          <div class="col-md-4"><label class="form-label">State (for GST)</label><select class="form-select"><option>Tamil Nadu</option><option>Karnataka</option><option>Maharashtra</option></select></div>
+          <div class="col-md-6"><label class="form-label">Billing email</label><input class="form-control" type="email" placeholder="accounts@acmeco.in"></div>
+          <div class="col-md-6"><label class="form-label">Phone</label><input class="form-control" placeholder="+91 98400 11223"></div>
+          <div class="col-12"><label class="form-label">Billing address</label><textarea class="form-control" rows="2"></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button><button class="btn btn-brand">Create company</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

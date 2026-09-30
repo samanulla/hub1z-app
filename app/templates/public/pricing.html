@@ -12,10 +12,7 @@
         <p style="margin-top:1.2rem; max-width:620px;">A clear starting point for one location, with room for the operator behind a growing network.</p>
       </div>
       <div class="gap-buttons" style="justify-content:flex-start;">
-        {% for code in ['INR', 'USD'] %}
-        <a class="{{ 'btn-ink' if currency == code else 'btn-outline-ink' }}" style="padding:.7rem 1rem;" href="{{ url_for('public_pricing', currency=code, billing=billing) }}">{{ '₹ INR' if code == 'INR' else '$ USD' }}</a>
-        {% endfor %}
-        <a class="{{ 'btn-ink' if billing == 'annual' else 'btn-outline-ink' }}" style="padding:.7rem 1rem;" href="{{ url_for('public_pricing', currency=currency, billing='annual' if billing == 'monthly' else 'monthly') }}">{{ 'Show monthly' if billing == 'annual' else 'Annual: save 2 months' }}</a>
+        <a class="{{ 'btn-ink' if billing == 'annual' else 'btn-outline-ink' }}" style="padding:.7rem 1rem;" href="{{ url_for('public_pricing', billing='annual' if billing == 'monthly' else 'monthly') }}">{{ 'Show monthly' if billing == 'annual' else 'Annual: save 2 months' }}</a>
       </div>
     </div>
 

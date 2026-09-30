@@ -41,9 +41,6 @@ class RegisterOperatorForm(FlaskForm):
     business_name = StringField("Business name", validators=[DataRequired(), Length(max=200)])
     country_code = SelectField("Country", choices=[
         ("IN", "India"),
-        ("GB", "United Kingdom"),
-        ("US", "United States"),
-        ("AE", "United Arab Emirates"),
     ], validators=[DataRequired()])
     slug = StringField(
         "URL slug", validators=[

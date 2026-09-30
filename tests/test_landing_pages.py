@@ -135,17 +135,29 @@ def test_operator_signup_applies_country_defaults():
     app = _app()
     c = app.test_client()
     response = c.post("/auth/register/operator", data={
-        "business_name": "London Works",
-        "slug": "london-works",
-        "country_code": "GB",
+        "business_name": "Chennai Works",
+        "slug": "chennai-works",
+        "country_code": "IN",
         "admin_full_name": "Alex Operator",
-        "admin_email": "alex@london.example",
+        "admin_email": "alex@chennai.example",
         "password": "Password123!",
         "confirm": "Password123!",
     }, headers={"Host": "hub1z.com"}, follow_redirects=False)
     assert response.status_code == 302
     with app.app_context():
-        operator = Operator.query.filter_by(slug="london-works").one()
-        assert operator.country_code == "GB"
-        assert operator.currency_code == "GBP"
-        assert operator.timezone == "Europe/London"
+        operator = Operator.query.filter_by(slug="chennai-works").one()
+        assert operator.country_code == "IN"
+        assert (operator.currency_code, operator.currency_symbol) == ("INR", "₹")
+        assert operator.timezone == "Asia/Kolkata"
+
+
+def test_operator_signup_is_india_only_for_now():
+    app = _app()
+    response = app.test_client().post("/auth/register/operator", data={
+        "business_name": "London Works", "slug": "london-works", "country_code": "GB",
+        "admin_full_name": "Alex Operator", "admin_email": "alex@london.example",
+        "password": "Password123!", "confirm": "Password123!",
+    }, headers={"Host": "hub1z.com"}, follow_redirects=False)
+    assert response.status_code == 200
+    with app.app_context():
+        assert Operator.query.filter_by(slug="london-works").first() is None

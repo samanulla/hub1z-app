@@ -40,7 +40,7 @@ class Expense(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     staff_id = Column(Integer, ForeignKey("staff_members.id", ondelete="SET NULL"))
 
     amount = Column(Numeric(12, 2), nullable=False)
-    currency = Column(String(3), default="USD", nullable=False)
+    currency = Column(String(3), default="INR", nullable=False)
     expense_date = Column(Date, nullable=False)
     vendor = Column(String(200))
     description = Column(Text)

@@ -29,7 +29,7 @@ class SalaryStructure(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     staff_id = Column(Integer, ForeignKey("staff_members.id", ondelete="CASCADE"),
                       nullable=False, index=True)
-    currency = Column(String(3), default="USD", nullable=False)
+    currency = Column(String(3), default="INR", nullable=False)
     pay_frequency = Column(Enum(PayFrequency), default=PayFrequency.MONTHLY, nullable=False)
 
     basic = Column(Numeric(12, 2), default=0, nullable=False)
@@ -92,7 +92,7 @@ class Payslip(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     deductions = Column(Numeric(12, 2), default=0, nullable=False)
     gross = Column(Numeric(12, 2), default=0, nullable=False)
     net = Column(Numeric(12, 2), default=0, nullable=False)
-    currency = Column(String(3), default="USD", nullable=False)
+    currency = Column(String(3), default="INR", nullable=False)
 
     pdf_document_id = Column(Integer, ForeignKey("documents.id", ondelete="SET NULL"))
 

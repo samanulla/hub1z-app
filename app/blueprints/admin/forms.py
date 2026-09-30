@@ -109,7 +109,7 @@ class PricingPlanForm(FlaskForm):
     tax_applicable = BooleanField("Tax applicable", default=True)
     tax_code = StringField("Tax code / rate", validators=[Optional(), Length(max=30)])
     price_includes_tax = BooleanField("Price includes tax", default=False)
-    currency = SelectField("Currency", choices=[("INR", "INR"), ("USD", "USD")], default="INR")
+    currency = SelectField("Currency", choices=[("INR", "INR")], default="INR")
     effective_from = DateField("Effective from", validators=[Optional()])
     effective_until = DateField("Effective until", validators=[Optional()])
     version = IntegerField("Plan version", default=1, validators=[NumberRange(min=1)])
@@ -222,7 +222,7 @@ class StaffForm(FlaskForm):
 
 
 class SalaryStructureForm(FlaskForm):
-    currency = StringField("Currency", default="USD", validators=[DataRequired(), Length(max=3)])
+    currency = StringField("Currency", default="INR", validators=[DataRequired(), Length(max=3)])
     pay_frequency = SelectField("Pay frequency", choices=_enum_choices(PayFrequency), validators=[DataRequired()])
     basic = DecimalField("Basic", validators=[DataRequired(), NumberRange(min=0)])
     house_allowance = DecimalField("House allowance", default=0, validators=[NumberRange(min=0)])
@@ -260,7 +260,7 @@ class ExpenseForm(FlaskForm):
     location_id = SelectField("Location", coerce=int, validators=[Optional()])
     staff_id = SelectField("Reimburse to (staff)", coerce=int, validators=[Optional()])
     amount = DecimalField("Amount", validators=[DataRequired(), NumberRange(min=0)])
-    currency = StringField("Currency", default="USD", validators=[DataRequired(), Length(max=3)])
+    currency = StringField("Currency", default="INR", validators=[DataRequired(), Length(max=3)])
     expense_date = DateField("Expense date", validators=[DataRequired()])
     vendor = StringField("Vendor / payee", validators=[Optional(), Length(max=200)])
     payment_method = SelectField("Payment method", choices=[
@@ -325,7 +325,7 @@ class CreditNoteForm(FlaskForm):
     user_id = SelectField("Individual user", coerce=int, validators=[Optional()])
     invoice_id = SelectField("Against invoice (optional)", coerce=int, validators=[Optional()])
     amount = DecimalField("Amount", validators=[DataRequired(), NumberRange(min=0.01)])
-    currency = StringField("Currency", default="USD", validators=[DataRequired(), Length(max=3)])
+    currency = StringField("Currency", default="INR", validators=[DataRequired(), Length(max=3)])
     reason = StringField("Reason", validators=[DataRequired(), Length(max=255)])
     notes = TextAreaField("Notes", validators=[Optional()])
     submit = SubmitField("Issue credit note")

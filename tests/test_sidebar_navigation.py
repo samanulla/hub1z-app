@@ -121,7 +121,7 @@ def test_company_admin_sees_company_sidebar():
     _login(c, "ca@side4.com", "CaPass123!")
     r = c.get("/company/")
     assert r.status_code == 200
-    assert b'<aside class="app-sidebar"' in r.data
+    assert b'<aside class="h-side"' in r.data
     assert b"Plans &amp; subscriptions" in r.data
     assert b"Seat allocations" in r.data
 
@@ -141,4 +141,6 @@ def test_company_and_member_pages_unaffected_by_sidebar():
     _login(c, "ind@side3.com", "IndPass123!")
     r = c.get("/me/")
     assert r.status_code == 200
-    assert b'<aside class="app-sidebar"' not in r.data
+    assert b'<aside class="h-side"' in r.data
+    assert b"My space" in r.data and b"Announcements" in r.data
+    assert b"Billing &amp; finance" not in r.data and b"Pricing plans" not in r.data

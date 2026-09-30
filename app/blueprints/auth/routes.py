@@ -215,9 +215,6 @@ def register_operator():
         trial_days = current_app.config.get("OPERATOR_TRIAL_DAYS", 14)
         regional_defaults = {
             "IN": ("INR", "₹", "en_IN", "Asia/Kolkata"),
-            "GB": ("GBP", "£", "en_GB", "Europe/London"),
-            "US": ("USD", "$", "en_US", "America/New_York"),
-            "AE": ("AED", "د.إ", "en_AE", "Asia/Dubai"),
         }
         currency, symbol, locale, timezone = regional_defaults.get(
             form.country_code.data, regional_defaults["IN"]

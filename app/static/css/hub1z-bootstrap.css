@@ -1,0 +1,137 @@
+/* hub1z — Bootstrap components restyled to the hub1z design system, so every existing page picks up the
+   new look without being rewritten. Loaded after hub1z-ui.css; all rules are scoped to body.h-ui. */
+
+/* ------------------------------------------------------------- layout */
+/* Older pages still name the previous palette; point those names at the new tokens. */
+body.h-ui {
+  --ink: var(--h-ink); --ink-soft: var(--h-ink-2); --cream: var(--h-surface); --cream-2: var(--h-surface-2);
+  --line: var(--h-line); --saffron: var(--h-accent); --coral: var(--h-danger); --forest: var(--h-success);
+  --brand: var(--h-brand); --brand-2: #8b5cf6; --brand-3: var(--h-danger);
+}
+.h-ui .h-org { font-weight: 600; font-size: 14px; color: var(--h-ink-2); }
+.h-ui .h-brand.on-light { color: var(--h-ink) !important; padding: 0; }
+.h-ui.h-public .h-content { max-width: 1120px; margin: 0 auto; padding-top: 44px; }
+.h-ui .h-side-foot a { color: #8b93b4; }
+.h-ui .h-content > h3:first-child, .h-ui .h-content > .d-flex:first-child h3, .h-ui .h-content h3.page-title { font-size: 22px; }
+.h-ui .h-content h4 { font-size: 17px; }
+.h-ui .h-content .card h3, .h-ui .h-content .modal h3 { font-size: 18px; }
+.h-ui .h-content .display-1, .h-ui .h-content .display-4 { font-weight: 700; letter-spacing: -0.03em; }
+.h-ui .lead { font-size: 16px; color: var(--h-ink-2); }
+.h-ui .eyebrow { font-size: 11.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--h-ink-3); }
+.h-ui .serif { font-family: var(--h-font); }
+
+/* --------------------------------------------------------------- cards */
+.h-ui .card { background: var(--h-surface); border: 1px solid var(--h-line); border-radius: var(--h-radius); box-shadow: var(--h-shadow); }
+.h-ui .card.shadow-sm, .h-ui .card.shadow { box-shadow: var(--h-shadow) !important; }
+.h-ui .card-body { padding: 18px 20px; }
+.h-ui .card-header, .h-ui .card-footer { background: var(--h-surface-2); border-color: var(--h-line); padding: 12px 20px; }
+.h-ui .card-header:first-child { border-radius: var(--h-radius) var(--h-radius) 0 0; }
+.h-ui a.card:hover { box-shadow: var(--h-shadow-hover); transform: translateY(-1px); transition: box-shadow .2s, transform .2s; }
+.h-ui .card h5, .h-ui .card h6 { font-weight: 650; }
+
+/* Dashboard stat cards (icon + label, big number) */
+.h-ui .card-stat { transition: box-shadow .2s, transform .2s; }
+.h-ui .card-stat:hover { box-shadow: var(--h-shadow-hover); transform: translateY(-1px); }
+.h-ui .card-stat .stat-value { font-size: 26px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; color: var(--h-ink); margin-top: 4px; }
+.h-ui .card-stat .stat-label { font-size: 12.5px; font-weight: 500; color: var(--h-ink-2); }
+.h-ui .card-stat .stat-icon { width: 40px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 10px; background: var(--h-brand-50); color: var(--h-brand); }
+.h-ui .card-stat .stat-icon.teal, .h-ui .card-stat .stat-icon.green { background: var(--h-success-50); color: var(--h-success); }
+.h-ui .card-stat .stat-icon.orange, .h-ui .card-stat .stat-icon.amber { background: var(--h-warn-50); color: var(--h-warn); }
+.h-ui .card-stat .stat-icon.blue { background: var(--h-info-50); color: var(--h-info); }
+.h-ui .card-stat .stat-icon.pink { background: var(--h-danger-50); color: var(--h-danger); }
+.h-ui .card-stat .stat-icon.purple { background: #f0e4fb; color: #7a3fc2; }
+.h-ui .feature-icon { width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: var(--h-brand-50); color: var(--h-brand); font-size: 20px; margin-bottom: 12px; }
+.h-ui .role-card { border-top: 3px solid var(--h-brand); }
+
+/* -------------------------------------------------------------- tables */
+.h-ui .table { --bs-table-bg: transparent; --bs-table-hover-bg: var(--h-surface-2); --bs-table-border-color: var(--h-line); color: var(--h-ink); margin-bottom: 0; font-size: 14px; }
+.h-ui .table > :not(caption) > * > * { padding: 12px 16px; border-bottom-color: var(--h-line); vertical-align: middle; }
+.h-ui .table-sm > :not(caption) > * > * { padding: 9px 14px; }
+.h-ui .table thead th { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--h-ink-3); background: var(--h-surface-2); border-bottom: 1px solid var(--h-line); white-space: nowrap; }
+.h-ui .table tbody tr:hover > * { background-color: var(--h-surface-2); }
+.h-ui .table > tbody > tr:last-child > * { border-bottom-width: 0; }
+.h-ui .card > .table, .h-ui .card-body.p-0 > .table { border-radius: var(--h-radius); overflow: hidden; }
+.h-ui .heatmap td { transition: background .2s; }
+/* A table placed straight on the page gets a card frame so it does not float on the background. */
+.h-ui .h-content > .table, .h-ui .h-content > form > .table {
+  background: var(--h-surface); border: 1px solid var(--h-line); border-radius: var(--h-radius);
+  box-shadow: var(--h-shadow); border-collapse: separate; border-spacing: 0; overflow: hidden;
+}
+
+/* -------------------------------------------------------------- badges */
+.h-ui .badge { border-radius: 999px; font-weight: 600; font-size: 11.5px; padding: .38em .8em; text-transform: none; letter-spacing: 0; border: 0; }
+.h-ui .badge.bg-secondary { background: #eef0f6 !important; color: var(--h-ink-2) !important; }
+.h-ui .badge.bg-success { background: var(--h-success-50) !important; color: var(--h-success) !important; }
+.h-ui .badge.bg-danger { background: var(--h-danger-50) !important; color: var(--h-danger) !important; }
+.h-ui .badge.bg-warning { background: var(--h-warn-50) !important; color: var(--h-warn) !important; }
+.h-ui .badge.bg-info { background: var(--h-info-50) !important; color: var(--h-info) !important; }
+.h-ui .badge.bg-primary, .h-ui .badge.bg-dark { background: var(--h-brand-50) !important; color: var(--h-brand) !important; }
+.h-ui .badge-role { color: var(--h-ink-3); font-size: 11px; }
+
+/* ------------------------------------------------------------- buttons */
+.h-ui .btn-success { background: var(--h-success); border-color: var(--h-success); color: #fff; }
+.h-ui .btn-danger { background: var(--h-danger); border-color: var(--h-danger); color: #fff; }
+.h-ui .btn-outline-danger { background: #fff; border: 1px solid #f3c3c5; color: var(--h-danger); }
+.h-ui .btn-outline-danger:hover { background: var(--h-danger-50); border-color: var(--h-danger); color: var(--h-danger); }
+.h-ui .btn-outline-success { background: #fff; border: 1px solid #b9e3c9; color: var(--h-success); }
+.h-ui .btn-outline-success:hover { background: var(--h-success-50); color: var(--h-success); border-color: var(--h-success); }
+.h-ui .btn-light { background: #fff; border-color: var(--h-line); color: var(--h-ink); }
+.h-ui .btn-link { color: var(--h-brand); text-decoration: none; padding-left: 4px; padding-right: 4px; }
+.h-ui .btn-link:hover { color: var(--h-brand-600); text-decoration: underline; }
+.h-ui .btn-link.text-danger { color: var(--h-danger) !important; }
+.h-ui .btn-saffron { background: var(--h-accent); border-color: var(--h-accent); color: #2a1a00; }
+.h-ui .btn:focus-visible { box-shadow: 0 0 0 3px var(--h-brand-50); }
+.h-ui .btn-close:focus { box-shadow: 0 0 0 3px var(--h-brand-50); }
+
+/* -------------------------------------------------------------- alerts */
+.h-ui .alert { border: 1px solid var(--h-line); border-left-width: 4px; border-radius: 12px; background: #fff; color: var(--h-ink); font-weight: 500; padding: 12px 16px; box-shadow: var(--h-shadow); }
+.h-ui .alert-success { border-color: #bfe6cf; border-left-color: var(--h-success); background: var(--h-success-50); }
+.h-ui .alert-danger { border-color: #f5c6c8; border-left-color: var(--h-danger); background: var(--h-danger-50); }
+.h-ui .alert-warning { border-color: #f4dcae; border-left-color: var(--h-accent); background: var(--h-warn-50); }
+.h-ui .alert-info { border-color: #bfe0f1; border-left-color: var(--h-info); background: var(--h-info-50); }
+
+/* --------------------------------------------------------------- forms */
+.h-ui .form-check-input { border-color: var(--h-line-strong); }
+.h-ui .form-check-input:checked { background-color: var(--h-brand); border-color: var(--h-brand); }
+.h-ui .form-check-input:focus { box-shadow: 0 0 0 3px var(--h-brand-50); border-color: var(--h-brand); }
+.h-ui .form-text { color: var(--h-ink-3); font-size: 12.5px; }
+.h-ui .invalid-feedback { font-size: 12.5px; }
+.h-ui .input-group-text { background: var(--h-surface-2); border-color: var(--h-line-strong); color: var(--h-ink-2); }
+.h-ui .form-control::placeholder { color: var(--h-ink-3); }
+.h-ui .form-control:disabled, .h-ui .form-select:disabled { background: var(--h-surface-2); }
+
+/* ------------------------------------------ nav, dropdowns, pagination */
+.h-ui .nav-tabs { border-bottom: 1px solid var(--h-line); gap: 4px; }
+.h-ui .nav-tabs .nav-link { border: 0; border-bottom: 2px solid transparent; color: var(--h-ink-2); font-weight: 550; padding: 10px 14px; border-radius: 0; }
+.h-ui .nav-tabs .nav-link:hover { color: var(--h-ink); border-bottom-color: var(--h-line-strong); }
+.h-ui .nav-tabs .nav-link.active { color: var(--h-brand); background: transparent; border-bottom-color: var(--h-brand); }
+.h-ui .nav-pills .nav-link { border-radius: 999px; color: var(--h-ink-2); font-weight: 550; }
+.h-ui .nav-pills .nav-link.active { background: var(--h-brand); color: #fff; }
+.h-ui .dropdown-menu { border: 1px solid var(--h-line); border-radius: 12px; box-shadow: var(--h-shadow-hover); padding: 6px; font-size: 14px; }
+.h-ui .dropdown-item { border-radius: 8px; padding: 8px 12px; font-weight: 500; color: var(--h-ink); }
+.h-ui .dropdown-item:hover, .h-ui .dropdown-item:focus { background: var(--h-surface-2); color: var(--h-ink); }
+.h-ui .dropdown-item.text-danger:hover { background: var(--h-danger-50); }
+.h-ui .dropdown-divider { border-color: var(--h-line); }
+.h-ui .pagination .page-link { border: 1px solid var(--h-line); color: var(--h-ink-2); border-radius: 8px; margin: 0 2px; font-weight: 550; }
+.h-ui .pagination .page-item.active .page-link { background: var(--h-brand); border-color: var(--h-brand); color: #fff; }
+.h-ui .breadcrumb { font-size: 13px; }
+.h-ui .progress { height: 8px; border-radius: 999px; background: #edeff6; }
+.h-ui .progress-bar { background: var(--h-brand); }
+.h-ui .list-group-item { border-color: var(--h-line); }
+.h-ui hr { border-color: var(--h-line); opacity: 1; }
+.h-ui .text-muted, .h-ui .text-secondary { color: var(--h-ink-2) !important; }
+.h-ui .bg-light { background-color: var(--h-surface-2) !important; }
+.h-ui .border { border-color: var(--h-line) !important; }
+.h-ui .rounded, .h-ui .rounded-2, .h-ui .rounded-3 { border-radius: var(--h-radius-sm) !important; }
+.h-ui code { color: var(--h-brand-600); background: var(--h-brand-50); padding: 1px 6px; border-radius: 6px; font-size: .9em; }
+
+/* ---------------------------------------------- credits ruler (meters) */
+.h-ui .meter { display: flex; height: 18px; border-radius: 999px; background: #edeff6; overflow: hidden; }
+.h-ui .meter-seg { height: 100%; }
+.h-ui .meter-used { background: var(--h-ink); }
+.h-ui .meter-reserved { background: var(--h-accent); }
+.h-ui .meter-available { background: var(--h-success); }
+.h-ui .meter-unallocated { background: #cdd1e0; }
+.h-ui .meter-reserve { background: repeating-linear-gradient(45deg, #dfe2ee, #dfe2ee 4px, #edeff6 4px, #edeff6 8px); }
+.h-ui .meter-legend { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; margin-top: .6rem; font-size: 12.5px; color: var(--h-ink-2); }
+.h-ui .meter-dot { display: inline-block; width: 10px; height: 10px; margin-right: .35rem; border-radius: 3px; }

@@ -191,7 +191,7 @@
 <form class="mt-3" method="post" action="{{ url_for('admin.billing_run') }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <button class="btn btn-outline-secondary btn-sm" type="submit">
-    <i class="bi bi-cash-stack"></i> Run monthly billing now
+    <i class="bi bi-receipt"></i> Run monthly billing now
   </button>
 </form>
 {% endblock %}

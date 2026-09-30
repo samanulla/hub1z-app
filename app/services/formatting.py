@@ -114,6 +114,31 @@ def format_money(value, symbol: bool = True) -> str:
     return f"{sym}{body}"
 
 
+def format_inr(value) -> str:
+    """Whole rupees with Indian grouping, e.g. ₹1,25,000."""
+    dec = _to_decimal(value).quantize(Decimal("1"))
+    return f"{'-' if dec < 0 else ''}₹{_group_indian(str(abs(int(dec))))}"
+
+
+def format_inr_compact(value) -> str:
+    """Lakh / crore shorthand for dashboards, e.g. ₹18.65L, ₹2.04Cr."""
+    dec = _to_decimal(value)
+    n = abs(dec)
+    for limit, suffix in ((Decimal(10_000_000), "Cr"), (Decimal(100_000), "L")):
+        if n >= limit:
+            text = f"{n / limit:.2f}".rstrip("0").rstrip(".")
+            return f"{'-' if dec < 0 else ''}₹{text}{suffix}"
+    return format_inr(dec)
+
+
+def initials(name) -> str:
+    """Up to two capital letters for an avatar, e.g. 'Priya Nair' -> 'PN'."""
+    parts = [p for p in str(name or "").replace(".", " ").split() if p]
+    if not parts:
+        return "?"
+    return (parts[0][0] + (parts[1][0] if len(parts) > 1 else "")).upper()
+
+
 # ------------------------------------------------------------- datetimes --
 
 def _tzinfo():
@@ -211,6 +236,9 @@ def format_time(dt: datetime | None, fmt: str | None = None) -> str:
 
 def register_formatting(app) -> None:
     app.jinja_env.filters["money"] = format_money
+    app.jinja_env.filters["inr"] = format_inr
+    app.jinja_env.filters["inr_short"] = format_inr_compact
+    app.jinja_env.filters["initials"] = initials
     app.jinja_env.filters["dt"] = format_dt
     app.jinja_env.filters["dt_at"] = format_dt_at
     app.jinja_env.filters["time_at"] = format_time_at

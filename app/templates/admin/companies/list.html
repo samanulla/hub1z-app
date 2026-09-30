@@ -2,28 +2,128 @@
 {% block title %}Companies{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between mb-3">
-  <h3>Companies</h3>
-  <a class="btn btn-dark" href="{{ url_for('admin.invite_company_new') }}">+ New company</a>
+{% set o = overview %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>People</span><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Companies</span></div>
+    <h1>Companies<span class="h-count">{{ o.total }}</span></h1>
+  </div>
+  <div class="actions">
+    {% if current_user.is_manager or current_user.is_super_admin or current_user.is_platform_owner %}
+    <a class="btn btn-brand" href="{{ url_for('admin.invite_company_new') }}"><i class="bi bi-plus-lg"></i> New company</a>
+    {% endif %}
+  </div>
 </div>
 
-<table class="table bg-white shadow-sm">
-  <thead><tr><th>Name</th><th>Billing email</th><th>Status</th><th>Employees</th><th></th></tr></thead>
-  <tbody>
-    {% for c in companies %}
-    <tr>
-      <td><strong>{{ c.name }}</strong></td>
-      <td>{{ c.billing_email }}</td>
-      <td><span class="badge bg-secondary">{{ c.status.value }}</span></td>
-      <td>{{ c.users|length }} / {{ c.max_employees }}</td>
-      <td class="text-end">
-        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.company_detail', company_id=c.id) }}">View</a>
-        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.company_documents', company_id=c.id) }}">Docs</a>
-      </td>
-    </tr>
-    {% else %}
-    <tr><td colspan="5" class="text-center text-muted py-4">No companies yet.</td></tr>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-success"><i class="bi bi-building-check"></i></span>
+    <div><div class="label">Active companies</div><div class="value">{{ o.active }}</div><div class="delta"><span>of {{ o.total }} in total</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-brand"><i class="bi bi-grid-3x3-gap-fill"></i></span>
+    <div style="flex:1"><div class="label">Seats in use</div>
+      <div class="value">{{ o.seats_in_use }}{% if o.seat_capacity and o.seat_capacity >= o.seats_in_use %} <span class="faint" style="font-size:15px;font-weight:500">of {{ o.seat_capacity }}</span>{% endif %}</div>
+      {% if o.seats_pct is not none and o.seat_capacity >= o.seats_in_use %}<div class="h-progress mt-1"><span style="width:{{ o.seats_pct }}%"></span></div>{% endif %}</div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico {{ 'tint-danger' if o.outstanding else 'tint-neutral' }}"><i class="bi bi-exclamation-triangle-fill"></i></span>
+    <div><div class="label">Outstanding dues</div><div class="value">{{ o.outstanding | inr }}</div>
+      <div class="delta {{ 'down' if o.overdue_companies }}"><span>{{ o.overdue_companies }} compan{{ 'y' if o.overdue_companies == 1 else 'ies' }} overdue</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-warn"><i class="bi bi-calendar2-event-fill"></i></span>
+    <div><div class="label">Agreements ending in 60 days</div><div class="value">{{ o.ending_soon }}</div><div class="delta"><span>to renew or wind down</span></div></div></div></div>
+</div>
+
+<div data-view-root data-view="grid" data-filter-root>
+  <div class="h-toolbar">
+    <div class="h-search"><i class="bi bi-search"></i><input type="search" data-filter-input placeholder="Search by name, email or GSTIN"></div>
+    <div class="h-pills">
+      <button class="h-pill active" type="button" data-filter-pill="status" data-value="all">All<span class="n">{{ o.total }}</span></button>
+      {% for key, label in o.filters %}
+      <button class="h-pill" type="button" data-filter-pill="status" data-value="{{ key }}">{{ label }}<span class="n">{{ o.counts[key] }}</span></button>
+      {% endfor %}
+    </div>
+    <div class="h-seg ms-auto">
+      <button type="button" class="active" data-set-view="grid"><i class="bi bi-grid"></i> Cards</button>
+      <button type="button" data-set-view="list"><i class="bi bi-list-ul"></i> List</button>
+    </div>
+  </div>
+
+  {% if not o.cards %}
+  <div class="h-card"><div class="h-card-body text-center py-5">
+    <span class="h-avatar lg av-1 mb-3"><i class="bi bi-building"></i></span>
+    <h4>No companies yet</h4>
+    <p class="muted">Invite a company and its admin will set up their own team.</p>
+    {% if current_user.is_manager or current_user.is_super_admin or current_user.is_platform_owner %}<a class="btn btn-brand" href="{{ url_for('admin.invite_company_new') }}">Invite a company</a>{% endif %}
+  </div></div>
+  {% endif %}
+
+  <div class="h-grid">
+    {% for c in o.cards %}
+    {% set co = c.company %}
+    <article class="h-card h-company" data-item data-status="{{ c.key }}">
+      <div class="top">
+        <span class="h-avatar lg av-{{ loop.index % 6 + 1 }}">{{ co.name | initials }}</span>
+        <div style="flex:1;min-width:0">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <a class="name" href="{{ url_for('admin.company_detail', company_id=co.id) }}">{{ co.name }}</a>
+            <span class="h-chip sm {{ c.tint }}"><span class="h-dot" style="background:currentColor"></span>{{ c.label }}</span>
+          </div>
+          {% if co.legal_name %}<div class="legal">{{ co.legal_name }}</div>{% endif %}
+          {% if co.tax_id %}<div class="legal">GSTIN {{ co.tax_id }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="k">{{ c.plan or 'No active plan' }}</div><div class="v">{{ c.seats }} seat{{ '' if c.seats == 1 else 's' }}</div></div>
+        <div class="stat"><div class="k">Monthly fee + GST</div><div class="v">{{ c.monthly | inr if c.monthly else '—' }}</div></div>
+      </div>
+      {% if c.credits_pct is not none %}
+      <div>
+        <div class="d-flex justify-content-between small mb-1"><span class="muted">Meeting credits left</span><b>{{ c.credits_left }} of {{ c.credits_monthly }} a month</b></div>
+        <div class="h-progress {{ 'bad' if c.credits_pct <= 10 else ('warn' if c.credits_pct <= 30 else '') }}"><span style="width:{{ c.credits_pct }}%"></span></div>
+      </div>
+      {% endif %}
+      <div class="contact">
+        {% if c.contact_name %}<span><i class="bi bi-person"></i>{{ c.contact_name }}</span>{% endif %}
+        {% if c.contact_email %}<span><i class="bi bi-envelope"></i>{{ c.contact_email }}</span>{% endif %}
+        {% if c.phone %}<span><i class="bi bi-telephone"></i>{{ c.phone }}</span>{% endif %}
+        <span><i class="bi bi-people"></i>{{ c.people }} of {{ co.max_employees }} people{% if c.state %} · {{ c.state }}{% endif %}</span>
+      </div>
+      <div class="foot">
+        <div class="small {{ 'text-danger fw-semibold' if c.due else 'muted' }}">
+          {% if c.due %}<i class="bi bi-exclamation-circle"></i> {{ c.due | inr }} due
+          {% elif c.ends %}<i class="bi bi-file-earmark-text"></i> {{ 'Leaves' if c.on_notice else 'Agreement to' }} {{ c.ends | date }}
+          {% else %}<i class="bi bi-file-earmark"></i> No agreement yet{% endif %}
+        </div>
+        <div class="d-flex gap-1">
+          <a class="btn btn-soft btn-sm" href="{{ url_for('admin.company_detail', company_id=co.id) }}"><i class="bi bi-eye"></i> View</a>
+          {% if c.sub_id %}<a class="btn btn-ghost btn-sm" href="{{ url_for('admin.subscription_agreement', sub_id=c.sub_id) }}" title="Agreement"><i class="bi bi-file-earmark-text"></i></a>{% endif %}
+          <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.company_documents', company_id=co.id) }}" title="Documents"><i class="bi bi-folder2"></i></a>
+        </div>
+      </div>
+    </article>
     {% endfor %}
-  </tbody>
-</table>
+  </div>
+
+  <div class="h-card h-listview">
+    <div class="h-card-body pt-3" style="overflow-x:auto">
+      <table class="h-table">
+        <thead><tr><th>Company</th><th>Status</th><th>Plan</th><th class="r">Seats</th><th class="r">Monthly fee</th><th class="r">Due</th><th>Contact</th><th>People</th><th></th></tr></thead>
+        <tbody>
+          {% for c in o.cards %}
+          {% set co = c.company %}
+          <tr data-item data-status="{{ c.key }}">
+            <td><div class="d-flex align-items-center gap-3"><span class="h-avatar sm av-{{ loop.index % 6 + 1 }}">{{ co.name | initials }}</span>
+              <div><a href="{{ url_for('admin.company_detail', company_id=co.id) }}"><b>{{ co.name }}</b></a>{% if co.tax_id %}<div class="faint small">{{ co.tax_id }}</div>{% endif %}</div></div></td>
+            <td><span class="h-chip sm {{ c.tint }}">{{ c.label }}</span></td>
+            <td class="muted">{{ c.plan or '—' }}</td>
+            <td class="r">{{ c.seats }}</td>
+            <td class="r"><b>{{ c.monthly | inr if c.monthly else '—' }}</b></td>
+            <td class="r {{ 'text-danger fw-semibold' if c.due }}">{{ c.due | inr if c.due else '—' }}</td>
+            <td><div>{{ c.contact_name or '—' }}</div><div class="faint small">{{ c.contact_email }}</div></td>
+            <td class="muted">{{ c.people }} / {{ co.max_employees }}</td>
+            <td class="r"><a class="btn btn-soft btn-sm" href="{{ url_for('admin.company_detail', company_id=co.id) }}">View</a>
+              <a class="btn btn-ghost btn-sm" href="{{ url_for('admin.company_documents', company_id=co.id) }}">Docs</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
 {% endblock %}

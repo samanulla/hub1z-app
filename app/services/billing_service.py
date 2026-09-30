@@ -104,7 +104,7 @@ def open_invoice(operator: Operator | None, *, company_id, user_id, subscription
         period_start=period_start, period_end=period_end, due_date=due_date,
         issued_at=datetime.utcnow() if status == InvoiceStatus.ISSUED else None,
         status=status, notes=notes,
-        currency=operator.currency_code if operator else "USD",
+        currency=operator.currency_code if operator else "INR",
         **billing_snapshot_for_operator(operator), **buyer_snapshot(company),
     )
     db.session.add(inv)
