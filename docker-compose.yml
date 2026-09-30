@@ -30,6 +30,9 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change-me}
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8000}
       PLATFORM_BASE_DOMAIN: ${PLATFORM_BASE_DOMAIN:-hub1z.com}
+      PLATFORM_OWNER_EMAIL: ${PLATFORM_OWNER_EMAIL:-admin@hub1z.com}
+      PLATFORM_OWNER_PASSWORD: ${PLATFORM_OWNER_PASSWORD:-ChangeMe123!}
+      PLATFORM_SUPPORT_EMAIL: ${PLATFORM_SUPPORT_EMAIL:-support@hub1z.com}
       DEPLOY_MODE: ${DEPLOY_MODE:-shared}
       OPERATOR_TRIAL_DAYS: ${OPERATOR_TRIAL_DAYS:-14}
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-coworkhub}:${POSTGRES_PASSWORD:-coworkhub}@db:5432/${POSTGRES_DB:-hub1z_db}

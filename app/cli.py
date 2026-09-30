@@ -23,6 +23,7 @@ def register_cli(app: Flask) -> None:
     app.cli.add_command(credits_cycle_cmd)
     app.cli.add_command(release_no_shows_cmd)
     app.cli.add_command(update_platform_owner_email_cmd)
+    app.cli.add_command(set_platform_owner_password_cmd)
 
 
 @click.command("credits-cycle")
@@ -142,6 +143,26 @@ def update_platform_owner_email_cmd(new_email: str, old_email: str | None) -> No
 
 
 PERSONA_PASSWORD = "DemoPass123!"
+
+
+@click.command("set-platform-owner-password")
+@click.option("--email", default=None, help="Platform Owner email. Defaults to PLATFORM_OWNER_EMAIL config.")
+@click.option("--password", prompt=True, hide_input=True, confirmation_prompt=True)
+@with_appcontext
+def set_platform_owner_password_cmd(email: str | None, password: str) -> None:
+    """Change the Platform Owner's password (the seeded default must not stay on a live host)."""
+    from flask import current_app
+
+    if len(password) < 12:
+        raise click.ClickException("Use at least 12 characters.")
+    email = email or current_app.config["PLATFORM_OWNER_EMAIL"]
+    user = (User.query.execution_options(skip_operator_filter=True)
+            .filter_by(email=email, role=UserRole.PLATFORM_OWNER).first())
+    if not user:
+        raise click.ClickException(f"No Platform Owner found with email {email}.")
+    user.set_password(password)
+    db.session.commit()
+    click.echo(f"Password updated for {email}. Put the same value in PLATFORM_OWNER_PASSWORD in .env.")
 
 
 def _seed_sample_billing(demo: Operator, acme: Company, ivy: User) -> None:
