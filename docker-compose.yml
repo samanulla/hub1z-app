@@ -63,6 +63,8 @@ services:
       web:
         condition: service_healthy
     environment: *app-env
+    healthcheck:
+      disable: true
     volumes:
       - uploads:/app/var
     command: >-
