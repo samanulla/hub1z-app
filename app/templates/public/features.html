@@ -1,7 +1,43 @@
-{% extends "public/base_marketing.html" %}
+{% extends "public/base_platform.html" %}
+{% set active = 'features' %}
 {% block title %}Features | {{ app_name }}{% endblock %}
-{% block body %}
-<nav class="marketing-nav solid"><a class="brand" href="/"><span class="brand-dot"></span> {{ app_name }}</a><div class="nav-links"><a class="nav-link" href="/pricing">Pricing</a><a class="nav-link" href="/auth/register/operator">Start free</a><a class="nav-link btn-nav-cta" href="/auth/login">Sign in</a></div></nav>
-<section class="section" style="padding-top: 10rem;"><div class="container-x"><div style="max-width: 760px;"><div class="eyebrow">The platform</div><h1 style="margin-top: 1rem;">Everything behind a well-run space.</h1><p style="margin-top: 1.5rem; max-width: 620px;">Bookings, members, billing, community, and the operator tools that keep your hospitality moving.</p></div><div class="row g-4" style="margin-top: 4rem;">{% for slug, title, description in features %}<div class="col-md-6 col-lg-4"><a class="flat-card d-block h-100" href="{{ url_for('public_feature_detail', slug=slug) }}"><div class="eyebrow">{{ '%02d'|format(loop.index) }}</div><h3 style="margin-top: .8rem;">{{ title }}</h3><p style="margin-top: .8rem;">{{ description }}</p><span class="eyebrow" style="display:block; margin-top: 1.5rem;">Explore feature -></span></a></div>{% endfor %}</div></div></section>
-<section class="bg-ink" style="padding: 5rem 0;"><div class="container-x text-center"><h2 class="text-cream">Start with one location. Grow into many.</h2><p class="text-cream" style="opacity:.8;">Try the full platform during your free trial.</p><a class="btn-saffron" style="margin-top:1.5rem;" href="/auth/register/operator">Start free trial</a></div></section>
+
+{% block content %}
+<section class="s-page-head">
+  <div class="s-wrap">
+    <span class="s-eyebrow">The platform</span>
+    <h1>Everything behind a well-run space.</h1>
+    <p>Bookings, members, billing, community and the operator tools that keep your hospitality moving.</p>
+  </div>
+</section>
+
+<section class="s-section">
+  <div class="s-wrap">
+    {% set icons = {'bookings': 'bi-calendar2-check', 'memberships': 'bi-people', 'billing': 'bi-receipt-cutoff', 'multi-location': 'bi-buildings', 'operator-tools': 'bi-speedometer2', 'security': 'bi-shield-lock'} %}
+    {% set tones = ['', 'amber', 'green', 'sky', 'rose', ''] %}
+    <div class="s-grid3">
+      {% for slug, title, description in features %}
+      <a class="s-card" href="{{ url_for('public_feature_detail', slug=slug) }}">
+        <span class="s-icon {{ tones[loop.index0 % 6] }}"><i class="bi {{ icons.get(slug, 'bi-stars') }}"></i></span>
+        <h3>{{ title }}</h3>
+        <p>{{ description }}</p>
+        <span class="more">Explore feature <i class="bi bi-arrow-right"></i></span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="s-section" style="padding-top:0">
+  <div class="s-wrap s-cta-wrap">
+    <div class="s-cta">
+      <h2>Start with one location. Grow into many.</h2>
+      <p>Try the full platform during your free trial.</p>
+      <div class="acts">
+        <a class="s-btn white" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
+        <a class="s-btn outline-white" href="{{ url_for('public_pricing') }}">See pricing</a>
+      </div>
+    </div>
+  </div>
+</section>
 {% endblock %}

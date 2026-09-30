@@ -1,242 +1,286 @@
-{% extends "public/base_marketing.html" %}
+{% extends "public/base_platform.html" %}
 {% block title %}{{ app_name }} · Run your coworking business{% endblock %}
 
-{% block body %}
-<!-- ============ HERO ============ -->
-<section class="hero-full">
-  <nav class="marketing-nav on-hero">
-    <a class="brand" href="/"><span class="brand-dot"></span> {{ app_name }}</a>
-    <div class="nav-links">
-      <a class="nav-link" href="{{ url_for('public_features') }}">Features</a>
-      <a class="nav-link" href="{{ url_for('public_pricing') }}">Pricing</a>
-      <a class="nav-link" href="#how-it-works">How it works</a>
-      <a class="nav-link" href="{{ url_for('auth.register_operator') }}">Start free</a>
-      <a class="nav-link btn-nav-cta" href="{{ url_for('auth.login') }}">Sign in</a>
-    </div>
-  </nav>
+{% block content %}
+{% set trial_days = config.OPERATOR_TRIAL_DAYS %}
 
-  <div class="container-x" style="padding-top: 4rem;">
-    <div style="max-width: 720px;">
-      <div class="eyebrow" style="margin-bottom: 1.5rem;">The back office for coworking operators</div>
-      <h1>Run your coworking<br>business on {{ app_name }}.</h1>
-      <p style="margin-top: 1.5rem;">
-        Locations, seats, bookings, billing, community, and your own branded
-        member portal — one platform, your own domain. Built India-first:
-        GST invoicing, UPI/NEFT/RTGS/IMPS, ₹ and Indian number formats out of the box.
-      </p>
-      <div class="gap-buttons" style="margin-top: 2.5rem;">
-        <a class="btn-saffron" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
-        <a class="btn-outline-ink" href="{{ url_for('public_features') }}" style="color: var(--cream); border-color: var(--cream);">Explore the platform</a>
-        <a class="btn-outline-ink" href="{{ url_for('auth.login') }}" style="color: var(--cream); border-color: var(--cream);">Sign in</a>
+<!-- ============ HERO ============ -->
+<section class="s-hero">
+  <div class="s-wrap s-hero-grid">
+    <div>
+      <a class="s-pill" href="#features"><b>New</b> Credits, agreements and GST billing built in <i class="bi bi-arrow-right"></i></a>
+      <h1 class="s-h1">Run your coworking<br>business on <span class="s-grad">hub1z</span>.</h1>
+      <p class="s-lead">One calm back office for locations, seats, meeting-room credits, agreements and GST invoicing, plus a branded portal your members will enjoy using. Built for India from day one.</p>
+      <div class="s-hero-cta">
+        <a class="s-btn primary" href="{{ url_for('auth.register_operator') }}">Start free trial <i class="bi bi-arrow-right"></i></a>
+        <a class="s-btn ghost" href="{{ url_for('public_features') }}">Explore the platform</a>
+      </div>
+      <div class="s-notes">
+        <span><i class="bi bi-check-circle-fill"></i>{{ trial_days }}-day free trial</span>
+        <span><i class="bi bi-check-circle-fill"></i>No card required</span>
+        <span><i class="bi bi-check-circle-fill"></i>Live in an afternoon</span>
+      </div>
+    </div>
+
+    <div class="s-mock" aria-hidden="true">
+      <div class="s-window">
+        <div class="s-bar"><i></i><i></i><i></i><span>lotusworks.hub1z.com/admin</span></div>
+        <div class="s-app">
+          <div class="s-app-side">
+            <img src="{{ url_for('static', filename='img/brand/hub1z-icon-light.svg') }}" alt="">
+            <div class="on"><i class="bi bi-grid-1x2-fill"></i>Dashboard</div>
+            <div><i class="bi bi-building"></i>Companies</div>
+            <div><i class="bi bi-clock-history"></i>Credits</div>
+            <div><i class="bi bi-receipt"></i>Invoices</div>
+            <div><i class="bi bi-calendar2-week"></i>Bookings</div>
+            <div><i class="bi bi-bar-chart"></i>Reports</div>
+          </div>
+          <div class="s-app-main">
+            <div class="s-kpis">
+              <div class="s-kpi"><small>Occupancy</small><b>82%</b><em>+6%</em></div>
+              <div class="s-kpi"><small>Invoiced</small><b>₹4,82,500</b><em>On schedule</em></div>
+              <div class="s-kpi"><small>Companies</small><b>27</b><em>3 new</em></div>
+            </div>
+            <div class="s-chart">
+              <small>Desk occupancy, last 10 weeks</small>
+              <div class="s-bars"><i style="height:48%"></i><i style="height:56%"></i><i style="height:52%"></i><i style="height:64%"></i><i style="height:60%"></i><i style="height:70%"></i><i style="height:68%"></i><i style="height:76%"></i><i style="height:80%"></i><i class="hi" style="height:88%"></i></div>
+            </div>
+            <div class="s-rows">
+              <div class="s-row"><span class="av">AC</span><b>Acme Co</b><span class="t">5 dedicated desks</span><span class="s-tag">Active</span></div>
+              <div class="s-row"><span class="av">KA</span><b>Kaveri Labs</b><span class="t">Private office</span><span class="s-tag">Active</span></div>
+              <div class="s-row"><span class="av">ZT</span><b>Zenith LLP</b><span class="t">2 dedicated desks</span><span class="s-tag warn">Invoice due</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="s-float f1"><span class="ic green"><i class="bi bi-check2-circle"></i></span><div><b>Invoice paid · ₹88,500</b><small>GST included · via UPI</small></div></div>
+      <div class="s-float f2"><span class="ic indigo"><i class="bi bi-qr-code-scan"></i></span><div><b>QR check-in</b><small>Priya N. · 2nd floor</small></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FACTS STRIP ============ -->
+<div class="s-strip">
+  <div class="s-wrap">
+    <ul>
+      <li><i class="bi bi-receipt-cutoff"></i>GST-ready invoicing</li>
+      <li><i class="bi bi-currency-rupee"></i>UPI · NEFT · RTGS · IMPS</li>
+      <li><i class="bi bi-translate"></i>₹ and Indian number formats</li>
+      <li><i class="bi bi-shield-lock"></i>Data isolated per operator</li>
+      <li><i class="bi bi-phone"></i>Two-factor sign-in</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ FEATURES ============ -->
+<section class="s-section" id="features">
+  <div class="s-wrap">
+    <div class="s-head">
+      <span class="s-eyebrow">What is included</span>
+      <h2>Everything your space runs on. Nothing to build.</h2>
+      <p>From the first enquiry to the month-end invoice, one platform covers the work behind a well-run space.</p>
+    </div>
+    <div class="s-grid3">
+      <div class="s-card"><span class="s-icon"><i class="bi bi-calendar2-check"></i></span><h3>Bookings and availability</h3><p>Desks, cabins and rooms on one shared 30-minute calendar. Live conflict checks, recurring bookings, waitlists and automatic release of no-shows.</p></div>
+      <div class="s-card"><span class="s-icon amber"><i class="bi bi-clock-history"></i></span><h3>Meeting-room credits</h3><p>30-minute credits pooled by company and allocated to employees, with monthly cycles and a full ledger of every credit used.</p></div>
+      <div class="s-card"><span class="s-icon green"><i class="bi bi-receipt-cutoff"></i></span><h3>GST billing</h3><p>Tax invoices with the CGST, SGST and IGST split, advance invoices, deposits, late fees, credit notes and PDF export.</p></div>
+      <div class="s-card"><span class="s-icon sky"><i class="bi bi-file-earmark-text"></i></span><h3>Agreements</h3><p>Workspace agreements with lock-in, notice and early-exit terms, rate revisions, and the signed copy kept on file.</p></div>
+      <div class="s-card"><span class="s-icon"><i class="bi bi-buildings"></i></span><h3>Multi-location</h3><p>One workspace, many sites. Location managers see only their own site while owners see everything.</p></div>
+      <div class="s-card"><span class="s-icon rose"><i class="bi bi-window-stack"></i></span><h3>Branded member portal</h3><p>Companies, employees and individuals book, check in, pay and join the community on your own subdomain.</p></div>
+      <div class="s-card"><span class="s-icon amber"><i class="bi bi-qr-code-scan"></i></span><h3>Reception and QR</h3><p>QR day passes, guest invitations and visitor check-in make the front desk a one-tap job.</p></div>
+      <div class="s-card"><span class="s-icon green"><i class="bi bi-bar-chart-line"></i></span><h3>Reports</h3><p>Occupancy, financials, subscriptions, people and a capacity heatmap, ready whenever you need them.</p></div>
+      <div class="s-card"><span class="s-icon sky"><i class="bi bi-shield-lock"></i></span><h3>Security</h3><p>Two-factor sign-in, an audit log with CSV export, rate limiting and hard data isolation between operators.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DEEP DIVES ============ -->
+<section class="s-section soft">
+  <div class="s-wrap">
+    <div class="s-split">
+      <div>
+        <span class="s-eyebrow">Agreements and billing</span>
+        <h2>From signed agreement to paid invoice.</h2>
+        <p class="lead">Set the terms once. hub1z raises invoices on schedule, splits GST correctly and records every payment, so month-end stops being a scramble.</p>
+        <ul class="s-list">
+          <li><i class="bi bi-check-circle-fill"></i>Agreements with lock-in, notice and early-exit terms</li>
+          <li><i class="bi bi-check-circle-fill"></i>Monthly billing on autopilot through the built-in scheduler</li>
+          <li><i class="bi bi-check-circle-fill"></i>Advance invoices, security deposits and late fees</li>
+          <li><i class="bi bi-check-circle-fill"></i>Payments recorded by UPI, NEFT, RTGS, IMPS, card, cash or cheque</li>
+        </ul>
+      </div>
+      <div class="s-split-media">
+        <div class="s-panel" aria-hidden="true">
+          <div class="s-doc">
+            <div class="s-doc-h"><div><b>Tax invoice INV-2026-0142</b><small>Acme Co Private Limited</small></div><span class="s-tag">Paid</span></div>
+            <div class="s-line"><span>5 dedicated desks, October</span><span>₹75,000</span></div>
+            <div class="s-line"><span>CGST 9%</span><span>₹6,750</span></div>
+            <div class="s-line"><span>SGST 9%</span><span>₹6,750</span></div>
+            <div class="s-line total"><span>Total</span><span>₹88,500</span></div>
+          </div>
+          <div class="s-doc">
+            <div class="s-doc-h"><div><b>Workspace agreement</b><small>12 months · 3-month lock-in</small></div><span class="s-tag">Signed</span></div>
+            <div class="s-line"><span>Security deposit</span><span>₹1,50,000</span></div>
+            <div class="s-line"><span>Notice period</span><span>2 months</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="s-split rev">
+      <div>
+        <span class="s-eyebrow">Bookings and credits</span>
+        <h2>Fair, flexible room time.</h2>
+        <p class="lead">Give each company a monthly pool of 30-minute credits and let the team share it. Everyone sees what is free, and nobody sees whose meeting it is.</p>
+        <ul class="s-list">
+          <li><i class="bi bi-check-circle-fill"></i>Company pools with per-employee allocations</li>
+          <li><i class="bi bi-check-circle-fill"></i>One shared calendar across desks and rooms</li>
+          <li><i class="bi bi-check-circle-fill"></i>No-shows released automatically for the next booking</li>
+          <li><i class="bi bi-check-circle-fill"></i>A full ledger of every credit used</li>
+        </ul>
+      </div>
+      <div class="s-split-media">
+        <div class="s-panel" aria-hidden="true">
+          <div class="s-doc">
+            <div class="s-doc-h"><div><b>Acme Co credits</b><small>October cycle</small></div><span class="s-tag">40 / month</span></div>
+            <div class="s-line"><span>Used</span><span>26 credits</span></div>
+            <div class="s-mini"><div class="s-bar-track"><span style="width:65%"></span></div><small>65%</small></div>
+            <div class="s-line"><span>Allocated to employees</span><span>32 credits</span></div>
+            <div class="s-mini"><div class="s-bar-track amber"><span style="width:80%"></span></div><small>80%</small></div>
+          </div>
+          <div class="s-doc">
+            <div class="s-doc-h"><div><b>Board room · Tue</b><small>Shared 30-minute calendar</small></div></div>
+            <div class="s-slots"><div class="s-slot">Blocked</div><div class="s-slot you">Your team</div><div class="s-slot you">Your team</div><div class="s-slot free">Free</div><div class="s-slot">Blocked</div><div class="s-slot free">Free</div><div class="s-slot free">Free</div><div class="s-slot">Blocked</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="s-split">
+      <div>
+        <span class="s-eyebrow">Your brand, every location</span>
+        <h2>Your space. Your name. Our engine.</h2>
+        <p class="lead">Every operator gets a branded site and member portal on their own subdomain. Your logo, plans and locations come first; hub1z quietly does the heavy lifting.</p>
+        <ul class="s-list">
+          <li><i class="bi bi-check-circle-fill"></i>yourspace.{{ config.PLATFORM_BASE_DOMAIN }} from day one</li>
+          <li><i class="bi bi-check-circle-fill"></i>Location managers scoped to a single site</li>
+          <li><i class="bi bi-check-circle-fill"></i>Hard data isolation between operators</li>
+        </ul>
+      </div>
+      <div class="s-split-media">
+        <div class="s-panel" aria-hidden="true">
+          <div class="s-portal">
+            <div class="s-portal-top"><span><span class="dot">L</span>Lotus Works</span><small style="color:var(--s-ink-3);font-weight:500">Sign in</small></div>
+            <div class="s-portal-body">
+              <div class="s-loc"><b>Adyar</b><div class="s-bar-track" style="flex:1"><span style="width:86%"></span></div><small>86%</small></div>
+              <div class="s-loc"><b>T. Nagar</b><div class="s-bar-track" style="flex:1"><span style="width:72%"></span></div><small>72%</small></div>
+              <div class="s-loc"><b>Velachery</b><div class="s-bar-track amber" style="flex:1"><span style="width:54%"></span></div><small>54%</small></div>
+            </div>
+            <div class="s-portal-foot">Powered by <img src="{{ url_for('static', filename='img/brand/hub1z-icon.svg') }}" alt="Hub1z"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<section class="section" style="background: var(--cream-2);">
-  <div class="container-x">
-    <div class="split">
-      <div>
-        <div class="eyebrow">The operator loop</div>
-        <hr class="divider" style="margin-top: 1rem;">
-        <h2>From first location to full operation.</h2>
-        <p style="margin-top: 1.5rem;">Set up your workspace, publish plans, invite members, and see what is happening across every location from one calm back office.</p>
-        <div class="gap-buttons" style="margin-top: 2rem;">
-          <a class="btn-ink" href="{{ url_for('public_feature_detail', slug='multi-location') }}">See multi-location</a>
-          <a class="btn-outline-ink" href="{{ url_for('public_pricing') }}">View pricing</a>
-        </div>
-      </div>
-      <div class="flat-card" style="background: var(--ink); color: var(--cream); padding: 2.5rem;">
-        <div class="eyebrow text-saffron">One workspace</div>
-        <h3 class="text-cream" style="margin-top: .8rem;">Bookings. Members. Billing.</h3>
-        <div style="margin-top: 2rem; border-top: 1px solid rgba(251,247,240,.2);">
-          <div style="padding: 1rem 0; border-bottom: 1px solid rgba(251,247,240,.2);">Live resource availability</div>
-          <div style="padding: 1rem 0; border-bottom: 1px solid rgba(251,247,240,.2);">Workspace-safe member portals</div>
-          <div style="padding: 1rem 0;">Reports for the decisions ahead</div>
-        </div>
-      </div>
+<!-- ============ WHO IT IS FOR ============ -->
+<section class="s-section">
+  <div class="s-wrap">
+    <div class="s-head">
+      <span class="s-eyebrow">One platform, three experiences</span>
+      <h2>Everyone in your space gets the right view.</h2>
+    </div>
+    <div class="s-grid3">
+      <div class="s-card"><span class="s-icon"><i class="bi bi-person-gear"></i></span><h3>Operators and managers</h3>
+        <ul class="s-list"><li><i class="bi bi-check2"></i>Locations, plans, billing and payroll</li><li><i class="bi bi-check2"></i>Reports and audit history</li><li><i class="bi bi-check2"></i>Team roles, including location managers</li></ul></div>
+      <div class="s-card"><span class="s-icon amber"><i class="bi bi-building"></i></span><h3>Companies and teams</h3>
+        <ul class="s-list"><li><i class="bi bi-check2"></i>Invite and manage employees</li><li><i class="bi bi-check2"></i>Credits, subscriptions and invoices</li><li><i class="bi bi-check2"></i>Team bookings in one place</li></ul></div>
+      <div class="s-card"><span class="s-icon green"><i class="bi bi-person-heart"></i></span><h3>Members</h3>
+        <ul class="s-list"><li><i class="bi bi-check2"></i>Book desks and rooms in seconds</li><li><i class="bi bi-check2"></i>QR day passes and guest invites</li><li><i class="bi bi-check2"></i>Community directory and support</li></ul></div>
     </div>
   </div>
 </section>
 
 <!-- ============ HOW IT WORKS ============ -->
-<section class="section" id="how-it-works">
-  <div class="container-x">
-    <div class="text-center" style="max-width: 700px; margin: 0 auto 4rem;">
-      <div class="eyebrow">01 · How it works</div>
-      <hr class="divider" style="margin: 1rem auto 1.5rem;">
-      <h2>Live in an afternoon,<br>not a quarter.</h2>
+<section class="s-section soft" id="how-it-works">
+  <div class="s-wrap">
+    <div class="s-head">
+      <span class="s-eyebrow">How it works</span>
+      <h2>Live in an afternoon, not a quarter.</h2>
     </div>
-    <div class="row g-0" style="border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
-      <div class="col-md-4" style="padding: 3rem 2.5rem; border-right: 1px solid var(--line);">
-        <div class="num-serif small saffron">01</div>
-        <h3 style="margin-top: 1rem;">Start your trial</h3>
-        <p style="margin-top: .8rem;">Pick a URL slug, set your admin login — no platform staff involved, no credit card. You're in.</p>
-      </div>
-      <div class="col-md-4" style="padding: 3rem 2.5rem; border-right: 1px solid var(--line);">
-        <div class="num-serif small saffron">02</div>
-        <h3 style="margin-top: 1rem;">Set up your space</h3>
-        <p style="margin-top: .8rem;">Add locations, floors, seats, rooms, and pricing plans. Invite your Managers — including Location Managers if you run more than one site.</p>
-      </div>
-      <div class="col-md-4" style="padding: 3rem 2.5rem;">
-        <div class="num-serif small saffron">03</div>
-        <h3 style="margin-top: 1rem;">Go live</h3>
-        <p style="margin-top: .8rem;">Invite companies and individuals, or let them sign up on your own branded portal. We approve your trial and you're fully live.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ============ PLATFORM FEATURES — dark editorial band ============ -->
-<section class="bg-ink" style="padding: 7rem 0;" id="platform">
-  <div class="container-x">
-    <div class="text-center" style="max-width: 720px; margin: 0 auto 4rem;">
-      <div class="eyebrow text-saffron">02 · What's included</div>
-      <hr class="divider" style="margin: 1rem auto 1.5rem; background: var(--cream);">
-      <h2 class="text-cream">Everything your space needs.<br>Nothing you have to build.</h2>
-    </div>
-    <div class="row g-4">
-      <div class="col-md-6 col-lg-4">
-        <div class="flat-card on-ink" style="height: 100%;">
-          <div class="eyebrow text-saffron">Inventory</div>
-          <h3 class="text-cream" style="margin-top: .8rem;">Multi-location, built in</h3>
-          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">Run one site or ten. Location Managers scoped to their own site; workspace-wide Managers for everything.</p>
-        </div>
-      </div>
-      <div class="col-md-6 col-lg-4">
-        <div class="flat-card on-ink" style="height: 100%;">
-          <div class="eyebrow text-saffron">Day pass</div>
-          <h3 class="text-cream" style="margin-top: .8rem;">QR check-in</h3>
-          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">Members get a scannable QR. Reception verifies with one tap. Guests and visitors pre-registered by their host.</p>
-        </div>
-      </div>
-      <div class="col-md-6 col-lg-4">
-        <div class="flat-card on-ink" style="height: 100%;">
-          <div class="eyebrow text-saffron">Billing</div>
-          <h3 class="text-cream" style="margin-top: .8rem;">India-first invoicing</h3>
-          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">GSTIN, INR, Indian number formats, UPI/NEFT/RTGS/IMPS. Credit notes, refunds, PDF invoice export.</p>
-        </div>
-      </div>
-      <div class="col-md-6 col-lg-4">
-        <div class="flat-card on-ink" style="height: 100%;">
-          <div class="eyebrow text-saffron">Your brand</div>
-          <h3 class="text-cream" style="margin-top: .8rem;">Your domain, your look</h3>
-          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">A free subdomain from day one (yourspace.{{ config.PLATFORM_BASE_DOMAIN }}), logo, brand colour, tagline — it's your members' portal, not ours.</p>
-        </div>
-      </div>
-      <div class="col-md-6 col-lg-4">
-        <div class="flat-card on-ink" style="height: 100%;">
-          <div class="eyebrow text-saffron">Community</div>
-          <h3 class="text-cream" style="margin-top: .8rem;">More than wifi</h3>
-          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">Member directory, announcements, guest passes, support tickets, lockers, referral rewards.</p>
-        </div>
-      </div>
-      <div class="col-md-6 col-lg-4">
-        <div class="flat-card on-ink" style="height: 100%;">
-          <div class="eyebrow text-saffron">Security</div>
-          <h3 class="text-cream" style="margin-top: .8rem;">Enterprise-grade</h3>
-          <p style="color: rgba(251,247,240,.7); margin-top: .8rem;">Two-factor auth, rate limiting, full audit log with CSV export, and hard data isolation between every operator workspace.</p>
-        </div>
-      </div>
+    <div class="s-steps">
+      <div class="s-step"><span class="n">1</span><h3>Start your trial</h3><p>Pick your URL and set your admin login. No platform staff involved and no card needed.</p></div>
+      <div class="s-step"><span class="n">2</span><h3>Set up your space</h3><p>Add locations, floors, seats and rooms, publish plans and invite your managers.</p></div>
+      <div class="s-step"><span class="n">3</span><h3>Go live</h3><p>Invite companies and individuals, or let them sign up on your branded portal.</p></div>
     </div>
   </div>
 </section>
 
 <!-- ============ PRICING ============ -->
-<section class="section" id="pricing">
-  <div class="container-x">
-    <div class="text-center" style="max-width: 700px; margin: 0 auto 4rem;">
-      <div class="eyebrow">03 · Pricing</div>
-      <hr class="divider" style="margin: 1rem auto 1.5rem;">
+<section class="s-section" id="pricing">
+  <div class="s-wrap">
+    <div class="s-head">
+      <span class="s-eyebrow">Pricing</span>
       <h2>Grow into it.</h2>
-      <p style="margin-top: 1rem;">Every plan includes the full platform. Tiers set how much space you can run — upgrade anytime as you grow.</p>
+      <p>Every plan includes the full platform. Tiers set how much space you can run, and you can upgrade any time.</p>
     </div>
-    <div class="row g-4 justify-content-center">
+    {% set blurbs = {'starter': 'A space finding its feet.', 'growth': 'An established single site.', 'scale': 'A larger or multi-floor site.', 'enterprise': '500+ members or multi-city.'} %}
+    <div class="s-prices">
       {% for t in tiers %}
-      <div class="col-md-4">
-        <div class="flat-card h-100">
-          <div class="eyebrow">{{ t.name }}</div>
-          <div class="num-serif small" style="margin-top: .8rem;">
-            {% if t.monthly_price is not none %}{{ t.monthly_price | money }}<span style="font-size: 1rem; color: var(--ink-soft);">/mo</span>
-            {% else %}Custom{% endif %}
-          </div>
-          <hr class="divider" style="margin: 1.5rem 0;">
-          <ul class="small mb-0" style="list-style: none; padding: 0; color: var(--ink-soft);">
-            <li style="margin-bottom: .5rem;">{{ t.max_locations if t.max_locations is not none else "Custom" }} location(s)</li>
-            <li style="margin-bottom: .5rem;">{{ t.included_active_contracted_seats if t.included_active_contracted_seats is not none else "Custom" }} active contracted seats</li>
-            <li style="margin-bottom: .5rem;">Custom operational inventory</li>
-            {% set included_modules = t.module_catalog | selectattr('kind', 'equalto', 'module') | list %}
-            <li style="margin-bottom: .5rem;">{% if included_modules %}{{ included_modules | map(attribute='name') | join(', ') }}{% else %}Custom features, integrations and support{% endif %}</li>
-          </ul>
-          <a class="btn-ink" style="margin-top: 1.5rem;" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
-        </div>
+      <div class="s-price {{ 'pop' if t.key == 'growth' }}">
+        {% if t.key == 'growth' %}<span class="badge">Most popular</span>{% endif %}
+        <h3>{{ t.name }}</h3>
+        <p class="desc">{{ blurbs.get(t.key, 'A flexible plan for growing operators.') }}</p>
+        <div class="amt">{% if t.monthly_price is not none %}{{ t.monthly_price | inr }}<small> /month</small>{% else %}Custom{% endif %}</div>
+        <ul class="s-list">
+          <li><i class="bi bi-check2"></i>{{ t.max_locations if t.max_locations is not none else "Custom" }} location(s)</li>
+          <li><i class="bi bi-check2"></i>{{ t.included_active_contracted_seats if t.included_active_contracted_seats is not none else "Custom" }} active contracted seats</li>
+          <li><i class="bi bi-check2"></i>Custom operational inventory</li>
+          {% set included_modules = t.module_catalog | selectattr('kind', 'equalto', 'module') | list %}
+          <li><i class="bi bi-check2"></i>{% if included_modules %}{{ included_modules | map(attribute='name') | join(', ') }}{% else %}Custom features, integrations and support{% endif %}</li>
+        </ul>
+        <a class="s-btn {{ 'primary' if t.key == 'growth' else 'ghost' }} block" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
       </div>
       {% else %}
-      <p class="text-center text-muted">Pricing coming soon — <a href="{{ url_for('auth.register_operator') }}">start a free trial</a> in the meantime.</p>
+      <p style="grid-column:1/-1; text-align:center; color:var(--s-ink-2)">Pricing is being prepared. <a href="{{ url_for('auth.register_operator') }}" style="color:var(--s-brand); font-weight:600">Start a free trial</a> in the meantime.</p>
       {% endfor %}
     </div>
-    <p class="text-center" style="margin-top: 2.5rem; color: var(--ink-soft);">
-      Custom domain mapping available on request.
+    <p style="text-align:center; margin-top:32px; color:var(--s-ink-2); font-size:15px">
+      Want the full comparison? <a href="{{ url_for('public_pricing') }}" style="color:var(--s-brand); font-weight:600">See every plan in detail</a>. Custom domain mapping is available on request.
     </p>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="s-section soft" id="faq">
+  <div class="s-wrap">
+    <div class="s-head">
+      <span class="s-eyebrow">Questions</span>
+      <h2>Good to know before you start.</h2>
+    </div>
+    <div class="s-faq">
+      <details><summary>Do I need a credit card for the trial?<i class="bi bi-plus-lg"></i></summary><p>No. The {{ trial_days }}-day trial gives you the full platform, and you can decide what to do when it ends.</p></details>
+      <details><summary>Is my data kept separate from other operators?<i class="bi bi-plus-lg"></i></summary><p>Yes. Every operator's locations, members, invoices and documents are isolated from every other operator, and each operator signs in on its own address.</p></details>
+      <details><summary>Does hub1z collect payments for me?<i class="bi bi-plus-lg"></i></summary><p>hub1z keeps the books: you record payments received by UPI, bank transfer, card, cash or cheque against each invoice, and publish your payment details for members. It does not hold your money.</p></details>
+      <details><summary>Can members see each other's bookings?<i class="bi bi-plus-lg"></i></summary><p>Everyone sees when a room is free. Other people's meetings show only as "Blocked", even to the operator, so private meetings stay private.</p></details>
+      <details><summary>Can I use my own domain?<i class="bi bi-plus-lg"></i></summary><p>Every operator gets a free subdomain straight away. Mapping your own domain is available on request.</p></details>
+    </div>
   </div>
 </section>
 
 <!-- ============ CTA ============ -->
-<section class="bg-ink" style="padding: 6rem 0;">
-  <div class="container-x text-center">
-    <h2 class="text-cream">Your space, your software.</h2>
-    <p class="text-cream" style="opacity: .8; max-width: 500px; margin: 1rem auto 2rem;">
-      Free {{ config.OPERATOR_TRIAL_DAYS }}-day trial. No card required to start.
-    </p>
-    <div class="gap-buttons" style="justify-content: center;">
-      <a class="btn-saffron" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
-      <a class="btn-outline-ink" style="color: var(--cream); border-color: var(--cream);" href="{{ url_for('auth.login') }}">Sign in</a>
+<section class="s-section" style="padding-bottom:0">
+  <div class="s-wrap s-cta-wrap">
+    <div class="s-cta">
+      <img src="{{ url_for('static', filename='img/brand/hub1z-icon-light.svg') }}" alt="" width="44" style="margin-bottom:18px">
+      <h2>Your space, your software.</h2>
+      <p>Free {{ trial_days }}-day trial. No card required to start.</p>
+      <div class="acts">
+        <a class="s-btn white" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
+        <a class="s-btn outline-white" href="{{ url_for('auth.login') }}">Sign in</a>
+      </div>
     </div>
   </div>
 </section>
-
-<!-- ============ FOOTER ============ -->
-<footer class="editorial">
-  <div class="container-x">
-    <div class="row g-4" style="margin-bottom: 3rem;">
-      <div class="col-md-4">
-        <div class="brand" style="font-size: 1.3rem; font-weight: 700; display: inline-flex; align-items: center; gap: .5rem;">
-          <span class="brand-dot" style="width: 8px; height: 8px; background: var(--saffron); border-radius: 50%;"></span>
-          {{ app_name }}
-        </div>
-        <p style="color: rgba(251,247,240,.65); margin-top: 1rem; max-width: 320px;">
-          The back office for coworking operators. India-first, built for multi-location teams.
-        </p>
-      </div>
-      <div class="col-6 col-md-2">
-        <div class="eyebrow">Explore</div>
-        <ul style="list-style: none; padding: 0; margin: 1rem 0 0;">
-          <li style="margin-bottom: .5rem;"><a href="{{ url_for('public_features') }}">Features</a></li>
-          <li style="margin-bottom: .5rem;"><a href="{{ url_for('public_pricing') }}">Pricing</a></li>
-          <li style="margin-bottom: .5rem;"><a href="#how-it-works">How it works</a></li>
-        </ul>
-      </div>
-      <div class="col-6 col-md-2">
-        <div class="eyebrow">Account</div>
-        <ul style="list-style: none; padding: 0; margin: 1rem 0 0;">
-          <li style="margin-bottom: .5rem;"><a href="{{ url_for('auth.login') }}">Sign in</a></li>
-          <li style="margin-bottom: .5rem;"><a href="{{ url_for('auth.register_operator') }}">Start free trial</a></li>
-          <li style="margin-bottom: .5rem;"><a href="{{ url_for('auth.pick_workspace') }}">Find your workspace</a></li>
-        </ul>
-      </div>
-      <div class="col-md-4">
-        <div class="eyebrow">Say hello</div>
-        <p style="color: rgba(251,247,240,.65); margin-top: 1rem;">hello@{{ config.PLATFORM_BASE_DOMAIN }}</p>
-      </div>
-    </div>
-    <div style="border-top: 1px solid rgba(251,247,240,.15); padding-top: 2rem; color: rgba(251,247,240,.5); font-size: .85rem; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; align-items: center;">
-      <span>© {{ app_name }} · Made in India</span>
-      <a href="{{ url_for('public_legal_imprint') }}" style="color: rgba(251,247,240,.6);">Legal</a>
-      <a href="{{ url_for('public_terms') }}" style="color: rgba(251,247,240,.6);">Terms of Service</a>
-      <a href="{{ url_for('public_privacy') }}" style="color: rgba(251,247,240,.6);">Privacy Policy</a>
-      <a href="{{ url_for('public_cookies') }}" style="color: rgba(251,247,240,.6);">Cookies</a>
-      <a href="/healthz" style="color: rgba(251,247,240,.6);">health</a>
-    </div>
-  </div>
-</footer>
 {% endblock %}

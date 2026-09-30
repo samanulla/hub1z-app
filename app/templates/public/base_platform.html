@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ app_name }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}Hub1z is the India-first back office for coworking operators: bookings, credits, GST billing, agreements and a branded member portal.{% endblock %}">
+  {% include "_head_icons.html" %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/hub1z-site.css') }}" rel="stylesheet">
+  {% block extra_head %}{% endblock %}
+</head>
+{% set active = active | default('') %}
+<body class="s-site">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="s-flash {{ 'danger' if cat == 'danger' else '' }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+
+  <header class="s-nav" id="siteNav">
+    <div class="s-wrap s-nav-in">
+      <a class="s-logo" href="{{ url_for('index') }}" aria-label="Hub1z home">
+        <img src="{{ url_for('static', filename='img/brand/hub1z-logo.svg') }}" alt="Hub1z">
+      </a>
+      <nav class="s-links" aria-label="Main">
+        <a class="{{ 'on' if active == 'features' }}" href="{{ url_for('public_features') }}">Features</a>
+        <a class="{{ 'on' if active == 'pricing' }}" href="{{ url_for('public_pricing') }}">Pricing</a>
+        <a href="{{ url_for('index') }}#how-it-works">How it works</a>
+        <a href="{{ url_for('index') }}#faq">FAQ</a>
+      </nav>
+      <div class="s-nav-cta">
+        <a class="s-btn text sm" href="{{ url_for('auth.login') }}">Sign in</a>
+        <a class="s-btn primary sm" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
+        <button class="s-burger" type="button" aria-label="Menu" aria-expanded="false" id="siteBurger"><i class="bi bi-list"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="s-foot">
+    <div class="s-wrap">
+      <div class="s-foot-grid">
+        <div>
+          <img src="{{ url_for('static', filename='img/brand/hub1z-logo-light.svg') }}" alt="Hub1z">
+          <p>The India-first back office for coworking operators: bookings, credits, GST billing and a branded member portal.</p>
+        </div>
+        <div>
+          <h4>Product</h4>
+          <ul>
+            <li><a href="{{ url_for('public_features') }}">Features</a></li>
+            <li><a href="{{ url_for('public_pricing') }}">Pricing</a></li>
+            <li><a href="{{ url_for('index') }}#how-it-works">How it works</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Account</h4>
+          <ul>
+            <li><a href="{{ url_for('auth.login') }}">Sign in</a></li>
+            <li><a href="{{ url_for('auth.register_operator') }}">Start free trial</a></li>
+            <li><a href="{{ url_for('auth.pick_workspace') }}">Find your workspace</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Company</h4>
+          <ul>
+            <li><a href="{{ url_for('public_legal_imprint') }}">Legal</a></li>
+            <li><a href="{{ url_for('public_terms') }}">Terms of Service</a></li>
+            <li><a href="{{ url_for('public_privacy') }}">Privacy Policy</a></li>
+            <li><a href="{{ url_for('public_cookies') }}">Cookies</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="s-foot-base">
+        <span class="grow">© {{ app_name }} · Made in India</span>
+        <a href="mailto:hello@{{ config.PLATFORM_BASE_DOMAIN }}">hello@{{ config.PLATFORM_BASE_DOMAIN }}</a>
+        <a href="/healthz">health</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var nav = document.getElementById('siteNav'), btn = document.getElementById('siteBurger');
+      btn.addEventListener('click', function () {
+        var open = nav.classList.toggle('open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      nav.querySelectorAll('.s-links a').forEach(function (a) { a.addEventListener('click', function () { nav.classList.remove('open'); }); });
+    })();
+  </script>
+</body>
+</html>
