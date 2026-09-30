@@ -24,6 +24,10 @@ class CreditSettingsForm(FlaskForm):
     pay_per_use_enabled = BooleanField(
         "Charge cash for time credits do not cover",
         description="Off: members are asked to buy credits instead.")
+    no_show_minutes = IntegerField(
+        "Release a room after this many minutes without check-in",
+        validators=[InputRequired(), NumberRange(5, 120)],
+        description="The booking is marked a no-show and the room opens up; the credits are not returned.")
     submit = SubmitField("Save settings")
 
 

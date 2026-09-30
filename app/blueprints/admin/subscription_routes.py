@@ -46,7 +46,6 @@ def register_subscription_routes(bp):
                     "plan_id": plan.id, "plan_version": plan.version, "base_price": str(plan.base_price),
                     "billing_unit": plan.billing_unit.value, "billing_cycle": plan.billing_cycle.value,
                     "included_seat_quantity": plan.included_seat_quantity,
-                    "meeting_room_credits": plan.included_meeting_credits,
                     "additional_seat_rate": str(plan.additional_seat_rate),
                     "effective_from": plan.effective_from.isoformat() if plan.effective_from else None,
                     "effective_until": plan.effective_until.isoformat() if plan.effective_until else None,

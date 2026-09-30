@@ -66,3 +66,20 @@ class RoomBooking(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __table_args__ = (
         Index("ix_room_booking_conflict", "room_id", "start_at", "end_at"),
     )
+
+
+class RoomBlock(db.Model, PkMixin, TimestampMixin, OperatorScoped):
+    """The operator takes a room out of use (maintenance, internal meeting). Costs no credits."""
+    __tablename__ = "room_blocks"
+
+    room_id = Column(Integer, ForeignKey("conference_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    start_at = Column(DateTime, nullable=False)
+    end_at = Column(DateTime, nullable=False)
+    reason = Column(String(200))
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    room = relationship("ConferenceRoom")
+
+    __table_args__ = (
+        Index("ix_room_block_range", "room_id", "start_at", "end_at"),
+    )

@@ -4,6 +4,17 @@ from wtforms import StringField, PasswordField, SubmitField, SelectField, Intege
 from wtforms.validators import DataRequired, Email, Length, Optional, EqualTo, NumberRange
 
 
+class CreditRulesForm(FlaskForm):
+    booking_mode = SelectField(
+        "Who can book meeting rooms with the company's credits",
+        choices=[("all", "Everyone in the company"), ("selected", "Only the people I choose"),
+                 ("admin_only", "Only company admins")])
+    per_employee_monthly_cap = IntegerField(
+        "Most credits one employee can use each month", validators=[Optional(), NumberRange(min=0)],
+        description="Leave empty for no limit. Company admins are not limited.")
+    submit = SubmitField("Save rules")
+
+
 class InviteEmployeeForm(FlaskForm):
     full_name = StringField("Full name", validators=[DataRequired(), Length(max=150)])
     email = StringField("Work email", validators=[DataRequired(), Email(), Length(max=255)])

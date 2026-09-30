@@ -244,14 +244,6 @@ def _normalize_plan_conditions(plan, form):
     if not form.additional_seats_allowed.data:
         plan.additional_seat_rate = 0
         plan.maximum_additional_seats = None
-    if not form.meeting_room_access_included.data:
-        plan.meeting_credit_unit = None
-        plan.included_meeting_credits = 0
-        plan.meeting_credits_rollover = False
-        plan.meeting_room_overage_allowed = False
-        plan.meeting_room_overage_rate = 0
-    elif not form.meeting_room_overage_allowed.data:
-        plan.meeting_room_overage_rate = 0
     if not form.deposit_required.data:
         plan.deposit_calculation = None
         plan.deposit_value = 0

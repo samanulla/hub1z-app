@@ -250,7 +250,6 @@
     .meter-seg { height: 100%; }
     .meter-used { background: var(--ink); }
     .meter-reserved { background: var(--saffron); }
-    .meter-blocked { background: var(--coral); }
     .meter-available { background: var(--forest); }
     .meter-unallocated { background: #cfc7b3; }
     .meter-reserve { background: repeating-linear-gradient(45deg, #e5dfd0, #e5dfd0 4px, #f3ede1 4px, #f3ede1 8px); }
@@ -461,6 +460,7 @@
     <div class="side-group">
       <div class="side-group-label">Plan &amp; billing</div>
       <a class="side-link {{ 'active' if request.endpoint == 'company.plans' }}" href="{{ url_for('company.plans') }}">Plans &amp; subscriptions</a>
+      <a class="side-link {{ 'active' if request.endpoint == 'company.credits' }}" href="{{ url_for('company.credits') }}">Meeting credits</a>
       <a class="side-link {{ 'active' if request.endpoint == 'company.subscriptions' }}" href="{{ url_for('company.subscriptions') }}">Subscription history</a>
       <a class="side-link {{ 'active' if request.endpoint and (request.endpoint.startswith('company.invoice') or request.endpoint == 'company.payment_submission_new') }}" href="{{ url_for('company.invoices') }}">Invoices &amp; payments</a>
     </div>

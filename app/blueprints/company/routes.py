@@ -13,12 +13,13 @@ from ...models import (
     User, UserRole, PricingPlan, PlanScope, Subscription, SubscriptionStatus,
     SubscriptionChangeRequest, SubscriptionRequestStatus,
     Seat, SeatType, SeatAllocation, AllocationStatus, Invoice, InvoiceStatus, PaymentSubmission,
-    PaymentSubmissionStatus, SeatBooking, RoomBooking,
+    PaymentSubmissionStatus, SeatBooking, RoomBooking, CompanyCreditPolicy, CreditAllocation,
 )
 from ...utils.decorators import company_admin_required
 from .forms import (
     InviteEmployeeForm, AcceptInviteForm, CompanyProfileForm,
     SubscriptionRequestForm, EmployeeAllocationForm, CompanySeatAllocationForm, PaymentSubmissionForm,
+    CreditRulesForm,
 )
 from ...services import mail_service, tier_limits, credit_service
 
@@ -31,6 +32,31 @@ def _own_company():
     if not current_user.company_id:
         abort(403)
     return current_user.company
+
+
+@company_bp.route("/credits", methods=["GET", "POST"])
+@company_admin_required
+def credits():
+    """Balances, who may book rooms with the company's credits, and how much each person may use."""
+    c = _own_company()
+    policy = CompanyCreditPolicy.for_company(c.operator_id, c.id)
+    form = CreditRulesForm(obj=policy)
+    employees = User.query.filter_by(company_id=c.id, role=UserRole.EMPLOYEE).order_by(User.full_name).all()
+    if form.validate_on_submit():
+        policy.booking_mode = form.booking_mode.data
+        policy.per_employee_monthly_cap = form.per_employee_monthly_cap.data
+        allowed = set(request.form.getlist("allowed", type=int))
+        for e in employees:
+            e.credit_booking_allowed = e.id in allowed
+        db.session.commit()
+        flash("Credit rules saved.", "success")
+        return redirect(url_for("company.credits"))
+    return render_template(
+        "company/credits.html", company=c, form=form, employees=employees,
+        balance=credit_service.balance(c.operator_id, company_id=c.id),
+        allocation=CreditAllocation.query.filter_by(company_id=c.id).first(),
+        used=credit_service.usage_by_employee(c.operator_id, c.id, date.today()),
+    )
 
 
 def _company_subscription_capacity(company):

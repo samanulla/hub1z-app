@@ -64,6 +64,8 @@ class User(db.Model, PkMixin, TimestampMixin, UserMixin, OperatorScoped):
     role = Column(Enum(UserRole), nullable=False, default=UserRole.INDIVIDUAL, index=True)
     is_active = Column(Boolean, default=True, nullable=False)
     email_verified = Column(Boolean, default=False, nullable=False)
+    # Employee may book rooms with the company's credits when the company limits it to selected people.
+    credit_booking_allowed = Column(Boolean, default=False, nullable=False)
 
     # 2FA (TOTP)
     two_factor_secret = Column(String(64), nullable=True)

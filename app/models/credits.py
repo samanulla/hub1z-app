@@ -54,6 +54,7 @@ class CreditSettings(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     rollover_cap = Column(Integer, nullable=False, default=0)               # max credits carried one month
     purchased_expiry_months = Column(Integer, nullable=False, default=3)
     pay_per_use_enabled = Column(Boolean, nullable=False, default=True)     # cash for what credits don't cover
+    no_show_minutes = Column(Integer, nullable=False, default=15)           # release a room nobody checked in to
 
     @classmethod
     def for_operator(cls, operator_id: int) -> "CreditSettings":
@@ -84,6 +85,26 @@ class SeatBand(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     min_seats = Column(Integer, nullable=False)
     max_seats = Column(Integer, nullable=False)
     monthly_credits = Column(Integer, nullable=False)
+
+
+class CompanyCreditPolicy(db.Model, PkMixin, TimestampMixin, OperatorScoped):
+    """How a company lets its own people use the credits the operator gave it."""
+    __tablename__ = "company_credit_policies"
+    __table_args__ = (db.UniqueConstraint("company_id", name="uq_company_credit_policy_company"),)
+
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
+    booking_mode = Column(String(12), nullable=False, default="all")   # all | admin_only | selected
+    per_employee_monthly_cap = Column(Integer, nullable=True)          # NULL = no cap
+
+    @classmethod
+    def for_company(cls, operator_id: int, company_id: int) -> "CompanyCreditPolicy":
+        row = (cls.query.execution_options(skip_operator_filter=True)
+               .filter_by(operator_id=operator_id, company_id=company_id).first())
+        if row is None:
+            row = cls(operator_id=operator_id, company_id=company_id)
+            db.session.add(row)
+            db.session.flush()
+        return row
 
 
 class CreditAllocation(db.Model, PkMixin, TimestampMixin, OperatorScoped):

@@ -21,6 +21,7 @@ def register_cli(app: Flask) -> None:
     app.cli.add_command(create_operator_cmd)
     app.cli.add_command(run_scheduled_jobs_cmd)
     app.cli.add_command(credits_cycle_cmd)
+    app.cli.add_command(release_no_shows_cmd)
     app.cli.add_command(update_platform_owner_email_cmd)
 
 
@@ -36,6 +37,15 @@ def credits_cycle_cmd(on: str | None) -> None:
                f"{r['expired']} lot(s) expired.")
 
 
+@click.command("release-no-shows")
+@with_appcontext
+def release_no_shows_cmd() -> None:
+    """Free rooms nobody checked in to and close finished meetings. Run every few minutes."""
+    from .services.booking_service import release_no_shows
+    r = release_no_shows()
+    click.echo(f"Released {r['released']} no-show room booking(s); completed {r['completed']}.")
+
+
 @click.command("run-scheduled-jobs")
 @click.option("--month", default=None, help="Billing month as YYYY-MM; defaults to the current month.")
 @with_appcontext
@@ -43,14 +53,16 @@ def run_scheduled_jobs_cmd(month: str | None) -> None:
     """Materialize recurring bookings and generate idempotent invoices."""
     from datetime import datetime
     from .services.billing_service import run_monthly_billing
-    from .services.booking_service import materialize_recurring_room_bookings
+    from .services.booking_service import materialize_recurring_room_bookings, release_no_shows
 
     target_month = datetime.strptime(f"{month}-01", "%Y-%m-%d").date() if month else None
     bookings = materialize_recurring_room_bookings()
     invoices = run_monthly_billing(target_month)
     credits = credit_service.run_all_cycles()
+    no_shows = release_no_shows()
     click.echo(f"Created {bookings} recurring booking(s); generated {len(invoices)} invoice(s); "
-               f"credits: {credits['granted']} granted, {credits['expired']} expired.")
+               f"credits: {credits['granted']} granted, {credits['expired']} expired; "
+               f"{no_shows['released']} no-show(s) released.")
 
 
 @click.command("create-admin")

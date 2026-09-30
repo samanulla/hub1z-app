@@ -2,19 +2,21 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, date as date_cls, time as time_cls
+from decimal import Decimal
 from zoneinfo import ZoneInfo
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, abort
 from flask_login import current_user, login_required
 
+from ...extensions import db
 from ...models import (
     Location, Seat, ConferenceRoom, SeatType, RoomWaitlist, WaitlistStatus,
-    RecurringRoomBooking, RecurrencePattern, RoomBooking, SeatBooking, BookingStatus,
+    RecurringRoomBooking, RecurrencePattern, RoomBooking, RoomBlock, SeatBooking, BookingStatus,
     User, UserRole,
 )
-from ...services import credit_service
+from ...services import calendar_view, credit_service
 from ...services.booking_service import (
-    create_seat_booking, create_room_booking, quote_seat, quote_room,
+    create_seat_booking, create_room_booking, quote_seat, quote_room, preview_room, check_in, can_check_in,
     BookingError, check_seat_conflict, check_room_conflict,
 )
 from ...services.formatting import format_money, now_local, parse_local_naive_to_utc
@@ -79,10 +81,7 @@ def location_calendar(location_id: int):
                                    ConferenceRoom.cross_location_bookable.is_(True))
                             .order_by(ConferenceRoom.name).all())
     bookable_rooms = rooms + cross_location_rooms
-    try:
-        tz = ZoneInfo(loc.timezone or "UTC")
-    except Exception:  # noqa: BLE001 - bad/legacy timezone data shouldn't 500 the calendar
-        tz = ZoneInfo("UTC")
+    tz = calendar_view.location_tz(loc)
 
     date_str = request.args.get("date")
     try:
@@ -90,60 +89,30 @@ def location_calendar(location_id: int):
     except ValueError:
         day = datetime.now(tz).date()
 
-    if loc.is_247:
-        open_t, close_t = time_cls(0, 0), time_cls(23, 0)
-    else:
-        open_t = loc.open_time or time_cls(7, 0)
-        close_t = loc.close_time or time_cls(21, 0)
+    view = "week" if request.args.get("view") == "week" else "day"
+    week_room = next((r for r in bookable_rooms if r.id == request.args.get("room", type=int)),
+                     bookable_rooms[0] if bookable_rooms else None)
+    cal = calendar_view.build_calendar(loc=loc, rooms=bookable_rooms, day=day, view=view,
+                                       week_room=week_room, viewer=current_user)
 
-    slot_times = []
-    cur = datetime.combine(day, open_t)
-    day_end = datetime.combine(day, close_t)
-    while cur < day_end:
-        slot_times.append(cur.time())
-        cur += timedelta(hours=1)
-
-    day_start_local = datetime.combine(day, time_cls.min).replace(tzinfo=tz)
-    day_end_local = day_start_local + timedelta(days=1)
-    day_start_utc = day_start_local.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
-    day_end_utc = day_end_local.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
-
-    room_ids = [r.id for r in rooms]
-    bookings = []
+    # The list under the grid: the operator sees every booking; everyone else only their own
+    # and their company's, so other people's meetings stay private.
+    days = cal["days"]
+    start_utc = datetime.combine(days[0], time_cls.min).replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    end_utc = start_utc + timedelta(days=len(days))
+    room_ids = [r.id for r in bookable_rooms]
+    bookings, blocks = [], []
     if room_ids:
-        bookings = (RoomBooking.query
-                   .filter(RoomBooking.room_id.in_(room_ids))
-                   .filter(RoomBooking.status.in_([BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN]))
-                   .filter(RoomBooking.start_at < day_end_utc, RoomBooking.end_at > day_start_utc)
-                   .order_by(RoomBooking.start_at).all())
-
-    bookings_by_room: dict[int, list] = {r.id: [] for r in rooms}
-    for b in bookings:
-        local_start = b.start_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
-        local_end = b.end_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
-        bookings_by_room.setdefault(b.room_id, []).append((local_start, local_end, b))
-
-    def _booking_at(room_id: int, slot_time):
-        slot_start = datetime.combine(day, slot_time)
-        slot_end = slot_start + timedelta(hours=1)
-        for local_start, local_end, b in bookings_by_room.get(room_id, []):
-            if local_start.replace(tzinfo=None) < slot_end and local_end.replace(tzinfo=None) > slot_start:
-                return b
-        return None
-
-    grid = []
-    for slot_time in slot_times:
-        slot_start_dt = datetime.combine(day, slot_time)
-        slot_end_dt = slot_start_dt + timedelta(hours=1)
-        row = {"time": slot_time, "cells": []}
-        for room in rooms:
-            row["cells"].append({
-                "room": room,
-                "booking": _booking_at(room.id, slot_time),
-                "start": slot_start_dt.strftime("%Y-%m-%dT%H:%M"),
-                "end": slot_end_dt.strftime("%Y-%m-%dT%H:%M"),
-            })
-        grid.append(row)
+        q = (RoomBooking.query.filter(RoomBooking.room_id.in_(room_ids),
+                                      RoomBooking.status.in_([BookingStatus.CONFIRMED, BookingStatus.CHECKED_IN]),
+                                      RoomBooking.start_at < end_utc, RoomBooking.end_at > start_utc))
+        if not current_user.is_admin:
+            q = q.filter((RoomBooking.user_id == current_user.id) |
+                         ((RoomBooking.company_id == current_user.company_id) & RoomBooking.company_id.isnot(None)))
+        bookings = q.order_by(RoomBooking.start_at).all()
+        if current_user.is_admin:
+            blocks = (RoomBlock.query.filter(RoomBlock.room_id.in_(room_ids), RoomBlock.start_at < end_utc,
+                                             RoomBlock.end_at > start_utc).order_by(RoomBlock.start_at).all())
 
     locations = Location.query.filter_by(is_active=True).order_by(Location.name).all()
     recipients = []
@@ -152,33 +121,97 @@ def location_calendar(location_id: int):
                      .filter(User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL]), User.is_active.is_(True))
                      .order_by(User.full_name).all())
 
+    step = timedelta(days=7 if view == "week" else 1)
+    now = datetime.utcnow()
     return render_template(
-        "booking/calendar.html", location=loc, locations=locations, rooms=rooms,
-        bookable_rooms=bookable_rooms, grid=grid, recipients=recipients,
-        day=day, prev_day=day - timedelta(days=1), next_day=day + timedelta(days=1),
+        "booking/calendar.html", location=loc, locations=locations, bookable_rooms=bookable_rooms, cal=cal,
+        view=view, week_room=week_room, recipients=recipients, day=day, prev_day=day - step, next_day=day + step,
         today=datetime.now(tz).date(), credits_available=_current_user_credits(),
-        day_bookings=bookings,
+        day_bookings=bookings, blocks=blocks, now=now, can_check_in=can_check_in,
     )
 
 
-@booking_bp.route("/rooms/<int:room_id>/check-conflict")
+@booking_bp.route("/rooms/<int:room_id>/quote")
 @member_or_admin_required
-def room_check_conflict(room_id: int):
-    """Live conflict check for the calendar's Outlook-style 'Add meeting'
-    modal — called via fetch() as the user adjusts room/start/end."""
-    from flask import jsonify
+def room_quote(room_id: int):
+    """What booking this room for this time would do (credits, cash, or why it can't be done).
+    Called by the calendar's side panel as the selection changes."""
     room = ConferenceRoom.query.get_or_404(room_id)
-    if room.operator_id and current_user.operator_id and room.operator_id != current_user.operator_id:
-        return jsonify({"error": "Room does not belong to your workspace."}), 403
     try:
         start = parse_local_naive_to_utc(request.args["start"])
         end = parse_local_naive_to_utc(request.args["end"])
     except (KeyError, ValueError):
-        return jsonify({"error": "Invalid start or end time."}), 400
-    if end <= start:
-        return jsonify({"error": "End must be after start."}), 400
-    conflict = check_room_conflict(room.id, start, end)
-    return jsonify({"conflict": conflict})
+        return jsonify({"ok": False, "message": "Choose a start and end time."})
+    for_user, waive = None, False
+    if current_user.is_admin:
+        recipient_id = request.args.get("for_user_id", type=int)
+        if recipient_id:
+            for_user = User.query.filter(User.id == recipient_id,
+                                         User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL])).first()
+        waive = bool(request.args.get("waive_charge"))
+    out = preview_room(user=current_user, room=room, start=start, end=end,
+                       attendees=request.args.get("attendees", 1, type=int), for_user=for_user, waive_charge=waive)
+    if out["ok"]:
+        out["cash_display"] = format_money(Decimal(out["cash"]))
+    return jsonify(out)
+
+
+@booking_bp.route("/locations/<int:location_id>/calendar/block", methods=["POST"])
+@member_or_admin_required
+def calendar_block(location_id: int):
+    """The operator takes a room out of use (no credits involved)."""
+    if not current_user.is_admin:
+        abort(403)
+    loc = Location.query.get_or_404(location_id)
+    room = ConferenceRoom.query.get_or_404(request.form.get("room_id", type=int) or 0)
+    back = redirect(url_for("book.location_calendar", location_id=loc.id, date=(request.form.get("start") or "")[:10]))
+    try:
+        start = parse_local_naive_to_utc(request.form["start"])
+        end = parse_local_naive_to_utc(request.form["end"])
+        credit_service.slots_between(start, end)
+    except (KeyError, ValueError, credit_service.CreditError) as e:
+        flash(str(e) if isinstance(e, credit_service.CreditError) else "Invalid start or end time.", "danger")
+        return back
+    clash = check_room_conflict(room.id, start, end)
+    if clash:
+        flash("That time already has bookings. Cancel or move them first, then block the room.", "warning")
+        return back
+    db.session.query(ConferenceRoom.id).filter(ConferenceRoom.id == room.id).with_for_update().first()
+    db.session.add(RoomBlock(operator_id=room.operator_id, room_id=room.id, start_at=start, end_at=end,
+                             reason=(request.form.get("reason") or "").strip()[:200] or None,
+                             created_by_id=current_user.id))
+    db.session.commit()
+    flash(f"{room.name} is blocked for that time. No credits are used.", "success")
+    return back
+
+
+@booking_bp.route("/blocks/<int:block_id>/delete", methods=["POST"])
+@member_or_admin_required
+def calendar_block_delete(block_id: int):
+    if not current_user.is_admin:
+        abort(403)
+    block = RoomBlock.query.get_or_404(block_id)
+    location_id = block.room.location_id
+    db.session.delete(block)
+    db.session.commit()
+    flash("Block removed.", "info")
+    return redirect(url_for("book.location_calendar", location_id=location_id))
+
+
+@booking_bp.route("/bookings/room/<int:booking_id>/check-in", methods=["POST"])
+@member_or_admin_required
+def room_check_in(booking_id: int):
+    b = RoomBooking.query.get_or_404(booking_id)
+    allowed = (b.user_id == current_user.id or current_user.is_admin
+               or (current_user.is_company_admin and b.company_id == current_user.company_id))
+    if not allowed:
+        abort(403)
+    try:
+        check_in(b)
+        flash("Checked in. Enjoy your meeting.", "success")
+    except BookingError as e:
+        flash(str(e), "warning")
+    return redirect(request.referrer or url_for("member.bookings"))
 
 
 @booking_bp.route("/locations/<int:location_id>/calendar/quick-book", methods=["POST"])
@@ -342,7 +375,10 @@ def room_book(room_id: int):
                 ctx["error"] = str(e)
 
         if end > start and not waive_charge:
-            ctx["quote"] = quote_room(booked_for, room, start, end)
+            try:
+                ctx["quote"] = quote_room(booked_for, room, start, end)
+            except BookingError as e:
+                ctx["error"] = str(e)
             ctx["has_conflict"] = check_room_conflict(room.id, start, end)
         elif end > start:
             ctx["has_conflict"] = check_room_conflict(room.id, start, end)

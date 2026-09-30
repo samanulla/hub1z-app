@@ -50,12 +50,10 @@ def _seed(app):
         employee.set_password("EmployeePass123!")
         basic = PricingPlan(operator_id=operator.id, name="Basic", scope=PlanScope.COMPANY_STANDARD,
                             plan_type=PlanType.HOT_DESK,
-                            billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("1000"),
-                            included_meeting_credits=2)
+                            billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("1000"))
         growth = PricingPlan(operator_id=operator.id, name="Growth", scope=PlanScope.COMPANY_STANDARD,
                              plan_type=PlanType.DEDICATED_DESK,
-                             billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("2000"),
-                             included_meeting_credits=5)
+                             billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("2000"))
         db.session.add_all([company_admin, employee, basic, growth])
         db.session.flush()
         location = Location(operator_id=operator.id, name="HQ", code="HQ", address_line1="1 Main Street",

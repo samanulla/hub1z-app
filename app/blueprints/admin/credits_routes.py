@@ -66,7 +66,6 @@ def register_credit_routes(bp):
         segments = [
             {"key": "used", "label": "Used", "value": pool["used"]},
             {"key": "reserved", "label": "Reserved (booked ahead)", "value": pool["reserved"]},
-            {"key": "blocked", "label": "Blocked", "value": 0},
             {"key": "available", "label": "Allocated, still free", "value": pool["available"]},
             {"key": "unallocated", "label": "Not allocated yet", "value": pool["unallocated"]},
             {"key": "reserve", "label": "Kept for new signups", "value": pool["reserve"]},

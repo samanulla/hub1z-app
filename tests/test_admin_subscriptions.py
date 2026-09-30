@@ -40,8 +40,7 @@ def _seed(app):
         db.session.add(ca)
         plan = PricingPlan(operator_id=t.id, name="Dedicated Desk", scope=PlanScope.COMPANY_STANDARD,
                            plan_type=PlanType.DEDICATED_DESK,
-                           billing_cycle=BillingCycle.MONTHLY, base_price=22000,
-                           included_meeting_credits=20, max_locations=1)
+                           billing_cycle=BillingCycle.MONTHLY, base_price=22000, max_locations=1)
         db.session.add(plan)
         from app.models import SeatBand
         db.session.add(SeatBand(operator_id=t.id, min_seats=1, max_seats=10, monthly_credits=20))

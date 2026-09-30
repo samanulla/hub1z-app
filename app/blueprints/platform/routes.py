@@ -38,16 +38,16 @@ def _normalize_primary_domain(raw: str | None, slug: str, base: str) -> str:
 def _seed_operator_defaults(operator: Operator) -> None:
     """Seed a fresh operator with sensible starter data — pricing plans + email templates."""
     plans_seed = [
-        ("Hot Desk Monthly", PlanType.HOT_DESK, BillingCycle.MONTHLY, Decimal("12000"), 8, 1),
-        ("Dedicated Desk", PlanType.DEDICATED_DESK, BillingCycle.MONTHLY, Decimal("22000"), 20, 1),
-        ("Private Office (4-person)", PlanType.PRIVATE_OFFICE, BillingCycle.MONTHLY, Decimal("85000"), 40, 1),
-        ("All Access", PlanType.ALL_ACCESS, BillingCycle.MONTHLY, Decimal("18000"), 12, 0),
-        ("Day Pass", PlanType.DAY_PASS, BillingCycle.DAILY, Decimal("900"), 0, 1),
+        ("Hot Desk Monthly", PlanType.HOT_DESK, BillingCycle.MONTHLY, Decimal("12000"), 1),
+        ("Dedicated Desk", PlanType.DEDICATED_DESK, BillingCycle.MONTHLY, Decimal("22000"), 1),
+        ("Private Office (4-person)", PlanType.PRIVATE_OFFICE, BillingCycle.MONTHLY, Decimal("85000"), 1),
+        ("All Access", PlanType.ALL_ACCESS, BillingCycle.MONTHLY, Decimal("18000"), 0),
+        ("Day Pass", PlanType.DAY_PASS, BillingCycle.DAILY, Decimal("900"), 1),
     ]
-    for name, ptype, cycle, price, credits, max_loc in plans_seed:
+    for name, ptype, cycle, price, max_loc in plans_seed:
         db.session.add(PricingPlan(
             operator_id=operator.id, name=name, plan_type=ptype, billing_cycle=cycle,
-            base_price=price, included_meeting_credits=credits, max_locations=max_loc,
+            base_price=price, max_locations=max_loc,
         ))
 
     tmpl_seed = [

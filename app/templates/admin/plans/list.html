@@ -8,7 +8,7 @@
 </div>
 
 <table class="table bg-white shadow-sm">
-  <thead><tr><th>Plan Name</th><th>Scope</th><th>Workspace Type</th><th>Billing Unit</th><th>Cycle</th><th>Base Price</th><th>Included Seats</th><th>Meeting Room Credits</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>
+  <thead><tr><th>Plan Name</th><th>Scope</th><th>Workspace Type</th><th>Billing Unit</th><th>Cycle</th><th>Base Price</th><th>Included Seats</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>
   <tbody>
     {% for p in plans %}
     <tr>
@@ -19,13 +19,12 @@
       <td>{{ p.billing_cycle.value }}</td>
       <td>{{ p.base_price | money }}</td>
       <td>{{ p.included_seat_quantity }}</td>
-      <td>{{ p.included_meeting_credits }}</td>
       <td>{{ p.location_scope.value }}{% if p.locations %}: {{ p.locations|map(attribute='name')|join(', ') }}{% endif %}</td>
       <td><span class="badge bg-secondary">{{ p.status.value }}</span></td>
       <td class="text-end"><a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.plan_edit', plan_id=p.id) }}">Edit</a></td>
     </tr>
     {% else %}
-    <tr><td colspan="11" class="text-center text-muted py-4">No plans yet.</td></tr>
+    <tr><td colspan="10" class="text-center text-muted py-4">No plans yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>

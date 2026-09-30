@@ -14,7 +14,7 @@ from .pricing import (
     PlanStatus, PlanAddon,
 )
 from .subscription import Subscription, SubscriptionStatus, SubscriptionChangeRequest, SubscriptionRequestStatus
-from .booking import SeatBooking, RoomBooking, BookingStatus
+from .booking import SeatBooking, RoomBooking, RoomBlock, BookingStatus
 from .invoice import Invoice, InvoiceLineItem, InvoiceStatus, Payment, PaymentSubmission, PaymentSubmissionStatus
 from .document import Document, DocumentKind
 from .staff import StaffMember, EmploymentType, StaffStatus, Department
@@ -30,7 +30,7 @@ from .platform_billing import (
 from .email_template import EmailTemplate, EmailKind
 from .settings import SystemSettings
 from .credits import (
-    CreditSettings, RoomCategory, SeatBand, CreditAllocation, CreditLot, CreditLedger,
+    CreditSettings, RoomCategory, SeatBand, CreditAllocation, CreditLot, CreditLedger, CompanyCreditPolicy,
     CreditBucket, LedgerType, BUCKET_PRIORITY,
 )
 from .audit import AuditLog
@@ -59,7 +59,7 @@ __all__ = [
     "PricingPlan", "PlanType", "BillingCycle", "PlanScope", "BillingUnit", "LocationScope",
     "PlanStatus", "PlanAddon",
     "Subscription", "SubscriptionStatus", "SubscriptionChangeRequest", "SubscriptionRequestStatus",
-    "SeatBooking", "RoomBooking", "BookingStatus",
+    "SeatBooking", "RoomBooking", "RoomBlock", "BookingStatus",
     "Invoice", "InvoiceLineItem", "InvoiceStatus", "Payment", "PaymentSubmission", "PaymentSubmissionStatus",
     "Document", "DocumentKind",
     "StaffMember", "EmploymentType", "StaffStatus", "Department",
@@ -70,7 +70,7 @@ __all__ = [
     "PlatformCreditNote", "PlatformRefund", "PlatformExpense",
     "EmailTemplate", "EmailKind",
     "SystemSettings",
-    "CreditSettings", "RoomCategory", "SeatBand", "CreditAllocation", "CreditLot", "CreditLedger",
+    "CreditSettings", "RoomCategory", "SeatBand", "CreditAllocation", "CreditLot", "CreditLedger", "CompanyCreditPolicy",
     "CreditBucket", "LedgerType", "BUCKET_PRIORITY",
     "AuditLog",
     "Operator", "OperatorScoped", "OperatorStatus", "PricingTier", "TierStatus", "OveragePolicy", "SeatUsageMethod",

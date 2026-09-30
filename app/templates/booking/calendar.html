@@ -2,217 +2,295 @@
 {% block title %}Calendar — {{ location.name }}{% endblock %}
 
 {% block content %}
+<style>
+  .cal-wrap { overflow: auto; max-height: 72vh; border: 1px solid var(--line); background: var(--cream); }
+  table.cal { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 560px; }
+  table.cal th { position: sticky; top: 0; z-index: 3; background: var(--cream); border-bottom: 1.5px solid var(--ink);
+                 font-size: .8rem; padding: .35rem .4rem; text-align: center; }
+  table.cal th .sub { font-size: .68rem; font-weight: 400; color: var(--ink-soft); }
+  table.cal td.time { position: sticky; left: 0; z-index: 2; width: 58px; background: var(--cream); font-size: .7rem;
+                      color: var(--ink-soft); text-align: right; padding-right: .4rem; vertical-align: top; }
+  table.cal th:first-child { left: 0; z-index: 4; }
+  table.cal td.slot { height: 26px; padding: 0; border-left: 1px solid var(--line); border-top: 1px solid var(--line);
+                      user-select: none; -webkit-user-select: none; min-width: 84px; }
+  table.cal tr.hour td { border-top-color: #cfc7b3; }
+  table.cal tr.now td { border-top: 2px solid var(--coral); }
+  .slot.available { background: rgba(43,74,62,.07); }
+  .slot.available:not(.past) { cursor: pointer; }
+  .slot.available:not(.past):hover { background: rgba(43,74,62,.22); }
+  .slot.available.past { background: var(--cream-2); }
+  .slot.mine { background: var(--saffron); }
+  .slot.company { background: rgba(124,58,237,.28); }
+  .slot.booked { background: var(--ink); color: var(--cream); }
+  .slot.blocked { background: repeating-linear-gradient(45deg, #e5dfd0, #e5dfd0 5px, #f3ede1 5px, #f3ede1 10px); }
+  .slot.selected { outline: 2px solid var(--ink); outline-offset: -2px; background: rgba(245,182,66,.55) !important; }
+  .slot .lbl { display: block; font-size: .68rem; line-height: 26px; padding: 0 .3rem; white-space: nowrap;
+               overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+  .legend { display: flex; flex-wrap: wrap; gap: .4rem 1rem; font-size: .78rem; color: var(--ink-soft); }
+  .legend i { display: inline-block; width: 12px; height: 12px; margin-right: .35rem; border: 1px solid var(--ink); vertical-align: -1px; }
+  .cal-panel { position: sticky; top: 76px; }
+</style>
+
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
   <div>
     <h3 class="mb-1">Calendar</h3>
     <div class="text-muted small">
-      {{ location.name }} &middot; conference rooms &middot;
-      {{ day.strftime("%A, %d %b %Y") }}
+      {{ location.name }} &middot; meeting rooms &middot;
+      {% if view == "week" %}week of {{ cal.days[0].strftime("%d %b") }} &ndash; {{ cal.days[-1].strftime("%d %b %Y") }}
+      {% else %}{{ day.strftime("%A, %d %b %Y") }}{% endif %}
     </div>
   </div>
-  <div class="text-end">
-    <span class="badge bg-dark">{{ credits_available }} meeting credit(s) available</span>
-    {% if bookable_rooms %}
-    <button class="btn btn-sm btn-dark ms-2" type="button" data-bs-toggle="modal" data-bs-target="#addMeetingModal">+ Add meeting</button>
-    {% endif %}
-  </div>
+  <span class="badge bg-dark align-self-center">{{ credits_available }} credits &asymp; {{ (credits_available / 2) | round(1) }} h of a Standard room</span>
 </div>
 
-<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-  <div class="btn-group btn-group-sm">
-    <a class="btn btn-outline-dark" href="{{ url_for('book.location_calendar', location_id=location.id, date=prev_day.isoformat()) }}">&larr; Prev</a>
-    <a class="btn btn-outline-dark" href="{{ url_for('book.location_calendar', location_id=location.id, date=today.isoformat()) }}">Today</a>
-    <a class="btn btn-outline-dark" href="{{ url_for('book.location_calendar', location_id=location.id, date=next_day.isoformat()) }}">Next &rarr;</a>
-  </div>
-  {% if locations|length > 1 %}
-  <form method="get" class="d-flex gap-2">
-    <select class="form-select form-select-sm" name="location_id_switch" onchange="window.location = this.value">
-      {% for loc in locations %}
-      <option value="{{ url_for('book.location_calendar', location_id=loc.id, date=day.isoformat()) }}"
-        {% if loc.id == location.id %}selected{% endif %}>{{ loc.name }}</option>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+  <div class="d-flex flex-wrap gap-2">
+    <div class="btn-group btn-group-sm">
+      <a class="btn btn-outline-dark" href="{{ url_for('book.location_calendar', location_id=location.id, date=prev_day.isoformat(), view=view, room=week_room.id if week_room else None) }}">&larr; Prev</a>
+      <a class="btn btn-outline-dark" href="{{ url_for('book.location_calendar', location_id=location.id, date=today.isoformat(), view=view, room=week_room.id if week_room else None) }}">Today</a>
+      <a class="btn btn-outline-dark" href="{{ url_for('book.location_calendar', location_id=location.id, date=next_day.isoformat(), view=view, room=week_room.id if week_room else None) }}">Next &rarr;</a>
+    </div>
+    <div class="btn-group btn-group-sm">
+      <a class="btn {{ 'btn-dark' if view == 'day' else 'btn-outline-dark' }}" href="{{ url_for('book.location_calendar', location_id=location.id, date=day.isoformat(), view='day') }}">Day</a>
+      <a class="btn {{ 'btn-dark' if view == 'week' else 'btn-outline-dark' }}" href="{{ url_for('book.location_calendar', location_id=location.id, date=day.isoformat(), view='week', room=week_room.id if week_room else None) }}">Week</a>
+    </div>
+    {% if view == "week" and bookable_rooms %}
+    <select class="form-select form-select-sm w-auto" onchange="window.location = this.value">
+      {% for r in bookable_rooms %}
+      <option value="{{ url_for('book.location_calendar', location_id=location.id, date=day.isoformat(), view='week', room=r.id) }}" {{ 'selected' if week_room and r.id == week_room.id }}>{{ r.name }}</option>
       {% endfor %}
     </select>
-  </form>
+    {% endif %}
+  </div>
+  {% if locations|length > 1 %}
+  <select class="form-select form-select-sm w-auto" onchange="window.location = this.value">
+    {% for loc in locations %}
+    <option value="{{ url_for('book.location_calendar', location_id=loc.id, date=day.isoformat(), view=view) }}" {{ 'selected' if loc.id == location.id }}>{{ loc.name }}</option>
+    {% endfor %}
+  </select>
   {% endif %}
 </div>
 
-{% if not rooms %}
-<p class="text-muted">No conference rooms at this location yet.</p>
-{% else %}
-<div class="table-responsive">
-  <table class="table table-bordered table-sm align-middle mb-0" style="min-width: 640px;">
-    <thead>
-      <tr>
-        <th style="width: 90px;">Time</th>
-        {% for room in rooms %}
-        <th class="text-center">{{ room.name }}<div class="text-muted small fw-normal">Cap {{ room.capacity }} &middot; {{ room.credits_per_slot }} cr / 30 min</div></th>
-        {% endfor %}
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in grid %}
-      <tr>
-        <td class="text-muted small">{{ row.time.strftime("%H:%M") }}</td>
-        {% for cell in row.cells %}
-        <td class="p-1">
-          {% if cell.booking %}
-          <div class="rounded-2 p-2 small" style="background: rgba(220,53,69,.12); border-left: 3px solid #dc3545;">
-            <div class="fw-semibold">{{ cell.booking.title or "Booked" }}</div>
-            <div class="text-muted">{{ cell.booking.user.full_name if cell.booking.user else "" }}</div>
-          </div>
-          {% else %}
-          <a class="d-block rounded-2 p-2 small text-center text-body"
-             style="background: rgba(25,135,84,.08); border-left: 3px solid #198754; text-decoration:none;"
-             href="{{ url_for('book.room_book', room_id=cell.room.id, start=cell.start, end=cell.end) }}">
-            Available
-          </a>
-          {% endif %}
-        </td>
-        {% endfor %}
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="legend mb-3">
+  <span><i style="background: rgba(43,74,62,.15)"></i>Available</span>
+  <span><i style="background: var(--saffron)"></i>Yours</span>
+  {% if current_user.company_id %}<span><i style="background: rgba(124,58,237,.28)"></i>Your company</span>{% endif %}
+  <span><i style="background: var(--ink)"></i>Booked</span>
+  <span><i style="background: repeating-linear-gradient(45deg,#e5dfd0,#e5dfd0 3px,#f3ede1 3px,#f3ede1 6px)"></i>Blocked</span>
+  <span><i style="background: var(--cream-2)"></i>Past</span>
 </div>
-{% endif %}
+
+{% if not cal.columns %}
+<p class="text-muted">No meeting rooms at this location yet.</p>
+{% else %}
+<div class="row g-3">
+  <div class="col-xl-9">
+    <div class="cal-wrap">
+      <table class="cal" id="cal">
+        <thead>
+          <tr>
+            <th></th>
+            {% for col in cal.columns %}<th>{{ col.title }}<div class="sub">{{ col.sub }}</div></th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in cal.rows %}
+          <tr class="{{ 'hour' if row.hour }} {{ 'now' if row.now }}">
+            <td class="time">{{ row.label if row.hour else "" }}</td>
+            {% for cell in row.cells %}
+            <td class="slot {{ cell.state }}{{ ' past' if cell.past }}" data-col="{{ loop.index0 }}"
+                data-room="{{ cal.columns[loop.index0].room.id }}" data-start="{{ cell.start }}" data-end="{{ cell.end }}"
+                {% if cell.first and cell.label %}title="{{ cell.label }}"{% endif %}>{% if cell.first and cell.label %}<span class="lbl">{{ cell.label }}</span>{% endif %}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="text-muted small mt-1">Drag down an open column to pick a time, or type it in the panel.</div>
+  </div>
+
+  <div class="col-xl-3">
+    <div class="cal-panel">
+      <div class="card"><div class="card-body">
+        <h6 class="mb-2">Book a meeting</h6>
+        <form method="post" action="{{ url_for('book.location_calendar_quick_book', location_id=location.id) }}" id="bookForm" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-2">
+            <label class="form-label">Room</label>
+            <select class="form-select form-select-sm" name="room_id" id="bRoom">
+              {% for r in bookable_rooms %}<option value="{{ r.id }}">{{ r.name }}{% if r.location_id != location.id %} ({{ r.location.name }}){% endif %} &middot; {{ r.credits_per_slot }} cr / 30 min</option>{% endfor %}
+            </select>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6"><label class="form-label">Start</label><input class="form-control form-control-sm" type="datetime-local" step="1800" name="start" id="bStart" required></div>
+            <div class="col-6"><label class="form-label">End</label><input class="form-control form-control-sm" type="datetime-local" step="1800" name="end" id="bEnd" required></div>
+          </div>
+          <div class="mb-2"><input class="form-control form-control-sm" name="title" placeholder="Title (e.g. Sprint planning)"></div>
+          <div class="mb-2"><input class="form-control form-control-sm" type="number" name="attendees" id="bAttendees" min="1" value="1" title="Attendees"></div>
+          {% if current_user.is_admin %}
+          <div class="mb-2">
+            <select class="form-select form-select-sm" name="for_user_id" id="bFor">
+              <option value="">Book for myself</option>
+              {% for u in recipients %}<option value="{{ u.id }}">{{ u.full_name }} ({{ u.email }})</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-check mb-2"><input class="form-check-input" type="checkbox" name="waive_charge" value="1" id="bWaive"><label class="form-check-label small" for="bWaive">No charge / ignore credits</label></div>
+          {% endif %}
+          <div id="quote" class="border p-2 small mb-2 text-muted" data-url="{{ url_for('book.room_quote', room_id=0) }}">Pick a time on the grid.</div>
+          <button class="btn btn-dark w-100" id="bSubmit" disabled>Book meeting</button>
+        </form>
+      </div></div>
+
+      {% if current_user.is_admin %}
+      <div class="card mt-3"><div class="card-body">
+        <h6 class="mb-1">Block a room</h6>
+        <div class="text-muted small mb-2">Maintenance or an internal meeting. No credits are used.</div>
+        <form method="post" action="{{ url_for('book.calendar_block', location_id=location.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <select class="form-select form-select-sm mb-2" name="room_id" id="kRoom">
+            {% for r in bookable_rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+          </select>
+          <div class="row g-2 mb-2">
+            <div class="col-6"><input class="form-control form-control-sm" type="datetime-local" step="1800" name="start" id="kStart" required></div>
+            <div class="col-6"><input class="form-control form-control-sm" type="datetime-local" step="1800" name="end" id="kEnd" required></div>
+          </div>
+          <input class="form-control form-control-sm mb-2" name="reason" placeholder="Reason (optional)">
+          <button class="btn btn-outline-dark btn-sm w-100">Block</button>
+        </form>
+      </div></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
 
 <div class="card mt-4"><div class="card-body">
-  <h6>Bookings for {{ day.strftime("%d %b %Y") }}</h6>
+  <h6>{{ "Bookings this week" if view == "week" else "Bookings for " ~ day.strftime("%d %b %Y") }}
+    {% if not current_user.is_admin %}<span class="text-muted small fw-normal">(yours and your company's)</span>{% endif %}</h6>
   <table class="table table-sm mb-0">
-    <thead><tr><th>Room</th><th>Time</th><th>Booked by</th><th>Status</th></tr></thead>
+    <thead><tr><th>Room</th><th>Time</th><th>Booked by</th><th>Credits</th><th>Status</th><th></th></tr></thead>
     <tbody>
       {% for b in day_bookings %}
       <tr>
         <td>{{ b.room.name }}</td>
         <td>{{ b.start_at | dt_at(location) }} &ndash; {{ b.end_at | time_at(location) }}</td>
         <td>{{ b.user.full_name if b.user else "\u2014" }}</td>
-        <td><span class="badge bg-secondary">{{ b.status.value }}</span></td>
+        <td>{{ b.credits_used }}</td>
+        <td><span class="badge bg-secondary">{{ b.status.value.replace('_', ' ') }}</span></td>
+        <td class="text-end">
+          {% if can_check_in(b, current_user, now) %}
+          <form method="post" action="{{ url_for('book.room_check_in', booking_id=b.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-dark">Check in</button>
+          </form>
+          {% endif %}
+        </td>
       </tr>
       {% else %}
-      <tr><td colspan="4" class="text-muted text-center py-3">No bookings for this day.</td></tr>
+      <tr><td colspan="6" class="text-muted text-center py-3">No bookings in this period.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div></div>
 
-{% if bookable_rooms %}
-<div class="modal fade" id="addMeetingModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form method="post" action="{{ url_for('book.location_calendar_quick_book', location_id=location.id) }}" novalidate>
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="modal-header">
-          <h5 class="modal-title">Add meeting</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div id="meetingConflictBanner" class="alert alert-warning d-none">
-            That room is already booked for this time. Pick a different room or time.
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Room</label>
-            <select class="form-select" name="room_id" id="meetingRoom" required>
-              {% for room in rooms %}
-              <option value="{{ room.id }}">{{ room.name }} &middot; Cap {{ room.capacity }} &middot; {{ room.credits_per_slot }} cr / 30 min</option>
-              {% endfor %}
-              {% for room in bookable_rooms if room.location_id != location.id %}
-              <option value="{{ room.id }}">{{ room.name }} ({{ room.location.name }}) &middot; Cap {{ room.capacity }} &middot; {{ room.credits_per_slot }} cr / 30 min</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Title</label>
-            <input class="form-control" name="title" placeholder="e.g. Sprint planning">
-          </div>
-          {% if current_user.is_admin %}
-          <div class="row">
-            <div class="col-md-8 mb-3">
-              <label class="form-label">Book for</label>
-              <select class="form-select" name="for_user_id">
-                <option value="">Myself</option>
-                {% for u in recipients %}
-                <option value="{{ u.id }}">{{ u.full_name }} ({{ u.email }})</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-4 mb-3 d-flex align-items-end">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="waive_charge" value="1" id="meetingWaiveCharge">
-                <label class="form-check-label" for="meetingWaiveCharge">No charge / ignore credits</label>
-              </div>
-            </div>
-          </div>
-          {% endif %}
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label class="form-label">Start</label>
-              <input class="form-control" type="datetime-local" name="start" id="meetingStart" value="{{ day.isoformat() }}T09:00" required>
-            </div>
-            <div class="col-md-6 mb-3">
-              <label class="form-label">End</label>
-              <input class="form-control" type="datetime-local" name="end" id="meetingEnd" value="{{ day.isoformat() }}T10:00" required>
-            </div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Attendees</label>
-            <input class="form-control" type="number" name="attendees" min="1" value="1">
-          </div>
-          <div class="mb-0">
-            <label class="form-label">Notes</label>
-            <textarea class="form-control" name="notes" rows="2"></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-link" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-dark" id="meetingSubmit">Book meeting</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
+{% if current_user.is_admin and blocks %}
+<div class="card mt-3"><div class="card-body">
+  <h6>Blocked</h6>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Room</th><th>Time</th><th>Reason</th><th></th></tr></thead>
+    <tbody>
+      {% for k in blocks %}
+      <tr>
+        <td>{{ k.room.name }}</td>
+        <td>{{ k.start_at | dt_at(location) }} &ndash; {{ k.end_at | time_at(location) }}</td>
+        <td>{{ k.reason or "\u2014" }}</td>
+        <td class="text-end">
+          <form method="post" action="{{ url_for('book.calendar_block_delete', block_id=k.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-danger">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endif %}
 {% endif %}
 {% endblock %}
 
 {% block scripts %}
-{% if bookable_rooms %}
 <script>
 (function () {
-  const roomSelect = document.getElementById('meetingRoom');
-  const startInput = document.getElementById('meetingStart');
-  const endInput = document.getElementById('meetingEnd');
-  const banner = document.getElementById('meetingConflictBanner');
-  const submitBtn = document.getElementById('meetingSubmit');
+  const table = document.getElementById('cal');
+  if (!table) return;
+  const $ = (id) => document.getElementById(id);
+  const room = $('bRoom'), start = $('bStart'), end = $('bEnd'), box = $('quote'), submit = $('bSubmit');
+  const cells = Array.from(table.querySelectorAll('td.slot'));
+  const free = (c) => c.classList.contains('available') && !c.classList.contains('past');
+  let drag = null, timer = null;
 
-  async function checkConflict() {
-    if (!roomSelect.value || !startInput.value || !endInput.value) return;
-    if (endInput.value <= startInput.value) {
-      banner.textContent = 'End must be after start.';
-      banner.classList.remove('d-none');
-      submitBtn.disabled = true;
-      return;
-    }
-    const url = `/book/rooms/${roomSelect.value}/check-conflict?start=${encodeURIComponent(startInput.value)}&end=${encodeURIComponent(endInput.value)}`;
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.conflict) {
-        banner.textContent = 'That room is already booked for this time. Pick a different room or time.';
-        banner.classList.remove('d-none');
-        submitBtn.disabled = true;
-      } else {
-        banner.classList.add('d-none');
-        submitBtn.disabled = false;
-      }
-    } catch (e) {
-      // Network hiccup — don't block submission; the server re-checks for
-      // real before creating the booking either way.
-      banner.classList.add('d-none');
-      submitBtn.disabled = false;
-    }
+  const columnOf = (col) => cells.filter((c) => c.dataset.col === col);
+  const paint = (list) => { cells.forEach((c) => c.classList.remove('selected')); list.forEach((c) => c.classList.add('selected')); };
+  const picked = () => drag.list.slice(Math.min(drag.a, drag.b), Math.max(drag.a, drag.b) + 1);
+
+  table.addEventListener('mousedown', (e) => {
+    const td = e.target.closest('td.slot');
+    if (!td || !free(td)) return;
+    e.preventDefault();
+    const list = columnOf(td.dataset.col);
+    drag = { col: td.dataset.col, list, a: list.indexOf(td), b: list.indexOf(td) };
+    paint([td]);
+  });
+  table.addEventListener('mouseover', (e) => {
+    if (!drag) return;
+    const td = e.target.closest('td.slot');
+    if (!td || td.dataset.col !== drag.col) return;
+    const to = drag.list.indexOf(td), step = to >= drag.a ? 1 : -1;
+    let last = drag.a;
+    for (let i = drag.a; i !== to + step; i += step) { if (!free(drag.list[i])) break; last = i; }
+    drag.b = last;
+    paint(picked());
+  });
+  document.addEventListener('mouseup', () => {
+    if (!drag) return;
+    const sel = picked();
+    drag = null;
+    if (sel.length) choose(sel[0].dataset.room, sel[0].dataset.start, sel[sel.length - 1].dataset.end);
+  });
+
+  function choose(roomId, s, e) {
+    room.value = roomId; start.value = s; end.value = e;
+    if ($('kRoom')) { $('kRoom').value = roomId; $('kStart').value = s; $('kEnd').value = e; }
+    refresh();
   }
 
-  [roomSelect, startInput, endInput].forEach((el) => el.addEventListener('change', checkConflict));
+  function say(lines, cls) {
+    box.className = 'border p-2 small mb-2 ' + (cls || '');
+    box.replaceChildren(...lines.map((t) => { const d = document.createElement('div'); d.textContent = t; return d; }));
+  }
+
+  async function run() {
+    if (!room.value || !start.value || !end.value) { say(['Pick a time on the grid.'], 'text-muted'); submit.disabled = true; return; }
+    const p = new URLSearchParams({ start: start.value, end: end.value, attendees: $('bAttendees').value || 1 });
+    if ($('bFor') && $('bFor').value) p.set('for_user_id', $('bFor').value);
+    if ($('bWaive') && $('bWaive').checked) p.set('waive_charge', '1');
+    try {
+      const d = await (await fetch(box.dataset.url.replace('/0/', '/' + room.value + '/') + '?' + p)).json();
+      if (!d.ok) { say([d.message], 'text-danger'); submit.disabled = true; return; }
+      const lines = [d.hours + ' h \u00b7 needs ' + d.credits_needed + ' credits'];
+      if (d.credits_used) lines.push('Uses ' + d.credits_used + ' credits: ' + d.breakdown.map(([b, n]) => n + ' ' + b).join(' + '));
+      lines.push(parseFloat(d.cash) > 0 ? 'Pay ' + d.cash_display + ' for the rest' : 'No charge');
+      say(lines, 'text-success');
+      submit.disabled = false;
+    } catch (err) {
+      say(['Could not check availability; the server will check again when you book.'], 'text-muted');
+      submit.disabled = false;
+    }
+  }
+  function refresh() { clearTimeout(timer); timer = setTimeout(run, 150); }
+
+  [room, start, end, $('bAttendees'), $('bFor'), $('bWaive')].forEach((el) => el && el.addEventListener('change', refresh));
 })();
 </script>
-{% endif %}
 {% endblock %}

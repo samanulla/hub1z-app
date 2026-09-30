@@ -15,7 +15,7 @@ from ...models import (
     Location, DayPass, DayPassStatus, User, UserRole,
 )
 from ...services import credit_service
-from ...services.booking_service import cancel_booking, BookingError
+from ...services.booking_service import cancel_booking, can_check_in, BookingError
 from ...utils.decorators import member_required, member_or_admin_required
 
 member_bp = Blueprint("member", __name__, template_folder="../../templates")
@@ -62,7 +62,8 @@ def bookings():
     room_bookings = (RoomBooking.query.filter_by(user_id=current_user.id)
                      .order_by(RoomBooking.start_at.desc()).limit(100).all())
     return render_template("member/bookings.html",
-                           seat_bookings=seat_bookings, room_bookings=room_bookings)
+                           seat_bookings=seat_bookings, room_bookings=room_bookings,
+                           now=datetime.utcnow(), can_check_in=can_check_in)
 
 
 @member_bp.route("/bookings/seat/<int:booking_id>/cancel", methods=["POST"])

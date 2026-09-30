@@ -9,10 +9,12 @@ import calendar
 from datetime import date, datetime
 from decimal import Decimal
 
+from sqlalchemy import func
+
 from ..extensions import db
 from ..models import (
-    BUCKET_PRIORITY, ConferenceRoom, CreditAllocation, CreditBucket, CreditLedger, CreditLot,
-    CreditSettings, LedgerType, Operator, OperatorStatus, RoomBooking, RoomCategory, SeatBand,
+    BUCKET_PRIORITY, CompanyCreditPolicy, ConferenceRoom, CreditAllocation, CreditBucket, CreditLedger, CreditLot,
+    CreditSettings, LedgerType, Operator, OperatorStatus, RoomBooking, RoomCategory, SeatBand, UserRole,
 )
 
 SLOT_MINUTES = 30
@@ -51,19 +53,6 @@ def slots_between(start: datetime, end: datetime) -> int:
     if minutes < SLOT_MINUTES or minutes % SLOT_MINUTES or start.minute % SLOT_MINUTES or start.second:
         raise CreditError("Meeting rooms are booked in 30-minute steps (start on the hour or half hour, minimum 30 minutes).")
     return int(minutes // SLOT_MINUTES)
-
-
-def credits_for(room: ConferenceRoom, start: datetime, end: datetime) -> int:
-    return slots_between(start, end) * room.credits_per_slot
-
-
-def hours_and_value(credits: int, operator_id: int) -> tuple[Decimal, Decimal]:
-    """A credit is 30 minutes of the cheapest active category; used to show 'about N hours, worth Rs X'."""
-    cats = _q(RoomCategory, operator_id).filter_by(is_active=True).all()
-    standard = min(cats, key=lambda c: c.credits_per_slot) if cats else None
-    hours = Decimal(credits) / 2
-    rate = (Decimal(standard.hourly_rate) / standard.credits_per_slot / 2) if standard else Decimal(0)
-    return hours, (Decimal(credits) * rate).quantize(Decimal("0.01"))
 
 
 # ------------------------------------------------- categories / bands --
@@ -325,6 +314,63 @@ def refund_booking(booking, actor=None, now: datetime | None = None) -> int:
                                     amount=-amount, room_booking_id=booking.id,
                                     actor_id=getattr(actor, "id", None), note="Booking cancelled"))
     return returned
+
+
+def preview_spend(operator_id: int, subject: dict, credits: int, now: datetime | None = None) -> list[tuple[str, int]]:
+    """What spending would draw from each bucket, without changing anything."""
+    left, out = credits, {}
+    for lot in _valid_lots(operator_id, subject, now or datetime.utcnow()):
+        if not left:
+            break
+        take = min(lot.remaining, left)
+        out[lot.bucket.value] = out.get(lot.bucket.value, 0) + take
+        left -= take
+    return list(out.items())
+
+
+def forfeit_booking(booking) -> None:
+    """A no-show keeps its credits spent; record that so the history explains why nothing came back."""
+    if not booking.credits_used:
+        return
+    lot_ids = {e.lot_id for e in _q(CreditLedger, booking.operator_id)
+               .filter_by(room_booking_id=booking.id, entry_type=LedgerType.USE).all()}
+    for lot_id in lot_ids:
+        db.session.add(CreditLedger(operator_id=booking.operator_id, lot_id=lot_id, entry_type=LedgerType.FORFEIT,
+                                    amount=0, room_booking_id=booking.id, note="No-show: credits not returned"))
+
+
+# ------------------------------------------------- company booking rules --
+
+def usage_by_employee(operator_id: int, company_id: int, today: date) -> dict[int, int]:
+    """Credits each person has used this month from the company's lots (cancellations netted off)."""
+    rows = (db.session.query(RoomBooking.user_id, func.sum(CreditLedger.amount))
+            .select_from(CreditLedger)
+            .join(CreditLot, CreditLedger.lot_id == CreditLot.id)
+            .join(RoomBooking, CreditLedger.room_booking_id == RoomBooking.id)
+            .execution_options(skip_operator_filter=True)
+            .filter(CreditLedger.operator_id == operator_id, CreditLot.company_id == company_id,
+                    CreditLedger.entry_type.in_([LedgerType.USE, LedgerType.REFUND]),
+                    RoomBooking.start_at >= _month_start(today), RoomBooking.start_at < _next_month_start(today))
+            .group_by(RoomBooking.user_id).all())
+    return {user_id: -int(total) for user_id, total in rows}
+
+
+def check_company_rules(user, credits: int, on: date) -> None:
+    """The company admin decides who may book rooms with company credits, and how much each person may use
+    in the month the meeting falls in (``on``)."""
+    if not user.company_id:
+        return
+    policy = (_q(CompanyCreditPolicy, user.operator_id).filter_by(company_id=user.company_id).first())
+    if policy is None or user.role == UserRole.COMPANY_ADMIN:
+        return
+    if policy.booking_mode == "admin_only" or (policy.booking_mode == "selected" and not user.credit_booking_allowed):
+        raise CreditError("Your company admin has not turned on room booking for you. Ask them to enable it.")
+    cap = policy.per_employee_monthly_cap
+    if cap is not None and credits:
+        used = usage_by_employee(user.operator_id, user.company_id, on).get(user.id, 0)
+        if used + credits > cap:
+            raise CreditError(f"Your company allows {cap} credits per person each month and you have used {used}. "
+                              f"This booking needs {credits} more.")
 
 
 # ------------------------------------------------------ monthly cycle --
