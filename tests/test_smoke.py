@@ -29,6 +29,14 @@ def test_healthz_ok():
     assert r.json["status"] == "ok"
 
 
+def test_healthz_answers_on_a_host_that_is_not_a_workspace():
+    app = _app()
+    app.config["PLATFORM_BASE_DOMAIN"] = "hub1z.com"
+    r = app.test_client().get("/healthz", headers={"Host": "10.0.0.7:8000"})
+    assert r.status_code == 200 and r.json["status"] == "ok"
+    assert app.test_client().get("/", headers={"Host": "10.0.0.7:8000"}).status_code == 404
+
+
 def test_landing_page():
     app = _app()
     client = app.test_client()

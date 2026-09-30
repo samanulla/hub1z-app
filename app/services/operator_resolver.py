@@ -63,6 +63,9 @@ def _operator_scoped_classes() -> list[type]:
 def install(app: Flask) -> None:
     @app.before_request
     def _resolve_operator():
+        if request.path == "/healthz":
+            g.operator, g.operator_id = None, None
+            return
         mode = (app.config.get("DEPLOY_MODE") or "shared").lower()
         if mode == "dedicated":
             tid = app.config.get("OPERATOR_ID")
