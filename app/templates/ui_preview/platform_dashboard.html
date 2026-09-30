@@ -1,0 +1,201 @@
+{% extends "ui_preview/_shell.html" %}
+{% block title %}Platform dashboard{% endblock %}
+
+{% block content %}
+<div class="h-hero mb-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+      <h2>Good morning, Aman</h2>
+      <p>3 operators signed up this week, 2 trials end in the next 5 days, and 6 leads need a follow-up today.</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-light" href="{{ url_for('ui_preview.leads', persona='platform') }}"><i class="bi bi-funnel"></i> Open leads</a>
+      <a class="btn btn-outline-light" href="#"><i class="bi bi-plus-lg"></i> Add operator</a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  {% for label, value, icon, tint, delta, note, dir in [
+      ('Operators', '42', 'bi-buildings-fill', 'tint-brand', '8.2%', 'from last month', 'up'),
+      ('Monthly recurring revenue', 18.65e5 | inr_short, 'bi-currency-rupee', 'tint-success', '12.4%', 'from last month', 'up'),
+      ('Seats under management', '2,840', 'bi-grid-3x3-gap-fill', 'tint-info', '6.1%', 'from last month', 'up'),
+      ('Open leads', '37', 'bi-funnel-fill', 'tint-warn', '3.0%', 'from last month', 'down')] %}
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="h-card h-kpi">
+      <span class="chip-ico {{ tint }}"><i class="bi {{ icon }}"></i></span>
+      <div>
+        <div class="label">{{ label }}</div>
+        <div class="value">{{ value }}</div>
+        <div class="delta {{ dir }}"><i class="bi bi-arrow-{{ 'up' if dir == 'up' else 'down' }}-short"></i>{{ delta }} <span>{{ note }}</span></div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-xl-8">
+    <div class="h-card h-100">
+      <div class="h-card-head">
+        <div><h5>Revenue</h5><div class="sub">Subscription revenue by month, in lakhs of rupees</div></div>
+        <div class="h-seg"><button class="active" type="button">This year</button><button type="button">Last year</button></div>
+      </div>
+      <div class="h-card-body">
+        <div class="d-flex align-items-baseline gap-3 mb-2">
+          <span class="num" style="font-size:28px">{{ 1.7355e7 | inr_short }}</span>
+          <span class="h-chip tint-success sm"><i class="bi bi-arrow-up-right"></i> 55% vs last year</span>
+        </div>
+        <div style="height:280px"><canvas id="revenueChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-4">
+    <div class="h-card h-100">
+      <div class="h-card-head"><div><h5>Operators by plan</h5><div class="sub">42 active workspaces</div></div></div>
+      <div class="h-card-body">
+        <div style="height:210px"><canvas id="planChart"></canvas></div>
+        <div class="mt-3">
+          {% for name, n, color in [('Starter', 24, '#5b5bd6'), ('Growth', 13, '#f59e0b'), ('Scale', 5, '#12a150')] %}
+          <div class="d-flex align-items-center justify-content-between py-1">
+            <span><span class="h-dot me-2" style="background:{{ color }}"></span>{{ name }}</span><b>{{ n }}</b>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-xl-7">
+    <div class="h-card h-100">
+      <div class="h-card-head"><h5>Recent subscriptions</h5><a class="small" href="#">View all</a></div>
+      <div class="h-card-body pt-3">
+        <table class="h-table">
+          <thead><tr><th>Operator</th><th>Plan</th><th>Billing</th><th class="r">Amount</th><th class="r">Date</th></tr></thead>
+          <tbody>
+            {% for name, plan, cycle, amt, date, tint in [
+              ('Adyar Space', 'Growth', 'Monthly', 24999, '28 Sep 2026', 'tint-warn'),
+              ('Koramangala Collective', 'Scale', 'Yearly', 299988, '27 Sep 2026', 'tint-success'),
+              ('BKC Workhub', 'Growth', 'Monthly', 24999, '25 Sep 2026', 'tint-warn'),
+              ('Hitech Hive', 'Starter', 'Monthly', 9999, '24 Sep 2026', 'tint-brand'),
+              ('Jaipur Junction', 'Growth', 'Yearly', 249990, '22 Sep 2026', 'tint-warn')] %}
+            <tr>
+              <td><div class="d-flex align-items-center gap-3"><span class="h-avatar sm av-{{ loop.index % 6 + 1 }}">{{ name | initials }}</span><b>{{ name }}</b></div></td>
+              <td><span class="h-chip sm {{ tint }}">{{ plan }}</span></td>
+              <td class="muted">{{ cycle }}</td>
+              <td class="r"><b>{{ amt | inr }}</b></td>
+              <td class="r muted">{{ date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-5">
+    <div class="h-card h-100">
+      <div class="h-card-head"><div><h5>Leads to follow up today</h5><div class="sub">Operators who asked for a call or demo</div></div><a class="small" href="{{ url_for('ui_preview.leads', persona='platform') }}">All leads</a></div>
+      <div class="h-card-body">
+        {% for name, org, stage, temp, tint in [
+          ('Nisha Rajan', 'Koramangala Collective', 'New', 'Hot', 'tint-danger'),
+          ('Ishita Das', 'Salt Lake Spaces', 'Demo booked', 'Warm', 'tint-warn'),
+          ('Gaurav Sethi', 'Gurugram Gate', 'Negotiation', 'Hot', 'tint-danger'),
+          ('Manoj Pillai', 'Kochi Commons', 'Trial running', 'Warm', 'tint-warn')] %}
+        <div class="h-list-item">
+          <span class="h-avatar sm round av-{{ loop.index % 6 + 1 }}">{{ name | initials }}</span>
+          <div class="grow"><div class="t">{{ name }}</div><div class="s">{{ org }} · {{ stage }}</div></div>
+          <span class="h-chip sm {{ tint }}">{{ temp }}</span>
+          <a class="btn btn-soft btn-sm" href="#"><i class="bi bi-telephone"></i></a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-lg-6 col-xl-4">
+    <div class="h-card h-100">
+      <div class="h-card-head"><h5>Recently registered</h5><a class="small" href="#">View all</a></div>
+      <div class="h-card-body">
+        {% for name, mail, seats, left in [
+          ('Kochi Commons', 'manoj@kochicommons.in', 50, '12 days left'),
+          ('Nashik Nest', 'neha@nashiknest.in', 40, '14 days left'),
+          ('Salt Lake Spaces', 'ishita@saltlake.space', 75, '9 days left'),
+          ('Pune Pods', 'aarti@punepods.com', 260, '3 days left')] %}
+        <div class="h-list-item">
+          <span class="h-avatar av-{{ loop.index % 6 + 1 }}">{{ name | initials }}</span>
+          <div class="grow"><div class="t">{{ name }}</div><div class="s">{{ mail }} · {{ seats }} seats</div></div>
+          <span class="h-chip sm tint-neutral">{{ left }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-6 col-xl-4">
+    <div class="h-card h-100">
+      <div class="h-card-head"><h5>Plans ending soon</h5><a class="small" href="#">View all</a></div>
+      <div class="h-card-body">
+        {% for name, plan, date in [
+          ('Bengal Workclub', 'Growth, monthly', '30 Sep 2026'),
+          ('Goa Gatherings', 'Starter, monthly', '02 Oct 2026'),
+          ('Indore Incubator', 'Growth, yearly', '05 Oct 2026'),
+          ('Mysuru Makers', 'Starter, yearly', '09 Oct 2026')] %}
+        <div class="h-list-item">
+          <span class="h-avatar av-{{ (loop.index + 2) % 6 + 1 }}">{{ name | initials }}</span>
+          <div class="grow"><div class="t">{{ name }}</div><div class="s">{{ plan }} · ends {{ date }}</div></div>
+          <a class="btn btn-soft btn-sm" href="#">Send reminder</a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-4">
+    <div class="h-card h-100">
+      <div class="h-card-head"><div><h5>Busiest operators</h5><div class="sub">Seat occupancy this month</div></div></div>
+      <div class="h-card-body">
+        {% for name, pct in [('Koramangala Collective', 92), ('BKC Workhub', 84), ('Adyar Space', 71), ('Hitech Hive', 58), ('Jaipur Junction', 39)] %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between mb-1"><b>{{ name }}</b><span class="muted">{{ pct }}%</span></div>
+          <div class="h-progress {{ 'ok' if pct >= 80 else ('warn' if pct >= 50 else 'bad') }}"><span style="width:{{ pct }}%"></span></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+  Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+  Chart.defaults.color = '#8b93a7';
+  var months = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+  var thisYear = [9.8,10.6,11.2,12.4,13.1,14.0,15.2,16.1,16.9,17.6,18.0,18.65];
+  var lastYear = [6.2,6.8,7.1,7.9,8.4,9.0,9.6,10.2,10.9,11.4,12.0,12.6];
+  new Chart(document.getElementById('revenueChart'), {
+    data: {
+      labels: months,
+      datasets: [
+        { type: 'bar', label: '2026-27', data: thisYear, backgroundColor: '#5b5bd6', borderRadius: 6, maxBarThickness: 26 },
+        { type: 'line', label: '2025-26', data: lastYear, borderColor: '#f59e0b', backgroundColor: '#f59e0b', borderDash: [5, 4], tension: .35, pointRadius: 0, borderWidth: 2 }
+      ]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+                 tooltip: { callbacks: { label: function (c) { return ' ' + c.dataset.label + ': ₹' + c.parsed.y + 'L'; } } } },
+      scales: { x: { grid: { display: false }, border: { display: false } },
+                y: { grid: { color: '#eef0f6' }, border: { display: false }, ticks: { callback: function (v) { return '₹' + v + 'L'; } } } }
+    }
+  });
+  new Chart(document.getElementById('planChart'), {
+    type: 'doughnut',
+    data: { labels: ['Starter', 'Growth', 'Scale'], datasets: [{ data: [24, 13, 5], backgroundColor: ['#5b5bd6', '#f59e0b', '#12a150'], borderWidth: 0, spacing: 3 }] },
+    options: { maintainAspectRatio: false, cutout: '72%', plugins: { legend: { display: false } } }
+  });
+</script>
+{% endblock %}

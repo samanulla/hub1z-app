@@ -42,7 +42,7 @@ class Invoice(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     igst_amount = Column(Numeric(10, 2), default=0, nullable=False)
     total_amount = Column(Numeric(10, 2), default=0, nullable=False)
     amount_paid = Column(Numeric(10, 2), default=0, nullable=False)
-    currency = Column(String(3), default="USD", nullable=False)
+    currency = Column(String(3), default="INR", nullable=False)
     status = Column(Enum(InvoiceStatus), default=InvoiceStatus.DRAFT, nullable=False, index=True)
     notes = Column(Text)
 

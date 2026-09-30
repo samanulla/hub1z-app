@@ -5,18 +5,15 @@ platform-controlled lists, not per-operator configurable data.
 """
 from __future__ import annotations
 
-# (currency_code, symbol) — restricted to what the platform's own pricing
-# page supports today (see app/__init__.py public_pricing).
+# Rupees only for now; add a row here (and a symbol) when another currency is supported.
 CURRENCY_CHOICES = [
     ("INR", "Indian Rupee (₹)"),
-    ("USD", "US Dollar ($)"),
 ]
-CURRENCY_SYMBOLS = {"INR": "₹", "USD": "$"}
+CURRENCY_SYMBOLS = {"INR": "₹"}
 
 # (country_code, label, default currency, default locale, default timezone)
 COUNTRY_LOCALE_DEFAULTS = [
     ("IN", "India", "INR", "en_IN", "Asia/Kolkata"),
-    ("US", "United States", "USD", "en_US", "America/New_York"),
 ]
 COUNTRY_CHOICES = [(c[0], c[1]) for c in COUNTRY_LOCALE_DEFAULTS]
 COUNTRY_DEFAULTS = {c[0]: {"currency_code": c[2], "locale": c[3], "timezone": c[4]}
@@ -24,7 +21,6 @@ COUNTRY_DEFAULTS = {c[0]: {"currency_code": c[2], "locale": c[3], "timezone": c[
 
 LOCALE_CHOICES = [
     ("en_IN", "English (India)"),
-    ("en_US", "English (United States)"),
 ]
 
 TIMEZONE_CHOICES = [

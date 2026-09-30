@@ -1,0 +1,133 @@
+{% extends "ui_preview/_shell.html" %}
+{% block title %}Leads{% endblock %}
+
+{% block content %}
+{% set temp_meta = {'hot': ('Hot', 'tint-danger'), 'warm': ('Warm', 'tint-warn'), 'cold': ('Cold', 'tint-info')} %}
+{% set stage_tint = dict(data.stages) %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><a href="#">{{ org_name }}</a><i class="bi bi-chevron-right" style="font-size:10px"></i><span>{{ data.crumb }}</span></div>
+    <h1>{{ data.title }}<span class="h-count">{{ data.leads | length }}</span></h1>
+    <div class="muted mt-1">{{ data.subtitle }}</div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-soft" type="button"><i class="bi bi-upload"></i> Import</button>
+    <button class="btn btn-soft" type="button"><i class="bi bi-download"></i> Export</button>
+    <button class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#addLead"><i class="bi bi-plus-lg"></i> {{ data.add }}</button>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  {% for label, value, icon, tint, delta, note, dir in data.kpis %}
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico {{ tint }}"><i class="bi {{ icon }}"></i></span>
+    <div><div class="label">{{ label }}</div><div class="value">{{ value }}</div>
+    <div class="delta {{ dir }}"><i class="bi bi-arrow-{{ 'up' if dir == 'up' else 'down' }}-short"></i>{{ delta }} <span>{{ note }}</span></div></div></div></div>
+  {% endfor %}
+</div>
+
+<div data-view-root data-view="board" data-filter-root>
+  <div class="h-toolbar">
+    <div class="h-search"><i class="bi bi-search"></i><input type="search" data-filter-input placeholder="Search name, company or need"></div>
+    <div class="h-pills">
+      <button class="h-pill active" type="button" data-filter-pill="temp" data-value="all">All</button>
+      <button class="h-pill" type="button" data-filter-pill="temp" data-value="hot"><span class="h-dot me-1" style="background:var(--h-danger)"></span>Hot</button>
+      <button class="h-pill" type="button" data-filter-pill="temp" data-value="warm"><span class="h-dot me-1" style="background:var(--h-accent)"></span>Warm</button>
+      <button class="h-pill" type="button" data-filter-pill="temp" data-value="cold"><span class="h-dot me-1" style="background:var(--h-info)"></span>Cold</button>
+    </div>
+    <select class="h-select ms-auto"><option>All owners</option>{% for code, name in data.owners %}<option>{{ name }}</option>{% endfor %}</select>
+    <select class="h-select"><option>All sources</option>{% for s in data.sources %}<option>{{ s }}</option>{% endfor %}</select>
+    <div class="h-seg">
+      <button type="button" class="active" data-set-view="board"><i class="bi bi-kanban"></i> Board</button>
+      <button type="button" data-set-view="list"><i class="bi bi-list-ul"></i> List</button>
+    </div>
+  </div>
+
+  <div class="h-board">
+    {% for stage, tint in data.stages %}
+    <section class="h-col" data-stage="{{ stage }}">
+      <div class="h-col-head">
+        <div class="t"><span class="h-chip sm {{ tint }}">{{ stage }}</span><span class="faint" data-col-count>0</span></div>
+        <span class="tot" data-col-total></span>
+      </div>
+      <div class="h-col-body">
+        {% for l in board[stage] %}
+        {% set stg, name, org, need, value, source, temp, due, due_text, owner = l %}
+        {% set tlabel, ttint = temp_meta[temp] %}
+        <article class="h-lead" draggable="true" data-item data-temp="{{ temp }}" data-value="{{ value }}">
+          <div class="who">
+            <span class="h-avatar sm round av-{{ loop.index % 6 + 1 }}">{{ name | initials }}</span>
+            <div style="min-width:0"><div class="nm">{{ name }}</div><div class="org">{{ org }}</div></div>
+            <span class="h-chip sm {{ ttint }} ms-auto">{{ tlabel }}</span>
+          </div>
+          <div class="need"><i class="bi bi-building me-1 faint"></i>{{ need }}</div>
+          <div class="row2">
+            <span class="val">{{ value | inr }}<span class="faint" style="font-size:11px;font-weight:500"> /mo</span></span>
+            <span class="h-chip sm tint-neutral">{{ source }}</span>
+          </div>
+          <div class="meta">
+            <span class="due {{ due if due != 'ok' }}"><i class="bi bi-{{ 'exclamation-circle' if due == 'late' else 'alarm' }}"></i>{{ due_text }}</span>
+            <span class="d-flex align-items-center">
+              <span class="quick"><a href="#" title="Call"><i class="bi bi-telephone"></i></a><a href="#" title="Email"><i class="bi bi-envelope"></i></a><a href="#" title="WhatsApp"><i class="bi bi-whatsapp"></i></a></span>
+              <span class="h-avatar sm round av-6 ms-3" title="Owner" style="width:24px;height:24px;flex-basis:24px;font-size:10px">{{ owner }}</span>
+            </span>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+
+  <div class="h-card h-listview">
+    <div class="h-card-body pt-3" style="overflow-x:auto">
+      <table class="h-table">
+        <thead><tr><th>Lead</th><th>Stage</th><th>Interested in</th><th class="r">Expected / month</th><th>Source</th><th>Temperature</th><th>Next follow-up</th><th>Owner</th></tr></thead>
+        <tbody>
+          {% for l in data.leads %}
+          {% set stg, name, org, need, value, source, temp, due, due_text, owner = l %}
+          {% set tlabel, ttint = temp_meta[temp] %}
+          <tr data-item data-temp="{{ temp }}">
+            <td><div class="d-flex align-items-center gap-3"><span class="h-avatar sm round av-{{ loop.index % 6 + 1 }}">{{ name | initials }}</span><div><b>{{ name }}</b><div class="faint small">{{ org }}</div></div></div></td>
+            <td><span class="h-chip sm {{ stage_tint[stg] }}">{{ stg }}</span></td>
+            <td class="muted">{{ need }}</td>
+            <td class="r"><b>{{ value | inr }}</b></td>
+            <td class="muted">{{ source }}</td>
+            <td><span class="h-chip sm {{ ttint }}">{{ tlabel }}</span></td>
+            <td class="{{ 'text-danger fw-semibold' if due == 'late' else ('fw-semibold' if due == 'today' else 'muted') }}">{{ due_text }}</td>
+            <td><span class="h-avatar sm round av-6" style="width:26px;height:26px;flex-basis:26px;font-size:10px">{{ owner }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="addLead" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <form class="modal-content" data-demo-form>
+      <div class="modal-header"><h4>{{ data.add }}</h4><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <div class="h-seg"><button type="button" class="active">Person</button><button type="button">Organisation</button></div>
+          </div>
+          <div class="col-md-6"><label class="form-label">Name</label><input class="form-control" placeholder="Full name"></div>
+          <div class="col-md-6"><label class="form-label">Company</label><input class="form-control" placeholder="Company or organisation"></div>
+          <div class="col-md-6"><label class="form-label">Phone</label><input class="form-control" placeholder="+91 98400 11223"></div>
+          <div class="col-md-6"><label class="form-label">Email</label><input class="form-control" type="email" placeholder="name@company.in"></div>
+          <div class="col-md-4"><label class="form-label">Interested in</label>
+            <select class="form-select">{% if persona == 'platform' %}<option>Starter plan</option><option>Growth plan</option><option>Scale plan</option>{% else %}<option>Hot desk</option><option>Dedicated desk</option><option>Private office</option><option>Meeting room</option>{% endif %}</select></div>
+          <div class="col-md-4"><label class="form-label">{{ 'Seats managed' if persona == 'platform' else 'Seats needed' }}</label><input class="form-control" type="number" min="1" value="1"></div>
+          <div class="col-md-4"><label class="form-label">Expected value per month (₹)</label><input class="form-control" type="number" min="0" placeholder="45000"></div>
+          <div class="col-md-4"><label class="form-label">Source</label><select class="form-select">{% for s in data.sources %}<option>{{ s }}</option>{% endfor %}</select></div>
+          <div class="col-md-4"><label class="form-label">Owner</label><select class="form-select">{% for code, name in data.owners %}<option>{{ name }}</option>{% endfor %}</select></div>
+          <div class="col-md-4"><label class="form-label">Next follow-up</label><input class="form-control" type="date"></div>
+          <div class="col-12"><label class="form-label">Notes</label><textarea class="form-control" rows="3" placeholder="What are they looking for? Budget, start date, anything to remember."></textarea></div>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button><button class="btn btn-brand">Save lead</button></div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -69,6 +69,9 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(api_bp, url_prefix="/api/v1")
     app.register_blueprint(platform_bp, url_prefix="/platform")
     app.register_blueprint(community_bp, url_prefix="/hub")
+    if app.config.get("DEBUG"):
+        from .blueprints.ui_preview import ui_preview_bp
+        app.register_blueprint(ui_preview_bp, url_prefix="/ui-preview")
 
     # API blueprint is stateless — exempt from CSRF (uses tokens)
     csrf.exempt(api_bp)
@@ -220,14 +223,11 @@ def _register_root_routes(app: Flask) -> None:
     @app.route("/pricing")
     def public_pricing():
         from .models import PricingTier
-        currency = (request.args.get("currency") or "INR").upper()
-        if currency not in {"INR", "USD"}:
-            currency = "INR"
+        currency = "INR"
         billing = request.args.get("billing", "monthly")
         if billing not in {"monthly", "annual"}:
             billing = "monthly"
-        currency_meta = {"INR": ("₹", 1.0), "USD": ("$", 0.012)}
-        symbol, rate = currency_meta[currency]
+        symbol, rate = "₹", 1.0
         descriptions = {
             "starter": "A space finding its feet.",
             "growth": "An established single site.",
