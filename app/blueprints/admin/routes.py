@@ -306,8 +306,8 @@ def plan_edit(plan_id: int):
 @admin_bp.route("/companies")
 @admin_required
 def companies_list():
-    companies = Company.query.order_by(Company.name).all()
-    return render_template("admin/companies/list.html", companies=companies)
+    from ...services import company_overview
+    return render_template("admin/companies/list.html", overview=company_overview.build(g.operator_id))
 
 
 @admin_bp.route("/companies/new", methods=["GET", "POST"])

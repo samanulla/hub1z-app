@@ -2,99 +2,225 @@
 {% block title %}Platform dashboard{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-start mb-4">
-  <div>
-    <h3 class="mb-1">Platform overview</h3>
-    <div class="text-muted small">
-      hub1z.com SaaS operator view — signed in as
-      {% if current_user.is_platform_owner %}Platform Super Admin{% else %}Platform Manager{% endif %}.
+{% set op_tint = {'active': 'tint-success', 'trial': 'tint-info', 'hold': 'tint-warn', 'suspended': 'tint-danger', 'churned': 'tint-neutral'} %}
+{% set inv_tint = {'paid': 'tint-success', 'issued': 'tint-info', 'overdue': 'tint-danger', 'void': 'tint-neutral'} %}
+{% set first_name = current_user.full_name or 'there' %}
+
+<div class="h-hero mb-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+      <h2>Welcome back, {{ first_name }}</h2>
+      <p>
+        {{ dash.signed_up_week }} operator{{ '' if dash.signed_up_week == 1 else 's' }} signed up this week
+        · {{ dash.trials_ending_7 }} trial{{ '' if dash.trials_ending_7 == 1 else 's' }} end{{ 's' if dash.trials_ending_7 == 1 }} in the next 7 days.
+      </p>
     </div>
-  </div>
-  {% if current_user.has_platform_permission("operators") %}
-  <a class="btn btn-dark" href="{{ url_for('platform.operator_new') }}"><i class="bi bi-plus-lg me-1"></i>Provision operator</a>
-  {% endif %}
-</div>
-
-<div class="row g-3 mb-4">
-  {% for label, val, icon, tint in [
-    ("Operators", stats.operators, "building", ""),
-    ("Active", stats.active_operators, "check-circle-fill", "teal"),
-    ("Users", stats.total_users, "people-fill", "purple"),
-    ("Companies", stats.total_companies, "briefcase-fill", "amber"),
-    ("Locations", stats.total_locations, "geo-alt-fill", "orange"),
-    ("Invoices", stats.total_invoices, "receipt", "blue"),
-  ] %}
-  <div class="col-6 col-md-4 col-lg-2">
-    <div class="card card-stat h-100"><div class="card-body">
-      <span class="stat-icon {{ tint }}"><i class="bi bi-{{ icon }}"></i></span>
-      <div class="stat-label">{{ label }}</div>
-      <div class="stat-value">{{ val }}</div>
-    </div></div>
-  </div>
-  {% endfor %}
-</div>
-
-<div class="card"><div class="card-body">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">Quick links</h5>
-  </div>
-  <div class="row g-3">
     {% if current_user.has_platform_permission("operators") %}
-    <div class="col-md-6">
-      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: color-mix(in srgb, var(--brand) 6%, transparent); text-decoration: none;" href="{{ url_for('platform.operators_list') }}">
-        <span class="stat-icon m-0" style="width:40px;height:40px;"><i class="bi bi-building"></i></span>
-        <div><div class="fw-semibold">Manage operators</div><small class="text-muted">List, suspend, activate, edit branding</small></div>
-      </a>
-    </div>
-    {% endif %}
-    {% if current_user.has_platform_permission("billing") %}
-    <div class="col-md-6">
-      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(217,119,6,.08); text-decoration: none;" href="{{ url_for('platform.billing') }}">
-        <span class="stat-icon amber m-0" style="width:40px;height:40px;"><i class="bi bi-credit-card"></i></span>
-        <div><div class="fw-semibold">Billing</div><small class="text-muted">Operator plans &amp; custom-domain surcharge</small></div>
-      </a>
-    </div>
-    <div class="col-md-6">
-      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(217,119,6,.06); text-decoration: none;" href="{{ url_for('platform.finance_dashboard') }}">
-        <span class="stat-icon amber m-0" style="width:40px;height:40px;"><i class="bi bi-receipt"></i></span>
-        <div><div class="fw-semibold">Invoices, credit notes &amp; refunds</div><small class="text-muted">Operator payments &amp; platform expenses</small></div>
-      </a>
-    </div>
-    {% endif %}
-    {% if current_user.has_platform_permission("reports") %}
-    <div class="col-md-6">
-      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(124,58,237,.06); text-decoration: none;" href="{{ url_for('platform.reports') }}">
-        <span class="stat-icon purple m-0" style="width:40px;height:40px;"><i class="bi bi-graph-up"></i></span>
-        <div><div class="fw-semibold">Reports</div><small class="text-muted">Cross-operator analytics</small></div>
-      </a>
-    </div>
-    {% endif %}
-    {% if current_user.is_platform_owner %}
-    <div class="col-md-6">
-      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(15,118,110,.08); text-decoration: none;" href="{{ url_for('platform.team_list') }}">
-        <span class="stat-icon teal m-0" style="width:40px;height:40px;"><i class="bi bi-people"></i></span>
-        <div><div class="fw-semibold">Platform team</div><small class="text-muted">Create Platform Managers &amp; set their permissions</small></div>
-      </a>
-    </div>
-    <div class="col-md-6">
-      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(217,119,6,.08); text-decoration: none;" href="{{ url_for('platform.tiers_list') }}">
-        <span class="stat-icon amber m-0" style="width:40px;height:40px;"><i class="bi bi-layers"></i></span>
-        <div><div class="fw-semibold">Pricing tiers</div><small class="text-muted">Introduce/edit tiers &amp; their resource caps</small></div>
-      </a>
-    </div>
-    <div class="col-md-6">
-      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(124,58,237,.06); text-decoration: none;" href="{{ url_for('admin.audit_log') }}">
-        <span class="stat-icon purple m-0" style="width:40px;height:40px;"><i class="bi bi-journal-text"></i></span>
-        <div><div class="fw-semibold">Global audit log</div><small class="text-muted">Every sensitive action, filterable + CSV</small></div>
-      </a>
-    </div>
-    <div class="col-md-6">
-      <a class="d-flex align-items-center gap-3 p-3 rounded-3 text-body" style="background: rgba(15,118,110,.06); text-decoration: none;" href="{{ url_for('platform.platform_documents') }}">
-        <span class="stat-icon teal m-0" style="width:40px;height:40px;"><i class="bi bi-file-earmark-text"></i></span>
-        <div><div class="fw-semibold">Platform documents</div><small class="text-muted">Files owned by the platform itself</small></div>
-      </a>
+    <div class="d-flex gap-2">
+      <a class="btn btn-light" href="{{ url_for('platform.operator_new') }}"><i class="bi bi-plus-lg"></i> Provision operator</a>
+      <a class="btn btn-outline-light" href="{{ url_for('platform.operators_list') }}">All operators</a>
     </div>
     {% endif %}
   </div>
-</div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="h-card h-kpi">
+      <span class="chip-ico tint-brand"><i class="bi bi-buildings-fill"></i></span>
+      <div>
+        <div class="label">Operators</div>
+        <div class="value">{{ dash.operators_total }}</div>
+        <div class="delta {{ 'down' if dash.operators_change is not none and dash.operators_change < 0 else 'up' }}">
+          <i class="bi bi-plus"></i>{{ dash.operators_new_30 }} <span>in the last 30 days</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="h-card h-kpi">
+      <span class="chip-ico tint-success"><i class="bi bi-patch-check-fill"></i></span>
+      <div>
+        <div class="label">Active operators</div>
+        <div class="value">{{ dash.active }}</div>
+        <div class="delta"><span>{{ dash.active_share }}% of all operators</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="h-card h-kpi">
+      <span class="chip-ico tint-info"><i class="bi bi-hourglass-split"></i></span>
+      <div>
+        <div class="label">On trial</div>
+        <div class="value">{{ dash.trials }}</div>
+        <div class="delta {{ 'down' if dash.trials_ending_7 else '' }}"><span>{{ dash.trials_ending_7 }} ending within 7 days</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-sm-6 col-xl-3">
+    <div class="h-card h-kpi">
+      <span class="chip-ico tint-warn"><i class="bi bi-currency-rupee"></i></span>
+      <div>
+        <div class="label">Collected this month</div>
+        <div class="value">{{ dash.collected_this_month | inr_short }}</div>
+        <div class="delta {{ 'down' if dash.collected_change is not none and dash.collected_change < 0 else 'up' }}">
+          {% if dash.collected_change is not none %}<i class="bi bi-arrow-{{ 'down' if dash.collected_change < 0 else 'up' }}-short"></i>{{ dash.collected_change | abs }}% <span>vs last month</span>
+          {% else %}<span>{{ dash.billed_this_month | inr_short }} billed</span>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-xl-8">
+    <div class="h-card h-100">
+      <div class="h-card-head">
+        <div><h5>Revenue</h5><div class="sub">Invoices to operators, billed and collected, last 12 months</div></div>
+        {% if current_user.has_platform_permission("billing") %}<a class="small" href="{{ url_for('platform.finance_dashboard') }}">Finance</a>{% endif %}
+      </div>
+      <div class="h-card-body">
+        {% if dash.chart.billed | sum %}
+        <div style="height:280px"><canvas id="revenueChart"></canvas></div>
+        {% else %}
+        <div class="muted text-center py-5"><i class="bi bi-bar-chart" style="font-size:32px;color:var(--h-ink-3)"></i><div class="mt-2">Revenue appears here once you invoice operators.</div></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-4">
+    <div class="h-card h-100">
+      <div class="h-card-head"><div><h5>Operators by plan</h5><div class="sub">Active and trial workspaces</div></div></div>
+      <div class="h-card-body">
+        {% if dash.plans %}
+        <div style="height:200px"><canvas id="planChart"></canvas></div>
+        <div class="mt-3" id="planLegend">
+          {% for name, n in dash.plans %}
+          <div class="d-flex align-items-center justify-content-between py-1">
+            <span><span class="h-dot me-2" data-plan-dot="{{ loop.index0 }}"></span>{{ name }}</span><b>{{ n }}</b>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}<div class="muted text-center py-5">No operators yet.</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-xl-7">
+    <div class="h-card h-100">
+      <div class="h-card-head"><h5>Recent invoices</h5>{% if current_user.has_platform_permission("billing") %}<a class="small" href="{{ url_for('platform.finance_dashboard') }}">View all</a>{% endif %}</div>
+      <div class="h-card-body pt-3" style="overflow-x:auto">
+        <table class="h-table">
+          <thead><tr><th>Operator</th><th>Invoice</th><th>Due</th><th>Status</th><th class="r">Amount</th></tr></thead>
+          <tbody>
+            {% for inv in dash.recent_invoices %}
+            <tr>
+              <td><div class="d-flex align-items-center gap-3"><span class="h-avatar sm av-{{ loop.index % 6 + 1 }}">{{ inv.operator_name | initials }}</span><b>{{ inv.operator_name }}</b></div></td>
+              <td class="muted">{{ inv.number }}</td>
+              <td class="muted">{{ inv.due_date | date }}</td>
+              <td><span class="h-chip sm {{ inv_tint.get(inv.status.value, 'tint-neutral') }}">{{ inv.status.value | title }}</span></td>
+              <td class="r"><b>{{ inv.amount | inr }}</b></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center muted py-4">No invoices to operators yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-5">
+    <div class="h-card h-100">
+      <div class="h-card-head"><div><h5>Needs attention</h5><div class="sub">Trials and contracts ending soon</div></div></div>
+      <div class="h-card-body">
+        {% for a in dash.attention %}
+        <div class="h-list-item">
+          <span class="h-avatar av-{{ loop.index % 6 + 1 }}">{{ a.operator.name | initials }}</span>
+          <div class="grow"><div class="t">{{ a.operator.name }}</div>
+            <div class="s">{{ a.kind }} {{ 'ended' if a.days < 0 else 'ends' }} {{ a.when | date }}</div></div>
+          <span class="h-chip sm {{ 'tint-danger' if a.days < 0 else ('tint-warn' if a.days <= 7 else 'tint-neutral') }}">
+            {% if a.days < 0 %}{{ -a.days }}d ago{% elif a.days == 0 %}Today{% else %}{{ a.days }}d left{% endif %}</span>
+          {% if current_user.has_platform_permission("operators") %}<a class="btn btn-soft btn-sm" href="{{ url_for('platform.operator_edit', operator_id=a.operator.id) }}">Review</a>{% endif %}
+        </div>
+        {% else %}
+        <div class="muted text-center py-5"><i class="bi bi-check-circle" style="font-size:28px;color:var(--h-success)"></i><div class="mt-2">Nothing needs attention right now.</div></div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-12 col-xl-7">
+    <div class="h-card h-100">
+      <div class="h-card-head"><h5>Recently registered</h5>{% if current_user.has_platform_permission("operators") %}<a class="small" href="{{ url_for('platform.operators_list') }}">View all</a>{% endif %}</div>
+      <div class="h-card-body">
+        {% for o in dash.recent_operators %}
+        <div class="h-list-item">
+          <span class="h-avatar av-{{ loop.index % 6 + 1 }}">{{ o.name | initials }}</span>
+          <div class="grow"><div class="t">{{ o.name }}</div><div class="s">{{ o.primary_domain or o.slug }} · joined {{ o.created_at | date }}</div></div>
+          <span class="h-chip sm {{ op_tint.get(o.status.value, 'tint-neutral') }}">{{ o.status.value | title }}</span>
+        </div>
+        {% else %}
+        <div class="muted text-center py-4">No operators yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-5">
+    <div class="h-card h-100">
+      <div class="h-card-head"><h5>Across the platform</h5></div>
+      <div class="h-card-body">
+        <div class="row g-3 text-center">
+          <div class="col-6"><div class="num" style="font-size:24px">{{ dash.members }}</div><div class="muted small">Members and individuals</div></div>
+          <div class="col-6"><div class="num" style="font-size:24px">{{ dash.companies }}</div><div class="muted small">Member companies</div></div>
+          <div class="col-6"><div class="num" style="font-size:24px">{{ dash.locations }}</div><div class="muted small">Locations</div></div>
+          <div class="col-6"><div class="num" style="font-size:24px">{{ dash.invoices_total }}</div><div class="muted small">Invoices raised by operators</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+  (function () {
+    Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+    Chart.defaults.color = '#8b93a7';
+    var data = {{ dash.chart | tojson }};
+    var palette = ['#5b5bd6', '#f59e0b', '#12a150', '#0e8fcb', '#e5484d', '#8b5cf6'];
+    var lakh = function (v) { return v / 100000; };
+    var revenue = document.getElementById('revenueChart');
+    if (revenue) new Chart(revenue, {
+      data: {
+        labels: data.labels,
+        datasets: [
+          { type: 'bar', label: 'Billed', data: data.billed.map(lakh), backgroundColor: '#5b5bd6', borderRadius: 6, maxBarThickness: 26 },
+          { type: 'line', label: 'Collected', data: data.collected.map(lakh), borderColor: '#12a150', backgroundColor: '#12a150', tension: .35, pointRadius: 3, borderWidth: 2 }
+        ]
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+                   tooltip: { callbacks: { label: function (c) { return ' ' + c.dataset.label + ': ₹' + c.parsed.y.toFixed(2) + 'L'; } } } },
+        scales: { x: { grid: { display: false }, border: { display: false } },
+                  y: { beginAtZero: true, grid: { color: '#eef0f6' }, border: { display: false }, ticks: { callback: function (v) { return '₹' + v + 'L'; } } } }
+      }
+    });
+    var plans = {{ dash.plans | tojson }};
+    var canvas = document.getElementById('planChart');
+    if (canvas && plans.length) {
+      new Chart(canvas, {
+        type: 'doughnut',
+        data: { labels: plans.map(function (p) { return p[0]; }), datasets: [{ data: plans.map(function (p) { return p[1]; }), backgroundColor: palette, borderWidth: 0, spacing: 3 }] },
+        options: { maintainAspectRatio: false, cutout: '72%', plugins: { legend: { display: false } } }
+      });
+      document.querySelectorAll('[data-plan-dot]').forEach(function (d) { d.style.background = palette[d.getAttribute('data-plan-dot') % palette.length]; });
+    }
+  })();
+</script>
 {% endblock %}
