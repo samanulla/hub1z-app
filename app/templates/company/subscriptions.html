@@ -6,7 +6,7 @@
 
 <table class="table bg-white shadow-sm">
   <thead>
-    <tr><th>Plan</th><th>Qty</th><th>Unit price</th><th>Total</th><th>Credits</th><th>Status</th><th>Start</th></tr>
+    <tr><th>Plan</th><th>Qty</th><th>Unit price</th><th>Total</th><th>Status</th><th>Start</th></tr>
   </thead>
   <tbody>
     {% for s in subs %}
@@ -15,12 +15,11 @@
       <td>{{ s.quantity }}</td>
       <td>{{ s.unit_price | money }}</td>
       <td>{{ s.monthly_total | money }}</td>
-      <td>{{ s.meeting_credits_balance }}</td>
       <td><span class="badge bg-secondary">{{ s.status.value }}</span></td>
       <td>{{ s.start_date }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="7" class="text-muted text-center py-4">No subscriptions yet — see <a href="{{ url_for('company.plans') }}">available plans</a> and contact your workspace admin.</td></tr>
+    <tr><td colspan="6" class="text-muted text-center py-4">No subscriptions yet — see <a href="{{ url_for('company.plans') }}">available plans</a> and contact your workspace admin.</td></tr>
     {% endfor %}
   </tbody>
 </table>

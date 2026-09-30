@@ -18,7 +18,7 @@ from ...models import (
     SubscriptionChangeRequest, SubscriptionRequestStatus,
 )
 from ...utils.decorators import manager_or_super_required
-from ...services import audit_service
+from ...services import audit_service, credit_service
 from .forms import AdminSubscribeForm
 
 
@@ -42,7 +42,6 @@ def register_subscription_routes(bp):
                 unit_price=Decimal(plan.base_price),
                 start_date=form.start_date.data,
                 status=SubscriptionStatus.ACTIVE,
-                meeting_credits_balance=(plan.included_meeting_credits or 0) * form.quantity.data,
                 pricing_snapshot=json.dumps({
                     "plan_id": plan.id, "plan_version": plan.version, "base_price": str(plan.base_price),
                     "billing_unit": plan.billing_unit.value, "billing_cycle": plan.billing_cycle.value,
@@ -54,10 +53,17 @@ def register_subscription_routes(bp):
                 }),
             )
             db.session.add(sub)
+            db.session.flush()
+            credits = credit_service.auto_allocate_for_subscription(sub, actor=current_user)
             db.session.commit()
             audit_service.record("subscription.created", "subscription", sub.id,
                                  {"company": company.name, "plan": plan.name, "quantity": sub.quantity})
             flash(f"{company.name} subscribed to {plan.name}.", "success")
+            if credits:
+                flash(f"Monthly credits suggested from the seat bands: {credits['credits']}. "
+                      "Adjust them on the Credits page.", "info")
+                if credits["warning"]:
+                    flash(credits["warning"], "warning")
             return redirect(url_for("admin.company_detail", company_id=company.id))
         if not form.is_submitted():
             form.start_date.data = date.today()
@@ -94,19 +100,16 @@ def register_subscription_routes(bp):
                     unit_price=Decimal(plan.base_price),
                     start_date=date.today(),
                     status=SubscriptionStatus.ACTIVE,
-                    meeting_credits_balance=(plan.included_meeting_credits or 0) * change.requested_quantity,
                 )
                 db.session.add(subscription)
                 db.session.flush()
                 change.subscription_id = subscription.id
+                credit_service.auto_allocate_for_subscription(subscription, actor=current_user)
             else:
                 subscription.plan_id = plan.id
                 subscription.quantity = change.requested_quantity
                 subscription.unit_price = Decimal(plan.base_price)
                 subscription.status = SubscriptionStatus.ACTIVE
-                subscription.meeting_credits_balance = (
-                    (plan.included_meeting_credits or 0) * change.requested_quantity
-                )
             change.status = SubscriptionRequestStatus.APPROVED
             action = "approved"
         elif decision == "deny":

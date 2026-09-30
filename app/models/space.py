@@ -55,14 +55,15 @@ class ConferenceRoom(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     name = Column(String(120), nullable=False)
     code = Column(String(30), nullable=False)
     capacity = Column(Integer, nullable=False, default=6)
-    hourly_rate = Column(Numeric(10, 2), default=0)
-    credit_cost_per_hour = Column(Integer, default=1, nullable=False)  # meeting-room credits
+    hourly_rate = Column(Numeric(10, 2), default=0)  # cash rate when the room has no category
+    category_id = Column(Integer, ForeignKey("room_categories.id", ondelete="SET NULL"), nullable=True, index=True)
     is_active = Column(Boolean, default=True, nullable=False)
     cross_location_bookable = Column(Boolean, default=False, nullable=False)
     description = Column(Text)
 
     location = relationship("Location", back_populates="rooms")
     floor = relationship("Floor", back_populates="rooms")
+    category = relationship("RoomCategory", foreign_keys=[category_id])
     bookings = relationship("RoomBooking", back_populates="room", cascade="all, delete-orphan")
     amenities = relationship("RoomAmenity", secondary="room_amenity_link", backref="rooms")
 
@@ -72,6 +73,15 @@ class ConferenceRoom(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     def __repr__(self) -> str:
         return f"<Room {self.name} cap={self.capacity}>"
+
+    @property
+    def credits_per_slot(self) -> int:
+        """Credits per 30 minutes; a room without a category costs the Standard rate of 1."""
+        return self.category.credits_per_slot if self.category else 1
+
+    @property
+    def cash_rate_per_hour(self):
+        return self.category.hourly_rate if self.category else (self.hourly_rate or 0)
 
 
 class RoomAmenity(db.Model, PkMixin, OperatorScoped):

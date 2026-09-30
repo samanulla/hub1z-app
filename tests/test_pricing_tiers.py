@@ -158,7 +158,7 @@ def test_rooms_are_not_capped_but_locations_are_enforced():
 
     r = c.post(f"/admin/locations/{loc_id}/rooms/new", data={
         "floor_id": fl_id, "code": "R1", "name": "Room 1", "capacity": 4,
-        "hourly_rate": 0, "credit_cost_per_hour": 1,
+        "hourly_rate": 0, "category_id": 0,
     }, follow_redirects=True)
     assert b"Room created" in r.data
 

@@ -10,6 +10,7 @@
     <div class="card card-stat"><div class="card-body">
       <div class="text-muted small">Meeting credits</div>
       <div class="stat-value">{{ credits }}</div>
+      <div class="text-muted small">about {{ (credits / 2) | round(1) }} hours of a Standard room</div>
     </div></div>
   </div>
   <div class="col-md-4">
@@ -68,7 +69,7 @@
   <h6>Your subscriptions</h6>
   <ul class="mb-0">
     {% for s in subscriptions %}
-      <li>{{ s.plan.name }} × {{ s.quantity }} — {{ s.meeting_credits_balance }} credits left</li>
+      <li>{{ s.plan.name }} × {{ s.quantity }}</li>
     {% endfor %}
   </ul>
 </div></div>

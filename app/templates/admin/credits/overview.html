@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field, meter %}
+{% block title %}Credits{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h3 class="mb-0">Meeting-room credits</h3>
+    <div class="text-muted small">1 credit = 30 minutes of a Standard room. Companies share what you allocate to them.</div>
+  </div>
+  <div>
+    <a class="btn btn-outline-dark btn-sm" href="{{ url_for('admin.credits_activity') }}">Activity</a>
+    <a class="btn btn-outline-dark btn-sm" href="{{ url_for('admin.credits_settings') }}">Rules &amp; pricing</a>
+  </div>
+</div>
+
+<div class="card mb-4"><div class="card-body">
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-2"><div class="eyebrow">Room capacity</div><div class="fs-4 fw-semibold">{{ pool.capacity }}</div><div class="text-muted small">credits / month</div></div>
+    <div class="col-6 col-md-2"><div class="eyebrow">Free pool</div><div class="fs-4 fw-semibold">{{ pool.pool }}</div><div class="text-muted small">{{ settings.complimentary_share_pct }}% of capacity</div></div>
+    <div class="col-6 col-md-2"><div class="eyebrow">Kept for signups</div><div class="fs-4 fw-semibold">{{ pool.reserve }}</div><div class="text-muted small">{{ settings.reserve_pct }}% of the pool</div></div>
+    <div class="col-6 col-md-2"><div class="eyebrow">To allocate</div><div class="fs-4 fw-semibold">{{ pool.allocatable }}</div></div>
+    <div class="col-6 col-md-2"><div class="eyebrow">Allocated</div><div class="fs-4 fw-semibold">{{ pool.committed }}</div></div>
+    <div class="col-6 col-md-2"><div class="eyebrow">Still to give</div><div class="fs-4 fw-semibold">{{ pool.unallocated }}</div></div>
+  </div>
+  {% if pool.pool %}
+    {{ meter(segments) }}
+    {% if pool.over %}<div class="alert alert-warning mt-3 mb-0">Allocations ({{ pool.committed }}) are above what you set aside to give away ({{ pool.allocatable }}).</div>{% endif %}
+  {% else %}
+    <div class="text-muted">The pool is empty. Add active meeting rooms (with opening hours) and it will fill in.</div>
+  {% endif %}
+</div></div>
+
+<h5>Allocations</h5>
+<table class="table bg-white shadow-sm">
+  <thead><tr>
+    <th>Name</th><th>Seats</th><th>Band suggests</th><th>Monthly</th><th>Used</th><th>Reserved</th>
+    <th>Bonus</th><th>Complimentary</th><th>Purchased</th><th>Total left</th><th></th>
+  </tr></thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.name }}<div class="text-muted small">{{ r.kind }}</div></td>
+      <td>{{ r.seats if r.seats is not none else "\u2014" }}</td>
+      <td>{{ r.suggested if r.suggested is not none else "\u2014" }}</td>
+      <td>
+        {% if r.monthly is none %}<span class="text-muted">not allocated</span>{% else %}{{ r.monthly }}{% endif %}
+        {% if r.pending is not none %}<div class="text-muted small">{{ r.pending }} from {{ r.pending_from.strftime('%d %b') }}</div>{% endif %}
+      </td>
+      <td>{{ r.used }}</td><td>{{ r.reserved }}</td>
+      <td>{{ r.bal.bonus }}</td><td>{{ r.bal.complimentary }}</td><td>{{ r.bal.purchased }}</td>
+      <td class="fw-semibold">{{ r.bal.total }}</td>
+      <td class="text-end text-nowrap">
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.credits_overview', subject=r.key) }}#allocate">Allocate</a>
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.credits_activity', subject=r.key) }}">History</a>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="11" class="text-center text-muted py-4">No active companies yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="row g-4" id="allocate">
+  <div class="col-md-6"><div class="card"><div class="card-body">
+    <h5>Allocate monthly credits</h5>
+    <p class="text-muted small">A new allocation starts now (prorated for the rest of the month). Changing a running one takes effect next month.</p>
+    <form method="post" action="{{ url_for('admin.credits_allocate') }}">
+      {{ allocate_form.hidden_tag() }}
+      {{ field(allocate_form.subject) }}
+      {{ field(allocate_form.monthly_credits) }}
+      <button class="btn btn-dark">Allocate</button>
+    </form>
+  </div></div></div>
+  <div class="col-md-6"><div class="card"><div class="card-body">
+    <h5>Give bonus credits</h5>
+    <p class="text-muted small">One-off, for negotiation. They expire at the end of this month, so they never become a standing commitment.</p>
+    <form method="post" action="{{ url_for('admin.credits_bonus') }}">
+      {{ bonus_form.hidden_tag() }}
+      {{ field(bonus_form.subject) }}
+      {{ field(bonus_form.credits) }}
+      {{ field(bonus_form.note) }}
+      <button class="btn btn-dark">Give bonus</button>
+    </form>
+  </div></div></div>
+</div>
+{% endblock %}

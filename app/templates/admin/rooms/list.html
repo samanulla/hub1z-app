@@ -8,7 +8,7 @@
 </div>
 
 <table class="table bg-white shadow-sm">
-  <thead><tr><th>Code</th><th>Name</th><th>Floor</th><th>Capacity</th><th>Hourly</th><th>Credits/hr</th><th></th></tr></thead>
+  <thead><tr><th>Code</th><th>Name</th><th>Floor</th><th>Capacity</th><th>Hourly</th><th>Category</th><th>Credits / 30 min</th><th></th></tr></thead>
   <tbody>
     {% for r in rooms %}
     <tr>
@@ -16,12 +16,13 @@
       <td>{{ r.name }}</td>
       <td>L{{ r.floor.level }}</td>
       <td>{{ r.capacity }}</td>
-      <td>{{ r.hourly_rate | money }}</td>
-      <td>{{ r.credit_cost_per_hour }}</td>
+      <td>{{ r.cash_rate_per_hour | money }}</td>
+      <td>{{ r.category.name if r.category else "—" }}</td>
+      <td>{{ r.credits_per_slot }}</td>
       <td class="text-end"><a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.room_edit', room_id=r.id) }}">Edit</a></td>
     </tr>
     {% else %}
-    <tr><td colspan="7" class="text-center text-muted py-4">No rooms yet.</td></tr>
+    <tr><td colspan="8" class="text-center text-muted py-4">No rooms yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>

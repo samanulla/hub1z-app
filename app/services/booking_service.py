@@ -14,9 +14,10 @@ from sqlalchemy import and_, or_
 from ..extensions import db
 from ..models import (
     Seat, SeatBooking, ConferenceRoom, RoomBooking, BookingStatus,
-    User, Subscription, SubscriptionStatus,
+    User, CreditSettings,
     SeatAllocation, AllocationStatus, Location,
 )
+from . import credit_service
 
 
 class BookingError(Exception):
@@ -171,37 +172,24 @@ def check_room_conflict(room_id: int, start: datetime, end: datetime,
     return db.session.query(q.exists()).scalar()
 
 
-def _active_subscription_for(user: User) -> Subscription | None:
-    """Return the highest-credit active subscription the user can draw from."""
-    q = Subscription.query.filter(Subscription.status == SubscriptionStatus.ACTIVE)
-    if user.company_id:
-        q = q.filter(or_(Subscription.user_id == user.id,
-                         Subscription.company_id == user.company_id))
-    else:
-        q = q.filter(Subscription.user_id == user.id)
-    return q.order_by(Subscription.meeting_credits_balance.desc()).first()
-
-
 def quote_room(user: User, room: ConferenceRoom, start: datetime, end: datetime) -> Quote:
-    hours = _hours_between(start, end)
-    hourly_rate = Decimal(room.hourly_rate or 0)
-
-    sub = _active_subscription_for(user)
-    credits_available = sub.meeting_credits_balance if sub else 0
-    credits_needed = int((hours * room.credit_cost_per_hour).to_integral_value(rounding="ROUND_UP"))
-    credits_used = min(credits_needed, credits_available)
-
-    # 1 credit = 1 hour of room use in this model
-    billable_hours = max(hours - Decimal(credits_used) / Decimal(room.credit_cost_per_hour or 1),
-                         Decimal(0))
-    subtotal = (hourly_rate * billable_hours).quantize(Decimal("0.01"))
-
-    return Quote(
-        hours=hours,
-        subtotal=subtotal,
-        credits_used=credits_used,
-        credits_available=credits_available,
-    )
+    """Credits cover what they can (bonus, complimentary, then purchased); the rest is cash at the
+    room's rate, or the booking is refused when the operator turned pay-per-use off."""
+    try:
+        slots = credit_service.slots_between(start, end)
+    except credit_service.CreditError as e:
+        raise BookingError(str(e))
+    needed = slots * room.credits_per_slot
+    hours = Decimal(slots) / 2
+    available = credit_service.balance(room.operator_id, **credit_service.subject_for(user))["total"]
+    used = min(needed, available)
+    shortfall = needed - used
+    if shortfall and not CreditSettings.for_operator(room.operator_id).pay_per_use_enabled:
+        raise BookingError(f"This booking needs {needed} credits and you have {available}. "
+                           "Buy more credits to book it.")
+    subtotal = (Decimal(room.cash_rate_per_hour) * hours * Decimal(shortfall) / Decimal(needed)
+                ).quantize(Decimal("0.01"))
+    return Quote(hours=hours, subtotal=subtotal, credits_used=used, credits_available=available)
 
 
 def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, end: datetime,
@@ -228,6 +216,10 @@ def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, en
             raise BookingError("That person does not belong to your workspace.")
     if attendees > room.capacity:
         raise BookingError(f"Room capacity is {room.capacity}.")
+    try:
+        credit_service.slots_between(start, end)
+    except credit_service.CreditError as e:
+        raise BookingError(str(e))
     _validate_location_hours(room.location, start, end)
     if check_room_conflict(room.id, start, end):
         raise BookingError("Room already booked for this time.")
@@ -259,9 +251,13 @@ def create_room_booking(*, user: User, room: ConferenceRoom, start: datetime, en
     db.session.add(booking)
 
     if q.credits_used:
-        sub = _active_subscription_for(booked_for)
-        if sub:
-            sub.meeting_credits_balance = max(0, sub.meeting_credits_balance - q.credits_used)
+        db.session.flush()
+        try:
+            credit_service.spend(booking.operator_id, **credit_service.subject_for(booked_for),
+                                 credits=q.credits_used, booking=booking, actor=user)
+        except credit_service.CreditError as e:
+            db.session.rollback()
+            raise BookingError(str(e))
 
     db.session.commit()
     return booking
@@ -285,9 +281,7 @@ def cancel_booking(booking, actor: User) -> None:
 
     # Refund credits for room bookings
     if isinstance(booking, RoomBooking) and booking.credits_used:
-        sub = _active_subscription_for(booking.user)
-        if sub:
-            sub.meeting_credits_balance += booking.credits_used
+        credit_service.refund_booking(booking, actor)
 
     booking.status = BookingStatus.CANCELLED
     db.session.commit()

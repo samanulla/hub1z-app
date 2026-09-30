@@ -42,7 +42,10 @@ def _seed(app):
                            plan_type=PlanType.DEDICATED_DESK,
                            billing_cycle=BillingCycle.MONTHLY, base_price=22000,
                            included_meeting_credits=20, max_locations=1)
-        db.session.add(plan); db.session.commit()
+        db.session.add(plan)
+        from app.models import SeatBand
+        db.session.add(SeatBand(operator_id=t.id, min_seats=1, max_seats=10, monthly_credits=20))
+        db.session.commit()
         return company.id, plan.id
 
 
@@ -85,7 +88,9 @@ def test_operator_admin_can_create_subscription_for_company():
         assert sub is not None
         assert sub.quantity == 5
         assert sub.status == SubscriptionStatus.ACTIVE
-        assert sub.meeting_credits_balance == 100  # 20 credits * 5 seats
+        from app.models import CreditAllocation
+        alloc = CreditAllocation.query.filter_by(company_id=company_id).one()
+        assert alloc.monthly_credits == 20  # the 1-10 seat band
 
 
 def test_company_admin_cannot_create_subscription_via_admin_route():

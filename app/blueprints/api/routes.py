@@ -43,7 +43,7 @@ def _room_json(r: ConferenceRoom) -> dict:
     return {
         "id": r.id, "code": r.code, "name": r.name, "capacity": r.capacity,
         "hourly_rate": float(r.hourly_rate or 0),
-        "credit_cost_per_hour": r.credit_cost_per_hour,
+        "credits_per_30_min": r.credits_per_slot,
         "location_id": r.location_id, "floor_id": r.floor_id,
     }
 

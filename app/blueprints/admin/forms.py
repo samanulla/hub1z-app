@@ -62,8 +62,9 @@ class RoomForm(FlaskForm):
     code = StringField("Room code", validators=[DataRequired(), Length(max=30)])
     name = StringField("Room name", validators=[DataRequired(), Length(max=120)])
     capacity = IntegerField("Capacity", validators=[DataRequired(), NumberRange(min=1, max=500)])
-    hourly_rate = DecimalField("Hourly $", default=0, validators=[NumberRange(min=0)])
-    credit_cost_per_hour = IntegerField("Credits / hour", default=1, validators=[NumberRange(min=0)])
+    hourly_rate = DecimalField("Hourly rate (used when no category)", default=0, validators=[NumberRange(min=0)])
+    category_id = SelectField("Category", coerce=int, default=0,
+                              description="Standard, Executive... sets the credits and cash rate.")
     is_active = BooleanField("Active", default=True)
     cross_location_bookable = BooleanField(
         "Allow members from other locations to book this room",

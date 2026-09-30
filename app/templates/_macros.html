@@ -16,3 +16,19 @@
   {% if f.description %}<div class="form-text">{{ f.description }}</div>{% endif %}
 </div>
 {% endmacro %}
+
+{# Ruler-style bar: one coloured segment per state (used, reserved, blocked, available...). #}
+{% macro meter(segments, unit="credits") %}
+{% set total = segments | sum(attribute="value") %}
+{% if total %}
+<div class="meter">
+  {% for s in segments if s.value > 0 %}
+  <div class="meter-seg meter-{{ s.key }}" style="width: {{ (s.value / total * 100) | round(2) }}%"
+       title="{{ s.label }}: {{ s.value }} {{ unit }} (about {{ (s.value / 2) | round(1) }} hours)"></div>
+  {% endfor %}
+</div>
+<div class="meter-legend">
+  {% for s in segments %}<span><i class="meter-dot meter-{{ s.key }}"></i>{{ s.label }} <b>{{ s.value }}</b></span>{% endfor %}
+</div>
+{% endif %}
+{% endmacro %}

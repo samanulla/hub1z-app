@@ -10,8 +10,9 @@ from flask_login import current_user, login_required
 from ...models import (
     Location, Seat, ConferenceRoom, SeatType, RoomWaitlist, WaitlistStatus,
     RecurringRoomBooking, RecurrencePattern, RoomBooking, SeatBooking, BookingStatus,
-    Subscription, SubscriptionStatus, User, UserRole,
+    User, UserRole,
 )
+from ...services import credit_service
 from ...services.booking_service import (
     create_seat_booking, create_room_booking, quote_seat, quote_room,
     BookingError, check_seat_conflict, check_room_conflict,
@@ -23,12 +24,7 @@ booking_bp = Blueprint("book", __name__, template_folder="../../templates")
 
 
 def _current_user_credits() -> int:
-    subs = Subscription.query.filter(
-        (Subscription.user_id == current_user.id) |
-        (Subscription.company_id == current_user.company_id),
-        Subscription.status == SubscriptionStatus.ACTIVE,
-    ).all()
-    return sum(s.meeting_credits_balance for s in subs)
+    return credit_service.balance(current_user.operator_id, **credit_service.subject_for(current_user))["total"]
 
 
 @booking_bp.route("/")

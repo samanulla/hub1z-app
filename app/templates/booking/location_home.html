@@ -34,7 +34,7 @@
         <div class="card h-100"><div class="card-body">
           <h6>{{ r.name }}</h6>
           <div class="text-muted small">Cap {{ r.capacity }} · L{{ r.floor.level }}</div>
-          <p class="small mb-2">{{ r.hourly_rate | money }}/hr · {{ r.credit_cost_per_hour }} credit(s)/hr</p>
+          <p class="small mb-2">{{ r.cash_rate_per_hour | money }}/hr · {{ r.credits_per_slot }} credit(s) / 30 min</p>
           <a class="btn btn-sm btn-dark" href="{{ url_for('book.room_book', room_id=r.id) }}">Book</a>
         </div></div>
       </div>

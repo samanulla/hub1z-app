@@ -70,7 +70,7 @@ def _seed(app):
         db.session.add(seat)
         subscription = Subscription(operator_id=operator.id, company_id=company.id, plan_id=basic.id,
                                     quantity=2, unit_price=basic.base_price, start_date=date.today(),
-                                    status=SubscriptionStatus.ACTIVE, meeting_credits_balance=4)
+                                    status=SubscriptionStatus.ACTIVE)
         invoice = Invoice(operator_id=operator.id, number="INV-TEST-1", company_id=company.id,
                           period_start=date.today(), period_end=date.today(), due_date=date.today(),
                           subtotal=Decimal("1000"), total_amount=Decimal("1000"),
@@ -115,7 +115,6 @@ def test_operator_approves_company_subscription_request():
         assert change.operator_message == "Approved for next billing cycle."
         assert subscription.plan_id == growth_id
         assert subscription.quantity == 4
-        assert subscription.meeting_credits_balance == 20
 
 
 def test_operator_denies_company_subscription_request_with_message():

@@ -12,6 +12,7 @@ from ...models import (
     AuditLog, Invoice, PricingTier,
 )
 from ...services import audit_service
+from ...services import credit_service
 from ...services import mail_service
 from ...services.locale_data import CURRENCY_SYMBOLS
 from ...utils.decorators import (
@@ -62,6 +63,7 @@ def _seed_operator_defaults(operator: Operator) -> None:
             operator_id=operator.id, code=code, name=subject, kind=kind,
             subject=subject, body_html=body, is_active=True,
         ))
+    credit_service.seed_default_categories(operator.id)
 
 
 @platform_bp.route("/")

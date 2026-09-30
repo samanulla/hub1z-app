@@ -45,7 +45,7 @@
       <tr>
         <th style="width: 90px;">Time</th>
         {% for room in rooms %}
-        <th class="text-center">{{ room.name }}<div class="text-muted small fw-normal">Cap {{ room.capacity }} &middot; {{ room.credit_cost_per_hour }} cr/hr</div></th>
+        <th class="text-center">{{ room.name }}<div class="text-muted small fw-normal">Cap {{ room.capacity }} &middot; {{ room.credits_per_slot }} cr / 30 min</div></th>
         {% endfor %}
       </tr>
     </thead>
@@ -113,10 +113,10 @@
             <label class="form-label">Room</label>
             <select class="form-select" name="room_id" id="meetingRoom" required>
               {% for room in rooms %}
-              <option value="{{ room.id }}">{{ room.name }} &middot; Cap {{ room.capacity }} &middot; {{ room.credit_cost_per_hour }} cr/hr</option>
+              <option value="{{ room.id }}">{{ room.name }} &middot; Cap {{ room.capacity }} &middot; {{ room.credits_per_slot }} cr / 30 min</option>
               {% endfor %}
               {% for room in bookable_rooms if room.location_id != location.id %}
-              <option value="{{ room.id }}">{{ room.name }} ({{ room.location.name }}) &middot; Cap {{ room.capacity }} &middot; {{ room.credit_cost_per_hour }} cr/hr</option>
+              <option value="{{ room.id }}">{{ room.name }} ({{ room.location.name }}) &middot; Cap {{ room.capacity }} &middot; {{ room.credits_per_slot }} cr / 30 min</option>
               {% endfor %}
             </select>
           </div>

@@ -7,9 +7,10 @@ from flask.cli import with_appcontext
 
 from .config import ProductionConfig, get_config
 from .extensions import db
+from .services import credit_service
 from .models import (
     User, UserRole, Operator, OperatorStatus, Company, CompanyStatus,
-    Location, Floor, Seat, SeatType, ConferenceRoom,
+    Location, Floor, Seat, SeatType, ConferenceRoom, CreditAllocation, RoomCategory, SeatBand,
 )
 
 
@@ -19,7 +20,20 @@ def register_cli(app: Flask) -> None:
     app.cli.add_command(seed_personas_cmd)
     app.cli.add_command(create_operator_cmd)
     app.cli.add_command(run_scheduled_jobs_cmd)
+    app.cli.add_command(credits_cycle_cmd)
     app.cli.add_command(update_platform_owner_email_cmd)
+
+
+@click.command("credits-cycle")
+@click.option("--date", "on", default=None, help="Run as of YYYY-MM-DD; defaults to today.")
+@with_appcontext
+def credits_cycle_cmd(on: str | None) -> None:
+    """Expire old credits, start pending allocation changes and grant this month's credits (safe to re-run)."""
+    from datetime import datetime
+    today = datetime.strptime(on, "%Y-%m-%d").date() if on else None
+    r = credit_service.run_all_cycles(today)
+    click.echo(f"Credit cycle: {r['granted']} monthly grant(s), {r['changed']} allocation change(s), "
+               f"{r['expired']} lot(s) expired.")
 
 
 @click.command("run-scheduled-jobs")
@@ -34,7 +48,9 @@ def run_scheduled_jobs_cmd(month: str | None) -> None:
     target_month = datetime.strptime(f"{month}-01", "%Y-%m-%d").date() if month else None
     bookings = materialize_recurring_room_bookings()
     invoices = run_monthly_billing(target_month)
-    click.echo(f"Created {bookings} recurring booking(s); generated {len(invoices)} invoice(s).")
+    credits = credit_service.run_all_cycles()
+    click.echo(f"Created {bookings} recurring booking(s); generated {len(invoices)} invoice(s); "
+               f"credits: {credits['granted']} granted, {credits['expired']} expired.")
 
 
 @click.command("create-admin")
@@ -152,11 +168,15 @@ def seed_personas_cmd() -> None:
         floor = Floor(operator_id=op.id, location_id=loc.id, level=1, name="Ground")
         db.session.add(floor)
         db.session.flush()
+        db.session.flush()
+        credit_service.seed_default_categories(op.id)
+        standard = RoomCategory.query.filter_by(operator_id=op.id, name="Standard").first()
         db.session.add_all([
             Seat(operator_id=op.id, location_id=loc.id, floor_id=floor.id, code="D1",
                  seat_type=SeatType.HOT_DESK, hourly_rate=Decimal("100")),
             ConferenceRoom(operator_id=op.id, location_id=loc.id, floor_id=floor.id, code="R1",
-                           name="Board Room", capacity=8, hourly_rate=Decimal("500")),
+                           name="Board Room", capacity=8, hourly_rate=Decimal("500"),
+                           category_id=standard.id),
         ])
         return op
 
@@ -174,6 +194,15 @@ def seed_personas_cmd() -> None:
     ensure_user("admin@acmeco.com", "Acme Admin", UserRole.COMPANY_ADMIN, demo, acme)
     ensure_user("employee@acmeco.com", "Acme Employee", UserRole.EMPLOYEE, demo, acme)
     ensure_user("individual@demospace.com", "Ivy Individual", UserRole.INDIVIDUAL, demo)
+    db.session.flush()
+    if not SeatBand.query.filter_by(operator_id=demo.id).first():
+        db.session.add_all([SeatBand(operator_id=demo.id, min_seats=1, max_seats=10, monthly_credits=20),
+                            SeatBand(operator_id=demo.id, min_seats=11, max_seats=25, monthly_credits=30)])
+    if not CreditAllocation.query.filter_by(operator_id=demo.id, company_id=acme.id).first():
+        credit_service.allocate(demo.id, company_id=acme.id, monthly=20)
+    ivy = User.query.filter_by(email="individual@demospace.com").first()
+    if not CreditAllocation.query.filter_by(operator_id=demo.id, user_id=ivy.id).first():
+        credit_service.allocate(demo.id, user_id=ivy.id, monthly=4)
 
     other = ensure_operator("other", "Other Space")
     if not Company.query.filter_by(operator_id=other.id, name="Other Co").first():

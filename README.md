@@ -29,7 +29,7 @@ in any region.
 | **Company console** | Onboard/offboard employees, allocate seats, view invoices, manage credits, upload company documents |
 | **Employee/Individual** | Book seats and rooms, view bookings, download invoices, manage profile |
 | **Billing** | Auto-generated monthly invoices, per-booking usage charges, credit tracking, downloadable PDFs (stub) |
-| **Scheduled operations** | `flask run-scheduled-jobs` materializes recurring room bookings and generates idempotent monthly invoices; run it from cron, EventBridge, or Azure Scheduler |
+| **Scheduled operations** | `flask run-scheduled-jobs` materializes recurring room bookings, generates idempotent monthly invoices, and runs the monthly credit cycle (`flask credits-cycle`: expire old credits, start pending allocation changes, grant this month's credits); run it daily from cron, EventBridge, or Azure Scheduler |
 | **Documents** | Platform/operator-scoped document storage for contracts, KYC, invoices, expenses, and floor maps; separate S3 bucket roots with cloud-agnostic local/Azure support |
 | **Notifications** | Booking confirmations & reminders (email hooks; extend with SES/SendGrid) |
 | **Public SaaS website** | Platform features and pricing pages, regional operator signup defaults, and operator microsites for spaces, memberships, live availability, and manual UPI/bank payment instructions |

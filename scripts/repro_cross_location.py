@@ -30,7 +30,7 @@ with app.app_context():
     if not room_b:
         room_b = ConferenceRoom(operator_id=t.id, location_id=loc_b.id, floor_id=floor_b.id,
                                 name="Cross Room", code="XROOM", capacity=4, hourly_rate=300,
-                                credit_cost_per_hour=1, is_active=True, cross_location_bookable=True)
+                                is_active=True, cross_location_bookable=True)
         db.session.add(room_b); db.session.flush()
     else:
         room_b.cross_location_bookable = True

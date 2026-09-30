@@ -13,7 +13,7 @@ from ...models import (
     Company, CompanyStatus, PricingPlan, Subscription, SubscriptionStatus,
     SeatAllocation, AllocationStatus, SeatBooking, RoomBooking, BookingStatus,
     SubscriptionChangeRequest, SubscriptionRequestStatus,
-    Document, DocumentKind, CompanyDocument, Invoice, DayPass, DayPassStatus,
+    Document, DocumentKind, CompanyDocument, Invoice, DayPass, DayPassStatus, RoomCategory,
 )
 from ...services.storage import storage_service
 from ...services import tier_limits
@@ -24,6 +24,13 @@ from .forms import (
 )
 
 admin_bp = Blueprint("admin", __name__, template_folder="../../templates")
+
+
+def _room_category_choices(operator_id: int) -> list[tuple[int, str]]:
+    cats = (RoomCategory.query.filter_by(operator_id=operator_id, is_active=True)
+            .order_by(RoomCategory.credits_per_slot, RoomCategory.name).all())
+    return [(0, "— none (1 credit, room rate) —")] + [
+        (c.id, f"{c.name} · {c.credits_per_slot} cr / 30 min") for c in cats]
 
 
 # ------------------------------------------------------------ dashboard --
@@ -183,6 +190,7 @@ def room_new(location_id: int):
     loc = Location.query.get_or_404(location_id)
     form = RoomForm()
     form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in loc.floors]
+    form.category_id.choices = _room_category_choices(loc.operator_id)
     if form.validate_on_submit():
         ok, msg = tier_limits.check_limit(getattr(g, "operator", None), "room")
         if not ok:
@@ -190,6 +198,7 @@ def room_new(location_id: int):
             return render_template("admin/rooms/form.html", form=form, location=loc, title="New room")
         room = ConferenceRoom(operator_id=loc.operator_id, location_id=loc.id)
         form.populate_obj(room)
+        room.category_id = form.category_id.data or None
         db.session.add(room)
         db.session.commit()
         flash("Room created.", "success")
@@ -203,8 +212,12 @@ def room_edit(room_id: int):
     room = ConferenceRoom.query.get_or_404(room_id)
     form = RoomForm(obj=room)
     form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in room.location.floors]
+    form.category_id.choices = _room_category_choices(room.operator_id)
+    if not form.is_submitted():
+        form.category_id.data = room.category_id or 0
     if form.validate_on_submit():
         form.populate_obj(room)
+        room.category_id = form.category_id.data or None
         db.session.commit()
         flash("Room updated.", "success")
         return redirect(url_for("admin.rooms_list", location_id=room.location_id))

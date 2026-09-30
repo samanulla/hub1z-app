@@ -37,8 +37,6 @@ class Subscription(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     end_date = Column(Date)                                     # NULL = auto-renew
     status = Column(Enum(SubscriptionStatus), default=SubscriptionStatus.ACTIVE, nullable=False)
 
-    # Consumable credits pool
-    meeting_credits_balance = Column(Integer, default=0, nullable=False)
     pricing_snapshot = Column(Text)
 
     plan = relationship("PricingPlan", back_populates="subscriptions")

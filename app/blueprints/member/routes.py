@@ -14,6 +14,7 @@ from ...models import (
     SeatBooking, RoomBooking, BookingStatus, Invoice, Subscription, SubscriptionStatus,
     Location, DayPass, DayPassStatus, User, UserRole,
 )
+from ...services import credit_service
 from ...services.booking_service import cancel_booking, BookingError
 from ...utils.decorators import member_required, member_or_admin_required
 
@@ -38,7 +39,7 @@ def dashboard():
         (Subscription.company_id == current_user.company_id),
         Subscription.status == SubscriptionStatus.ACTIVE,
     ).all()
-    credits = sum(s.meeting_credits_balance for s in subs)
+    credits = credit_service.balance(current_user.operator_id, **credit_service.subject_for(current_user))["total"]
     invoices = (Invoice.query
                 .filter((Invoice.user_id == current_user.id) |
                         (Invoice.company_id == current_user.company_id))

@@ -29,6 +29,10 @@ from .platform_billing import (
 )
 from .email_template import EmailTemplate, EmailKind
 from .settings import SystemSettings
+from .credits import (
+    CreditSettings, RoomCategory, SeatBand, CreditAllocation, CreditLot, CreditLedger,
+    CreditBucket, LedgerType, BUCKET_PRIORITY,
+)
 from .audit import AuditLog
 from .daypass import DayPass, DayPassStatus
 from .booking_addons import (
@@ -66,6 +70,8 @@ __all__ = [
     "PlatformCreditNote", "PlatformRefund", "PlatformExpense",
     "EmailTemplate", "EmailKind",
     "SystemSettings",
+    "CreditSettings", "RoomCategory", "SeatBand", "CreditAllocation", "CreditLot", "CreditLedger",
+    "CreditBucket", "LedgerType", "BUCKET_PRIORITY",
     "AuditLog",
     "Operator", "OperatorScoped", "OperatorStatus", "PricingTier", "TierStatus", "OveragePolicy", "SeatUsageMethod",
     "PlatformModule", "OperatorSubscription", "OperatorUsageSnapshot",

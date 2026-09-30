@@ -20,7 +20,7 @@ from .forms import (
     InviteEmployeeForm, AcceptInviteForm, CompanyProfileForm,
     SubscriptionRequestForm, EmployeeAllocationForm, CompanySeatAllocationForm, PaymentSubmissionForm,
 )
-from ...services import mail_service, tier_limits
+from ...services import mail_service, tier_limits, credit_service
 
 INVITE_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
 
@@ -61,8 +61,7 @@ def dashboard():
         "employees": User.query.filter_by(company_id=c.id, role=UserRole.EMPLOYEE).count(),
         "allocations": SeatAllocation.query.filter_by(company_id=c.id, status=AllocationStatus.ACTIVE).count(),
         "active_subs": Subscription.query.filter_by(company_id=c.id, status=SubscriptionStatus.ACTIVE).count(),
-        "meeting_credits": sum(s.meeting_credits_balance for s in
-                               Subscription.query.filter_by(company_id=c.id, status=SubscriptionStatus.ACTIVE).all()),
+        "meeting_credits": credit_service.balance(c.operator_id, company_id=c.id)["total"],
         "open_invoices": Invoice.query.filter(Invoice.company_id == c.id,
                                               Invoice.status.in_(["issued", "partial", "overdue"])).count(),
     }
