@@ -31,6 +31,8 @@ class Location(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     is_247 = Column(Boolean, default=False, nullable=False)
     description = Column(Text)
     is_active = Column(Boolean, default=True, nullable=False)
+    # Secret inside the location's check-in QR; changing it retires every printed poster.
+    checkin_key = Column(String(32), nullable=True)
 
     floors = relationship("Floor", back_populates="location", cascade="all, delete-orphan",
                           order_by="Floor.level")

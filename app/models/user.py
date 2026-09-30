@@ -34,6 +34,7 @@ PLATFORM_FEATURES: list[tuple[str, str, str]] = [
     ("operators", "Operators", "Provision, edit, suspend/activate coworking businesses"),
     ("billing", "Billing & accounting", "Operator plan tiers and custom-domain access/surcharge"),
     ("reports", "Reports", "Cross-operator analytics"),
+    ("leads", "Leads", "Track and follow up prospective operators"),
 ]
 PLATFORM_FEATURE_KEYS = {key for key, _, _ in PLATFORM_FEATURES}
 

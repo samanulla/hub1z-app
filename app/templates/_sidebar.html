@@ -10,6 +10,7 @@
   {{ link('Book', 'bi-calendar-plus-fill', url_for('book.index'), ep in ('book.index', 'book.location_home', 'book.seat_book', 'book.room_book')) }}
   {{ link('Calendar', 'bi-calendar3', url_for('book.calendar'), ep.startswith('book.') and ep not in ('book.index', 'book.location_home', 'book.seat_book', 'book.room_book')) }}
   {{ link('Day pass', 'bi-ticket-perforated-fill', url_for('member.day_passes'), ep.startswith('member.day_pass')) }}
+  {{ link('Check-in QR', 'bi-qr-code', url_for('checkin.pass_page'), ep.startswith('checkin.')) }}
   {{ link('Community', 'bi-people-fill', url_for('community.directory'), ep == 'community.directory') }}
   {{ link('Announcements', 'bi-megaphone-fill', url_for('community.announcements'), ep == 'community.announcements') }}
   {{ link('Guest passes', 'bi-person-plus-fill', url_for('community.guest_passes'), ep == 'community.guest_passes') }}
@@ -26,6 +27,10 @@
 {% if current_user.is_platform_staff %}
   {{ group('Overview') }}
   {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('platform.dashboard'), ep == 'platform.dashboard') }}
+  {% if current_user.has_platform_permission('leads') %}
+    {{ link('Leads', 'bi-funnel-fill', url_for('platform.leads'), ep.startswith('platform.lead')) }}
+  {% endif %}
+  {{ link('Attendance', 'bi-person-check-fill', url_for('platform.attendance'), ep.startswith('platform.attendance')) }}
   {% if current_user.has_platform_permission('operators') %}
     {{ group('Operators') }}
     {{ link('Operators', 'bi-buildings-fill', url_for('platform.operators_list'), ep.startswith('platform.operator') and 'invite' not in ep) }}
@@ -52,6 +57,7 @@
 {% elif current_user.is_admin %}
   {{ group('Overview') }}
   {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('admin.dashboard'), ep == 'admin.dashboard') }}
+  {{ link('Leads', 'bi-funnel-fill', url_for('admin.leads'), ep.startswith('admin.lead')) }}
   {{ group('Workspace') }}
   {{ link('Locations & seats', 'bi-geo-alt-fill', url_for('admin.locations_list'), ep in ('admin.locations_list','admin.location_new','admin.location_detail','admin.location_edit','admin.floor_new','admin.seats_list','admin.seat_new','admin.seat_edit','admin.rooms_list','admin.room_new','admin.room_edit')) }}
   {{ link('Pricing plans', 'bi-tags-fill', url_for('admin.plans_list'), ep in ('admin.plans_list','admin.plan_new','admin.plan_edit')) }}
@@ -66,6 +72,7 @@
   {% endif %}
   {{ link('Staff', 'bi-person-badge-fill', url_for('admin.staff_list'), ep.startswith('admin.staff') or ep == 'admin.salary_new') }}
   {{ link('Payroll', 'bi-wallet2', url_for('admin.payroll_list'), ep.startswith('admin.payroll')) }}
+  {{ link('Attendance', 'bi-person-check-fill', url_for('admin.attendance'), ep.startswith('admin.attendance')) }}
   {{ group('Billing & finance') }}
   {{ link('Invoices', 'bi-receipt', url_for('admin.invoices_list'), ep.startswith('admin.invoice') or ep in ('admin.payment_new','admin.payment_submission_review','admin.billing_run')) }}
   {% if current_user.is_super_admin or current_user.is_platform_owner %}
@@ -104,6 +111,7 @@
   {{ group('My space') }}
   {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('member.dashboard'), ep == 'member.dashboard') }}
   {{ link('Calendar', 'bi-calendar3', url_for('book.calendar'), ep.startswith('book.')) }}
+  {{ link('Check-in QR', 'bi-qr-code', url_for('checkin.pass_page'), ep.startswith('checkin.')) }}
   {{ link('Announcements', 'bi-megaphone-fill', url_for('community.announcements'), ep == 'community.announcements') }}
   {{ link('Guest passes', 'bi-person-plus-fill', url_for('community.guest_passes'), ep == 'community.guest_passes') }}
 {% endif %}

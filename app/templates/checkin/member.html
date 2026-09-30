@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Check in a member{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center"><div class="col-md-7 col-lg-5">
+  <div class="h-card text-center"><div class="h-card-body py-5 px-4">
+    {% if error %}
+      <div class="display-4 text-danger"><i class="bi bi-x-circle-fill"></i></div>
+      <h3 class="mt-3">Could not use this code</h3>
+      <p class="muted mt-2">{{ error }}</p>
+    {% else %}
+      <span class="h-avatar round av-1 mx-auto" style="width:64px;height:64px;flex-basis:64px;font-size:22px">{{ person.full_name | initials }}</span>
+      <h3 class="mt-3">{{ person.full_name }}</h3>
+      <div class="muted">{{ person.role.value.replace('_', ' ') | title }}{% if person.company %} · {{ person.company.name }}{% endif %}</div>
+      {% if done == 'in' %}
+        <div class="alert alert-success mt-3 mb-0">Checked in at {{ record.check_in_at | time_at(record.location) if record.location else (record.check_in_at | time) }}.</div>
+      {% elif done == 'out' %}
+        <div class="alert alert-success mt-3 mb-0">Checked out. Time in the space: {{ record.minutes | stay }}.</div>
+      {% else %}
+        <p class="muted mt-3">{{ 'Currently checked in.' if open_record else 'Not checked in.' }}</p>
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% if locations | length > 1 and not open_record %}
+            <select class="form-select mb-3" name="location_id">{% for l in locations %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}</select>
+          {% endif %}
+          <button class="btn btn-brand btn-lg w-100">{{ 'Check out' if open_record else 'Check in' }}</button>
+        </form>
+      {% endif %}
+    {% endif %}
+    <a class="btn btn-soft mt-3" href="{{ url_for('admin.attendance') }}">Back to attendance</a>
+  </div></div>
+</div></div>
+{% endblock %}

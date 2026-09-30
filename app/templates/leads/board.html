@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Leads{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>{{ operator.name if operator else app_name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Leads</span></div>
+    <h1>Leads<span class="h-count">{{ leads | length }}</span></h1>
+    <div class="muted mt-1">{{ 'Workspace operators who want to run their space on hub1z' if scope == 'platform' else 'Enquiries from people and companies who want to join your space' }}</div>
+  </div>
+  <div class="actions">
+    <a class="btn btn-soft" href="{{ url_for(bp ~ '.leads_export') }}"><i class="bi bi-download"></i> Export</a>
+    <a class="btn btn-brand" href="{{ url_for(bp ~ '.lead_new') }}"><i class="bi bi-plus-lg"></i> Add lead</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-brand"><i class="bi bi-funnel-fill"></i></span>
+    <div><div class="label">Open leads</div><div class="value">{{ stats.open }}</div><div class="delta up"><span>{{ stats.won_30 }} won in 30 days</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-success"><i class="bi bi-currency-rupee"></i></span>
+    <div><div class="label">Pipeline value</div><div class="value">{{ stats.pipeline | inr_short }}</div><div class="delta up"><span>expected per month</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-warn"><i class="bi bi-alarm-fill"></i></span>
+    <div><div class="label">Follow-ups due</div><div class="value">{{ stats.due }}</div><div class="delta {{ 'down' if stats.overdue else 'up' }}"><span>{{ stats.overdue }} overdue</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-info"><i class="bi bi-graph-up-arrow"></i></span>
+    <div><div class="label">Conversion (30 days)</div><div class="value">{{ (stats.conversion ~ '%') if stats.conversion is not none else '—' }}</div><div class="delta up"><span>won of closed</span></div></div></div></div>
+</div>
+
+<div data-view-root data-view="{{ view }}" data-filter-root data-board-root data-csrf="{{ csrf_token() }}">
+  <div class="h-toolbar">
+    <div class="h-search"><i class="bi bi-search"></i><input type="search" data-filter-input placeholder="Search name, company or need"></div>
+    <div class="h-pills">
+      <button class="h-pill active" type="button" data-filter-pill="temp" data-value="all">All</button>
+      <button class="h-pill" type="button" data-filter-pill="temp" data-value="hot"><span class="h-dot me-1" style="background:var(--h-danger)"></span>Hot</button>
+      <button class="h-pill" type="button" data-filter-pill="temp" data-value="warm"><span class="h-dot me-1" style="background:var(--h-accent)"></span>Warm</button>
+      <button class="h-pill" type="button" data-filter-pill="temp" data-value="cold"><span class="h-dot me-1" style="background:var(--h-info)"></span>Cold</button>
+    </div>
+    <form method="get" class="d-flex gap-2 ms-auto">
+      <input type="hidden" name="view" value="{{ view }}">
+      <select class="h-select" name="owner" onchange="this.form.submit()"><option value="">All owners</option>{% for u in owners %}<option value="{{ u.id }}" {{ 'selected' if owner == u.id }}>{{ u.full_name }}</option>{% endfor %}</select>
+      <select class="h-select" name="source" onchange="this.form.submit()"><option value="">All sources</option>{% for s in sources %}<option {{ 'selected' if source == s }}>{{ s }}</option>{% endfor %}</select>
+    </form>
+    <div class="h-seg">
+      <button type="button" class="{{ 'active' if view == 'board' }}" data-set-view="board"><i class="bi bi-kanban"></i> Board</button>
+      <button type="button" class="{{ 'active' if view == 'list' }}" data-set-view="list"><i class="bi bi-list-ul"></i> List</button>
+    </div>
+  </div>
+
+  {% if not leads %}
+  <div class="h-card mb-3"><div class="h-card-body text-center py-5">
+    <div class="display-6 faint"><i class="bi bi-funnel"></i></div>
+    <h4 class="mt-2">No leads yet</h4>
+    <div class="muted mb-3">Add the first enquiry and move it across the board as the conversation progresses.</div>
+    <a class="btn btn-brand" href="{{ url_for(bp ~ '.lead_new') }}"><i class="bi bi-plus-lg"></i> Add lead</a>
+  </div></div>
+  {% endif %}
+
+  <div class="h-board">
+    {% for key, label, tint in board_stages %}
+    <section class="h-col" data-stage="{{ key }}" data-label="{{ label }}">
+      <div class="h-col-head">
+        <div class="t"><span class="h-chip sm {{ tint }}">{{ label }}</span><span class="faint" data-col-count>0</span></div>
+        <span class="tot" data-col-total></span>
+      </div>
+      <div class="h-col-body">
+        {% for l in board[key] %}
+        {% set state, due_text = due[l.id] %}
+        {% set tlabel, ttint = temps[l.temperature] %}
+        <article class="h-lead" draggable="true" id="lead-{{ l.id }}" data-item data-count data-temp="{{ l.temperature }}" data-value="{{ l.expected_value | int }}" data-move-url="{{ url_for(bp ~ '.lead_move', lead_id=l.id) }}">
+          <div class="who">
+            <span class="h-avatar sm round av-{{ loop.index % 6 + 1 }}">{{ l.name | initials }}</span>
+            <div style="min-width:0"><a class="nm" href="{{ url_for(bp ~ '.lead_detail', lead_id=l.id) }}">{{ l.name }}</a><div class="org">{{ l.company_name or '' }}</div></div>
+            <span class="h-chip sm {{ ttint }} ms-auto">{{ tlabel }}</span>
+          </div>
+          {% if l.interest %}<div class="need"><i class="bi bi-building me-1 faint"></i>{{ l.interest }}</div>{% endif %}
+          <div class="row2">
+            <span class="val">{{ l.expected_value | inr }}<span class="faint" style="font-size:11px;font-weight:500"> /mo</span></span>
+            {% if l.source %}<span class="h-chip sm tint-neutral">{{ l.source }}</span>{% endif %}
+          </div>
+          <div class="meta">
+            <span class="due {{ state if state in ('late', 'today') }}"><i class="bi bi-{{ 'exclamation-circle' if state == 'late' else 'alarm' }}"></i><span data-due>{{ due_text }}</span></span>
+            <span class="d-flex align-items-center">
+              <span class="quick">
+                {% if l.phone %}<a href="tel:{{ l.phone }}" title="Call"><i class="bi bi-telephone"></i></a>{% endif %}
+                {% if l.email %}<a href="mailto:{{ l.email }}" title="Email"><i class="bi bi-envelope"></i></a>{% endif %}
+                {% if l.whatsapp_number %}<a href="https://wa.me/{{ l.whatsapp_number }}" target="_blank" rel="noopener" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>{% endif %}
+              </span>
+              {% if l.owner %}<span class="h-avatar sm round av-6 ms-3" title="{{ l.owner.full_name }}" style="width:24px;height:24px;flex-basis:24px;font-size:10px">{{ l.owner.full_name | initials }}</span>{% endif %}
+            </span>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+
+  <div class="h-card h-listview">
+    <div class="h-card-body pt-3" style="overflow-x:auto">
+      <table class="h-table">
+        <thead><tr><th>Lead</th><th>Stage</th><th>Interested in</th><th class="r">Expected / month</th><th>Source</th><th>Temperature</th><th>Next follow-up</th><th>Owner</th></tr></thead>
+        <tbody>
+          {% for l in leads %}
+          {% set state, due_text = due[l.id] %}
+          {% set tlabel, ttint = temps[l.temperature] %}
+          <tr data-item data-temp="{{ l.temperature }}">
+            <td><div class="d-flex align-items-center gap-3"><span class="h-avatar sm round av-{{ loop.index % 6 + 1 }}">{{ l.name | initials }}</span><div><a href="{{ url_for(bp ~ '.lead_detail', lead_id=l.id) }}"><b>{{ l.name }}</b></a><div class="faint small">{{ l.company_name or '' }}</div></div></div></td>
+            <td><span class="h-chip sm {{ stage_tint[l.stage] }}">{{ stage_names[l.stage] }}</span></td>
+            <td class="muted">{{ l.interest or '' }}</td>
+            <td class="r"><b>{{ l.expected_value | inr }}</b></td>
+            <td class="muted">{{ l.source or '' }}</td>
+            <td><span class="h-chip sm {{ ttint }}">{{ tlabel }}</span></td>
+            <td class="{{ 'text-danger fw-semibold' if state == 'late' else ('fw-semibold' if state == 'today' else 'muted') }}">{{ due_text }}</td>
+            <td>{% if l.owner %}<span class="h-avatar sm round av-6" title="{{ l.owner.full_name }}" style="width:26px;height:26px;flex-basis:26px;font-size:10px">{{ l.owner.full_name | initials }}</span>{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="text-center muted py-4">No leads match.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:80">
+  <div id="h-toast" class="toast align-items-center text-bg-dark border-0" role="status" aria-live="polite" aria-atomic="true">
+    <div class="d-flex"><div class="toast-body t-body"></div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Attendance{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>{{ operator.name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Attendance</span></div>
+    <h1>Attendance</h1>
+    <div class="muted mt-1">Who is in your space, and when. Times are shown in {{ tzname.replace('_', ' ') }} time.</div>
+  </div>
+  <div class="actions">
+    <a class="btn btn-brand" href="{{ url_for('admin.attendance_scan') }}"><i class="bi bi-qr-code-scan"></i> Scan member QR</a>
+    <a class="btn btn-soft" href="{{ url_for('admin.attendance_qr') }}"><i class="bi bi-qr-code"></i> Location QR codes</a>
+    <a class="btn btn-soft" href="{{ url_for('admin.attendance_export', **request.args) }}"><i class="bi bi-download"></i> Export</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-success"><i class="bi bi-door-open-fill"></i></span>
+    <div><div class="label">In the space now</div><div class="value">{{ stats.in_now | length }}</div><div class="delta up"><span>checked in, not out</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-brand"><i class="bi bi-box-arrow-in-right"></i></span>
+    <div><div class="label">Check-ins today</div><div class="value">{{ stats.today }}</div><div class="delta up"><span>since midnight</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-info"><i class="bi bi-people-fill"></i></span>
+    <div><div class="label">People this week</div><div class="value">{{ stats.people_week }}</div><div class="delta up"><span>last 7 days</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-warn"><i class="bi bi-hourglass-split"></i></span>
+    <div><div class="label">Average stay</div><div class="value">{{ stats.avg_minutes | stay }}</div><div class="delta up"><span>last 7 days</span></div></div></div></div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-7">
+    <div class="h-card h-100"><div class="h-card-body">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 class="mb-0">In the space now</h5>
+        <button class="btn btn-soft btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#manualBox"><i class="bi bi-plus-lg"></i> Check someone in</button>
+      </div>
+      <div class="collapse mb-3" id="manualBox">
+        <form method="post" action="{{ url_for('admin.attendance_manual') }}" class="row g-2 align-items-end">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="col-md-5"><label class="form-label small muted mb-1">Person</label>
+            <select class="form-select" name="user_id" required>{% for p in people %}<option value="{{ p.id }}">{{ p.full_name }} ({{ p.role.value.replace('_', ' ') }})</option>{% endfor %}</select></div>
+          <div class="col-md-4"><label class="form-label small muted mb-1">Location</label>
+            <select class="form-select" name="location_id">{% for l in locations %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}</select></div>
+          <div class="col-md-3"><button class="btn btn-brand w-100">Check in / out</button></div>
+        </form>
+        <div class="faint small mt-1">Checks the person out instead if they are already in.</div>
+      </div>
+      {% for r in stats.in_now %}
+      <div class="d-flex align-items-center gap-3 py-2 {{ 'border-top' if not loop.first }}">
+        <span class="h-avatar sm round av-{{ loop.index % 6 + 1 }}">{{ r.user.full_name | initials }}</span>
+        <div class="flex-grow-1" style="min-width:0"><b>{{ r.user.full_name }}</b><div class="faint small">{{ r.user.role.value.replace('_', ' ') | title }}{% if r.location %} · {{ r.location.name }}{% endif %} · since {{ r.check_in_at | time_at(r.location or tzname) }}</div></div>
+        <form method="post" action="{{ url_for('admin.attendance_checkout', record_id=r.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-soft btn-sm">Check out</button>
+        </form>
+      </div>
+      {% else %}<div class="muted py-3">Nobody is checked in right now.</div>{% endfor %}
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="h-card h-100"><div class="h-card-body">
+      <h5 class="mb-1">Check-ins, last 14 days</h5>
+      <div class="faint small mb-3">Busiest day: {{ peak }} check-in{{ 's' if peak != 1 }}</div>
+      <div class="d-flex align-items-end gap-1" style="height:120px">
+        {% for d, n in stats.series %}
+        <div class="flex-fill text-center" title="{{ d.strftime('%d %b') }}: {{ n }}">
+          <div style="height:{{ (n / peak * 100) | round }}px;min-height:3px;border-radius:5px 5px 2px 2px;background:{{ 'var(--h-brand)' if d == today else '#dcdcf7' }}"></div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="d-flex justify-content-between faint small mt-2"><span>{{ stats.series[0][0].strftime('%d %b') }}</span><span>Today</span></div>
+    </div></div>
+  </div>
+</div>
+
+<div class="h-card"><div class="h-card-body">
+  <form method="get" class="row g-2 align-items-end mb-3">
+    <div class="col-6 col-md-2"><label class="form-label small muted mb-1">From</label><input class="form-control" type="date" name="from" value="{{ start }}"></div>
+    <div class="col-6 col-md-2"><label class="form-label small muted mb-1">To</label><input class="form-control" type="date" name="to" value="{{ end }}"></div>
+    <div class="col-6 col-md-2"><label class="form-label small muted mb-1">Location</label>
+      <select class="form-select" name="location"><option value="">All</option>{% for l in locations %}<option value="{{ l.id }}" {{ 'selected' if location_id == l.id }}>{{ l.name }}</option>{% endfor %}</select></div>
+    <div class="col-6 col-md-2"><label class="form-label small muted mb-1">Who</label>
+      <select class="form-select" name="who"><option value="all">Everyone</option><option value="members" {{ 'selected' if who == 'members' }}>Members</option><option value="staff" {{ 'selected' if who == 'staff' }}>Team</option></select></div>
+    <div class="col-md-2"><label class="form-label small muted mb-1">Search</label><input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Name or email"></div>
+    <div class="col-md-2"><button class="btn btn-brand w-100">Apply</button></div>
+  </form>
+  <div style="overflow-x:auto">
+    <table class="h-table">
+      <thead><tr><th>Person</th><th>Location</th><th>Check in</th><th>Check out</th><th>Stay</th><th>How</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td><div class="d-flex align-items-center gap-3"><span class="h-avatar sm round av-{{ loop.index % 6 + 1 }}">{{ r.user.full_name | initials }}</span><div><b>{{ r.user.full_name }}</b><div class="faint small">{{ r.user.role.value.replace('_', ' ') | title }}</div></div></div></td>
+          <td class="muted">{{ r.location.name if r.location else '—' }}</td>
+          <td>{{ r.check_in_at | dt_at(r.location or tzname, '%d %b, %I:%M %p') }}</td>
+          <td>{% if r.check_out_at %}{{ r.check_out_at | dt_at(r.location or tzname, '%d %b, %I:%M %p') }}{% else %}<span class="h-chip sm tint-warn">Not checked out</span>{% endif %}</td>
+          <td>{{ r.minutes | stay }}</td>
+          <td class="muted">{{ r.method_label }}{% if r.recorded_by %} · {{ r.recorded_by.full_name }}{% endif %}</td>
+          <td class="r">{% if not r.check_out_at %}<form method="post" action="{{ url_for('admin.attendance_checkout', record_id=r.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-soft btn-sm">Check out</button></form>{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center muted py-4">No check-ins for this period.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if rows | length >= 500 %}<div class="faint small mt-2">Showing the latest 500. Narrow the dates or export for the full list.</div>{% endif %}
+</div></div>
+{% endblock %}

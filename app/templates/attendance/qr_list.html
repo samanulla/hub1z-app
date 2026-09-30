@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Location QR codes{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><a href="{{ url_for('admin.attendance') }}">Attendance</a><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Location QR codes</span></div>
+    <h1>Location QR codes</h1>
+    <div class="muted mt-1">Members scan the code with their own phone camera and tap Check in. No app and no scanner needed.</div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-6"><div class="h-card h-100"><div class="h-card-body">
+    <h5><i class="bi bi-printer me-2" style="color:var(--h-brand)"></i>Printed poster</h5>
+    <p class="muted mb-0">A fixed code for the door or reception desk. Print it once. If a poster is ever photographed and misused, create a new code and the old one stops working.</p>
+  </div></div></div>
+  <div class="col-lg-6"><div class="h-card h-100"><div class="h-card-body">
+    <h5><i class="bi bi-display me-2" style="color:var(--h-brand)"></i>Display screen</h5>
+    <p class="mb-0 muted">Open this on a tablet or TV at reception. The code changes every minute, so a photo of it cannot be shared for remote check-in.</p>
+  </div></div></div>
+</div>
+
+<div class="h-card"><div class="h-card-body" style="overflow-x:auto">
+  <table class="h-table">
+    <thead><tr><th>Location</th><th>City</th><th class="r">Actions</th></tr></thead>
+    <tbody>
+      {% for l in locations %}
+      <tr>
+        <td><b>{{ l.name }}</b><div class="faint small">{{ l.code }}</div></td>
+        <td class="muted">{{ l.city }}</td>
+        <td class="r">
+          <a class="btn btn-soft btn-sm" href="{{ url_for('admin.attendance_poster', location_id=l.id) }}"><i class="bi bi-printer"></i> Poster</a>
+          <a class="btn btn-soft btn-sm" target="_blank" href="{{ url_for('admin.attendance_screen', location_id=l.id) }}"><i class="bi bi-display"></i> Display screen</a>
+          {% if current_user.is_super_admin or current_user.is_manager %}
+          <form class="d-inline" method="post" action="{{ url_for('admin.attendance_qr_regenerate', location_id=l.id) }}" onsubmit="return confirm('Create a new code? Printed posters of the old code will stop working.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-soft btn-sm"><i class="bi bi-arrow-repeat"></i> New code</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}<tr><td colspan="3" class="text-center muted py-4">Add a location first.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endblock %}

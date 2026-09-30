@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ lead.name }} · Leads{% endblock %}
+
+{% block content %}
+{% set tlabel, ttint = temps[lead.temperature] %}
+{% set state, due_text = state %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><a href="{{ url_for(bp ~ '.leads') }}">Leads</a><i class="bi bi-chevron-right" style="font-size:10px"></i><span>{{ lead.name }}</span></div>
+    <h1>{{ lead.name }} <span class="h-chip sm {{ stage_tint[lead.stage] }} ms-2 align-middle">{{ stage_names[lead.stage] }}</span> <span class="h-chip sm {{ ttint }} align-middle">{{ tlabel }}</span></h1>
+    <div class="muted mt-1">{{ lead.company_name or 'No company' }}{% if lead.interest %} · {{ lead.interest }}{% endif %}</div>
+  </div>
+  <div class="actions">
+    <a class="btn btn-soft" href="{{ url_for(bp ~ '.lead_edit', lead_id=lead.id) }}"><i class="bi bi-pencil"></i> Edit</a>
+    <form method="post" action="{{ url_for(bp ~ '.lead_delete', lead_id=lead.id) }}" onsubmit="return confirm('Delete this lead and its history?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-soft text-danger"><i class="bi bi-trash"></i> Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="h-card mb-3"><div class="h-card-body">
+      <h5 class="mb-3">Stage</h5>
+      <form method="post" action="{{ url_for(bp ~ '.lead_move', lead_id=lead.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="h-pills flex-wrap">
+          {% for key, label, tint in stages %}
+          <button class="h-pill {{ 'active' if key == lead.stage }}" type="submit" name="stage" value="{{ key }}">{{ label }}</button>
+          {% endfor %}
+        </div>
+        <div class="mt-3"><input class="form-control form-control-sm" name="reason" placeholder="If you choose Lost, say why (optional)" maxlength="200"></div>
+      </form>
+    </div></div>
+
+    <div class="h-card mb-3"><div class="h-card-body">
+      <h5 class="mb-3">Log an update</h5>
+      <form method="post" action="{{ url_for(bp ~ '.lead_note', lead_id=lead.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row g-2">
+          <div class="col-md-3"><select class="form-select" name="kind">{% for k, label in kinds %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></div>
+          <div class="col-md-9"><input class="form-control" name="body" placeholder="What happened or what was agreed?" maxlength="2000" required></div>
+          <div class="col-md-4"><label class="form-label small muted mb-1">Next follow-up (optional)</label><input class="form-control" type="date" name="next_follow_up" value="{{ lead.next_follow_up or '' }}"></div>
+          <div class="col-md-8 d-flex align-items-end justify-content-end"><button class="btn btn-brand">Save update</button></div>
+        </div>
+      </form>
+    </div></div>
+
+    <div class="h-card"><div class="h-card-body">
+      <h5 class="mb-3">History</h5>
+      {% for a in lead.activities %}
+      <div class="d-flex gap-3 py-2 {{ 'border-top' if not loop.first }}">
+        <span class="chip-ico tint-{{ 'brand' if a.kind == 'stage' else 'neutral' }}" style="flex:0 0 34px"><i class="bi bi-{{ {'call': 'telephone', 'email': 'envelope', 'meeting': 'people', 'stage': 'arrow-right-circle', 'note': 'chat-left-text'}.get(a.kind, 'chat-left-text') }}"></i></span>
+        <div><div>{{ a.body }}</div><div class="faint small">{{ a.created_by.full_name if a.created_by else 'System' }} · {{ a.created_at | dt }}</div></div>
+      </div>
+      {% else %}<div class="muted">Nothing logged yet.</div>{% endfor %}
+    </div></div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="h-card mb-3"><div class="h-card-body">
+      <h5 class="mb-3">Details</h5>
+      <dl class="row mb-0 small">
+        <dt class="col-5 faint fw-normal">Expected</dt><dd class="col-7 fw-semibold">{{ lead.expected_value | inr }} / month</dd>
+        <dt class="col-5 faint fw-normal">Seats</dt><dd class="col-7">{{ lead.seats or '—' }}</dd>
+        <dt class="col-5 faint fw-normal">Source</dt><dd class="col-7">{{ lead.source or '—' }}</dd>
+        <dt class="col-5 faint fw-normal">Owner</dt><dd class="col-7">{{ lead.owner.full_name if lead.owner else 'Unassigned' }}</dd>
+        <dt class="col-5 faint fw-normal">Follow-up</dt><dd class="col-7 {{ 'text-danger fw-semibold' if state == 'late' else ('fw-semibold' if state == 'today') }}">{{ due_text }}</dd>
+        <dt class="col-5 faint fw-normal">Added</dt><dd class="col-7">{{ lead.created_at | dt }}</dd>
+        {% if lead.lost_reason %}<dt class="col-5 faint fw-normal">Lost because</dt><dd class="col-7">{{ lead.lost_reason }}</dd>{% endif %}
+      </dl>
+    </div></div>
+    <div class="h-card mb-3"><div class="h-card-body">
+      <h5 class="mb-3">Contact</h5>
+      <div class="d-grid gap-2 small">
+        {% if lead.phone %}<a href="tel:{{ lead.phone }}"><i class="bi bi-telephone me-2"></i>{{ lead.phone }}</a>{% endif %}
+        {% if lead.whatsapp_number %}<a href="https://wa.me/{{ lead.whatsapp_number }}" target="_blank" rel="noopener"><i class="bi bi-whatsapp me-2"></i>WhatsApp</a>{% endif %}
+        {% if lead.email %}<a href="mailto:{{ lead.email }}"><i class="bi bi-envelope me-2"></i>{{ lead.email }}</a>{% endif %}
+        {% if not (lead.phone or lead.email) %}<span class="muted">No contact details yet.</span>{% endif %}
+      </div>
+    </div></div>
+    {% if lead.notes %}<div class="h-card"><div class="h-card-body"><h5 class="mb-2">Notes</h5><div class="small" style="white-space:pre-wrap">{{ lead.notes }}</div></div></div>{% endif %}
+  </div>
+</div>
+{% endblock %}

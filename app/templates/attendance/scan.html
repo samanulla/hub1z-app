@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Scan member QR{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><a href="{{ url_for('admin.attendance') }}">Attendance</a><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Scan member QR</span></div>
+    <h1>Scan member QR</h1>
+    <div class="muted mt-1">Point this device's camera at the QR on a member's phone ("My check-in QR"). Scanning again checks them out.</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="h-card"><div class="h-card-body">
+      {% if locations | length > 1 %}
+      <div class="mb-3"><label class="form-label small muted mb-1">Location</label>
+        <select class="form-select" id="scanLocation">{% for l in locations %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}</select></div>
+      {% else %}<input type="hidden" id="scanLocation" value="{{ locations[0].id if locations else '' }}">{% endif %}
+      <div class="position-relative" style="background:#0f1324;border-radius:16px;overflow:hidden;aspect-ratio:4/3">
+        <video id="scanVideo" playsinline muted style="width:100%;height:100%;object-fit:cover"></video>
+        <div id="scanHint" class="position-absolute top-50 start-50 translate-middle text-center text-white-50 px-3">Camera is off</div>
+      </div>
+      <canvas id="scanCanvas" hidden></canvas>
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-brand" type="button" id="scanStart"><i class="bi bi-camera-video"></i> Start camera</button>
+        <button class="btn btn-soft" type="button" id="scanStop" hidden>Stop</button>
+      </div>
+      <div class="faint small mt-2">The camera needs a secure (https) page and your permission. A USB barcode scanner also works: click the box on the right and scan.</div>
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="h-card mb-3"><div class="h-card-body">
+      <h5 class="mb-3">Last scan</h5>
+      <div id="scanResult" class="muted">Nothing scanned yet.</div>
+    </div></div>
+    <div class="h-card"><div class="h-card-body">
+      <h5 class="mb-2">Scanner or pasted code</h5>
+      <input class="form-control" id="scanManual" placeholder="Scan or paste the member code here, then press Enter" autocomplete="off">
+    </div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+(function () {
+  var video = document.getElementById('scanVideo'), canvas = document.getElementById('scanCanvas');
+  var ctx = canvas.getContext('2d', { willReadFrequently: true });
+  var startBtn = document.getElementById('scanStart'), stopBtn = document.getElementById('scanStop');
+  var hint = document.getElementById('scanHint'), result = document.getElementById('scanResult');
+  var stream = null, timer = null, busy = false, last = '', lastAt = 0;
+  var csrf = "{{ csrf_token() }}";
+
+  function tokenFrom(text) {
+    var m = String(text).match(/\/checkin\/member\/([^\/?#\s]+)/);
+    return m ? m[1] : (/^[\w\-.]{20,}$/.test(String(text).trim()) ? String(text).trim() : null);
+  }
+  function show(ok, html) {
+    result.className = ok ? '' : 'text-danger';
+    result.innerHTML = html;
+  }
+  function send(token) {
+    busy = true;
+    var loc = document.getElementById('scanLocation');
+    fetch("{{ url_for('admin.attendance_scan_post') }}", {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': csrf },
+      body: JSON.stringify({ token: token, location_id: loc && loc.value ? parseInt(loc.value, 10) : null })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.ok) {
+        var esc = document.createElement('div'); esc.textContent = d.name;
+        show(true, '<div class="d-flex align-items-center gap-3"><span class="display-6 text-success"><i class="bi bi-' + (d.action === 'in' ? 'check-circle-fill' : 'box-arrow-right') + '"></i></span><div><b>' + esc.innerHTML + '</b> is checked ' + d.action + '<div class="faint small">' + d.role + (d.minutes ? ' · time in the space ' + d.minutes : '') + '</div></div></div>');
+      } else { show(false, d.error || 'That code could not be used.'); }
+    }).catch(function () { show(false, 'Could not reach the server. Please try again.'); })
+      .then(function () { setTimeout(function () { busy = false; }, 1500); });
+  }
+  function handle(text) {
+    var token = tokenFrom(text);
+    if (!token) { show(false, 'That is not a member check-in code.'); return; }
+    if (token === last && Date.now() - lastAt < 8000) return;   // the same phone held in view
+    last = token; lastAt = Date.now(); send(token);
+  }
+  function tick() {
+    if (!stream) return;
+    if (!busy && video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      var img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      var code = window.jsQR && jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+      if (code && code.data) handle(code.data);
+    }
+    timer = setTimeout(tick, 120);
+  }
+  function stop() {
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    stream = null; clearTimeout(timer); video.srcObject = null;
+    hint.hidden = false; hint.textContent = 'Camera is off'; startBtn.hidden = false; stopBtn.hidden = true;
+  }
+  startBtn.addEventListener('click', function () {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { show(false, 'This browser cannot open the camera here. Use https, or type the code below.'); return; }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false }).then(function (s) {
+      stream = s; video.srcObject = s; video.play(); hint.hidden = true; startBtn.hidden = true; stopBtn.hidden = false; tick();
+    }).catch(function () { show(false, 'Camera permission was not given.'); });
+  });
+  stopBtn.addEventListener('click', stop);
+  document.getElementById('scanManual').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); handle(this.value); this.value = ''; }
+  });
+})();
+</script>
+{% endblock %}

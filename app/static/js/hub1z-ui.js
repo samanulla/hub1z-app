@@ -75,6 +75,31 @@
       card.classList.remove('dragging'); $$('.h-col').forEach(function (c) { c.classList.remove('over'); });
     });
   });
+  function showToast(text) {
+    var toast = $('#h-toast');
+    if (!toast) return;
+    $('.t-body', toast).textContent = text;
+    window.bootstrap && window.bootstrap.Toast.getOrCreateInstance(toast, { delay: 2200 }).show();
+  }
+  // Real boards carry data-move-url on each card; the design preview has none and saves nothing.
+  function saveMove(card, col, from) {
+    var root = card.closest('[data-board-root]');
+    var url = card.getAttribute('data-move-url');
+    var label = col.getAttribute('data-label') || col.getAttribute('data-stage');
+    if (!root || !url) { showToast('Moved to ' + label + ' (preview only, nothing is saved)'); return; }
+    fetch(url, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRFToken': root.getAttribute('data-csrf') || '' },
+      body: JSON.stringify({ stage: col.getAttribute('data-stage') })
+    }).then(function (r) { return r.ok ? r.json() : Promise.reject(); }).then(function (d) {
+      var due = $('[data-due]', card); if (due && d.due_text) due.textContent = d.due_text;
+      showToast('Moved to ' + d.label);
+    }).catch(function () {
+      if (from) { $('.h-col-body', from).appendChild(card); refreshColumn(from); }
+      refreshColumn(col);
+      showToast('Could not save that move. Please try again.');
+    });
+  }
   $$('.h-col').forEach(function (col) {
     var body = $('.h-col-body', col);
     col.addEventListener('dragover', function (e) { e.preventDefault(); col.classList.add('over'); });
@@ -83,13 +108,10 @@
       e.preventDefault(); col.classList.remove('over');
       if (!dragged) return;
       var from = dragged.closest('.h-col');
+      if (from === col) return;
       body.appendChild(dragged);
       refreshColumn(col); if (from) refreshColumn(from);
-      var toast = $('#h-toast');
-      if (toast) {
-        $('.t-body', toast).textContent = 'Moved to ' + col.getAttribute('data-stage') + ' (preview only, nothing is saved)';
-        window.bootstrap && window.bootstrap.Toast.getOrCreateInstance(toast, { delay: 2200 }).show();
-      }
+      saveMove(dragged, col, from);
     });
     refreshColumn(col);
   });

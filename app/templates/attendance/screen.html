@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Check in · {{ location.name }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #11152a; color: #fff; font-family: Inter, system-ui, sans-serif; text-align: center; }
+    .box { padding: 32px; }
+    .name { font-size: 18px; letter-spacing: .14em; text-transform: uppercase; color: #aab0cc; }
+    h1 { font-size: clamp(34px, 6vw, 64px); margin: 8px 0 4px; letter-spacing: -0.03em; }
+    .loc { color: #c7cce0; font-size: 20px; margin-bottom: 28px; }
+    .qr { background: #fff; border-radius: 28px; padding: 18px; display: inline-block; }
+    .qr img { width: min(70vmin, 520px); height: auto; display: block; }
+    .hint { margin-top: 26px; color: #aab0cc; font-size: 18px; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="name">{{ operator.name }}</div>
+    <h1>Scan to check in</h1>
+    <div class="loc">{{ location.name }}</div>
+    <div class="qr"><img id="qr" src="{{ url_for('admin.attendance_qr_png', location_id=location.id, rotating=1) }}" alt="Check-in QR code"></div>
+    <div class="hint">Open your phone camera, point it at the code and tap Check in.</div>
+  </div>
+  <script>
+    setInterval(function () {
+      document.getElementById('qr').src = "{{ url_for('admin.attendance_qr_png', location_id=location.id, rotating=1) }}&t=" + Date.now();
+    }, {{ refresh_seconds * 1000 }});
+  </script>
+</body>
+</html>

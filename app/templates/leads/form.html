@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><a href="{{ url_for(bp ~ '.leads') }}">Leads</a><i class="bi bi-chevron-right" style="font-size:10px"></i><span>{{ title }}</span></div>
+    <h1>{{ title }}</h1>
+  </div>
+</div>
+<div class="h-card"><div class="h-card-body">
+  <form method="post" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="row">
+      <div class="col-md-6">{{ field(form.name, autofocus=true) }}</div>
+      <div class="col-md-6">{{ field(form.company_name) }}</div>
+    </div>
+    <div class="row">
+      <div class="col-md-6">{{ field(form.phone) }}</div>
+      <div class="col-md-6">{{ field(form.email) }}</div>
+    </div>
+    <div class="row">
+      <div class="col-md-6">{{ field(form.interest) }}</div>
+      <div class="col-md-3">{{ field(form.seats) }}</div>
+      <div class="col-md-3">{{ field(form.expected_value) }}</div>
+    </div>
+    <div class="row">
+      <div class="col-md-3">{{ field(form.stage) }}</div>
+      <div class="col-md-3">{{ field(form.temperature) }}</div>
+      <div class="col-md-2">{{ field(form.source) }}</div>
+      <div class="col-md-2">{{ field(form.owner_id) }}</div>
+      <div class="col-md-2">{{ field(form.next_follow_up) }}</div>
+    </div>
+    {{ field(form.notes) }}
+    <button class="btn btn-brand">Save lead</button>
+    <a class="btn btn-link" href="{{ url_for(bp ~ ('.lead_detail' if lead else '.leads'), **({'lead_id': lead.id} if lead else {})) }}">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

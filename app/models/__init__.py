@@ -35,6 +35,8 @@ from .credits import (
     CreditBucket, LedgerType, BUCKET_PRIORITY,
 )
 from .audit import AuditLog
+from .lead import Lead, LeadActivity
+from .attendance import AttendanceRecord
 from .daypass import DayPass, DayPassStatus
 from .booking_addons import (
     RoomWaitlist, WaitlistStatus,

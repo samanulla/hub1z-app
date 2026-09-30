@@ -32,7 +32,7 @@ from ..models.operator import Operator, OperatorScoped
 _scoped_classes_cache: list[type] | None = None
 
 # Areas that only make sense inside one operator's workspace.
-_OPERATOR_BLUEPRINTS = {"admin", "company", "member", "book", "community", "api"}
+_OPERATOR_BLUEPRINTS = {"admin", "company", "member", "book", "community", "api", "checkin"}
 
 
 @event.listens_for(Session, "before_flush")

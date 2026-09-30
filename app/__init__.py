@@ -60,6 +60,7 @@ def _register_blueprints(app: Flask) -> None:
     from .blueprints.api import api_bp
     from .blueprints.platform import platform_bp
     from .blueprints.community import community_bp
+    from .blueprints.checkin import checkin_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(admin_bp, url_prefix="/admin")
@@ -69,6 +70,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(api_bp, url_prefix="/api/v1")
     app.register_blueprint(platform_bp, url_prefix="/platform")
     app.register_blueprint(community_bp, url_prefix="/hub")
+    app.register_blueprint(checkin_bp, url_prefix="/checkin")
     if app.config.get("DEBUG"):
         from .blueprints.ui_preview import ui_preview_bp
         app.register_blueprint(ui_preview_bp, url_prefix="/ui-preview")
@@ -275,7 +277,7 @@ def _register_root_routes(app: Flask) -> None:
               "production launch. CIN and GSTIN are published on operator invoices and in the billing "
               "section of the operator dashboard."]),
             ("Contact", [
-                "General enquiries: hello@hub1z.com",
+                "General enquiries: contact@hub1z.com",
                 "Support: support@hub1z.com",
                 "For a specific coworking location, use the contact details published on that operator's "
                 "microsite rather than the platform contact above — Hub1z does not manage day-to-day "

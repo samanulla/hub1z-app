@@ -68,6 +68,8 @@ admins/managers/employees always use that operator's own email domain.
 - **Pricing tiers** (`/platform/tiers`, **Owner-only**) — define/retire tiers (key, display name, monthly price, resource caps). "Introducing a new pricing model" and tier definitions are deliberately not delegable to a Manager, unlike day-to-day tier *assignment* on the Billing page.
 - **Reports** (`reports` feature, `/platform/reports`) — cross-operator analytics: operator growth, status mix, top operators by user count.
 - **Team** (`/platform/team`, Owner-only) — create/edit Platform Managers and their feature grants.
+- **Leads** (`leads` feature, `/platform/leads`) — the Platform's own pipeline of prospective operators (New, Demo booked, Trial running, Negotiation, Won/Lost) with board and list views, follow-ups, history and CSV export. Stored with no operator, so operators never see them.
+- **Attendance** (`/platform/attendance`) — the Hub1z team's check-in/out. The Owner sees the team log; the Owner and Managers with `reports` also see head-counts per operator (no names).
 All actions audit-logged.
 
 ### Public website
@@ -96,6 +98,8 @@ All actions audit-logged.
 - **Workspace settings** — Operator Super Admin selects the primary location; its address is snapshotted onto new invoices.
 - **Audit log** — filterable by action/actor/date, **CSV export**.
 - **Reception** — day-pass QR scan (`/admin/reception`) and visitor check-in/out (`/hub/reception/visitors`).
+- **Leads** (`/admin/leads`) — the operator's own enquiry pipeline (New, Contacted, Tour booked, Proposal sent, Won/Lost): board with drag-and-drop, list, follow-ups due, conversion, history notes, CSV export.
+- **Attendance** (`/admin/attendance`) — who is in the space (members and team), a filterable log with CSV export, manual check-in, and QR check-in with no hardware: a signed **location QR** (printed poster, or a rotating code on a reception screen) is scanned with the person's own phone camera and opens `/checkin/<token>`; a personal **member QR** (`/checkin/pass`) is scanned by reception with the browser camera (`/admin/attendance/scan`). Posters can be retired from `/admin/attendance/qr`.
 
 ### Company (`/company/*`)
 Dashboard, employees CRUD (with **email invitations**, capped by both the company's own `max_employees` and the operator's tier-wide people cap — §5), team bookings visibility, invoices, allocations. Subscriptions are **read-only** here (`/company/plans` shows what the operator offers; subscribing is operator-controlled — see Admin above).
