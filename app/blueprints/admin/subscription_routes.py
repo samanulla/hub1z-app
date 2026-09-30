@@ -14,10 +14,10 @@ from flask_login import current_user
 
 from ...extensions import db
 from ...models import (
-    Company, PricingPlan, Subscription, SubscriptionStatus,
+    Company, PricingPlan, Subscription, SubscriptionStatus, User, UserRole,
     SubscriptionChangeRequest, SubscriptionRequestStatus,
 )
-from ...utils.decorators import manager_or_super_required
+from ...utils.decorators import admin_required, manager_or_super_required
 from ...services import audit_service, credit_service, billing_service
 from ...services.gst import money
 from ...models import BillingSettings
@@ -31,10 +31,10 @@ _TERM_FIELDS = (
 
 def register_subscription_routes(bp):
 
-    @bp.route("/companies/<int:company_id>/subscriptions/new", methods=["GET", "POST"])
-    @manager_or_super_required
-    def company_subscription_new(company_id: int):
-        company = Company.query.get_or_404(company_id)
+    def _subscribe(company=None, user=None):
+        subject_name = company.name if company else user.full_name
+        back_url = (url_for("admin.company_detail", company_id=company.id) if company
+                    else url_for("admin.individuals_list"))
         form = AdminSubscribeForm()
         form.plan_id.choices = [
             (p.id, f"{p.name} — {p.base_price}/{p.billing_cycle.value}")
@@ -44,7 +44,8 @@ def register_subscription_routes(bp):
             plan = PricingPlan.query.get_or_404(form.plan_id.data)
             sub = Subscription(
                 plan_id=plan.id,
-                company_id=company.id,
+                company_id=company.id if company else None,
+                user_id=user.id if user else None,
                 quantity=form.quantity.data,
                 unit_price=Decimal(plan.base_price),
                 start_date=form.start_date.data,
@@ -74,21 +75,54 @@ def register_subscription_routes(bp):
             credits = credit_service.auto_allocate_for_subscription(sub, actor=current_user)
             db.session.commit()
             audit_service.record("subscription.created", "subscription", sub.id,
-                                 {"company": company.name, "plan": plan.name, "quantity": sub.quantity})
-            flash(f"{company.name} subscribed to {plan.name}.", "success")
+                                 {"subject": subject_name, "plan": plan.name, "quantity": sub.quantity})
+            flash(f"{subject_name} subscribed to {plan.name}.", "success")
             if credits:
                 flash(f"Monthly credits suggested from the seat bands: {credits['credits']}. "
                       "Adjust them on the Credits page.", "info")
                 if credits["warning"]:
                     flash(credits["warning"], "warning")
-            return redirect(url_for("admin.company_detail", company_id=company.id))
+            return redirect(back_url)
         if not form.is_submitted():
             form.start_date.data = date.today()
             defaults = BillingSettings.for_operator(g.operator_id)
             for name in _TERM_FIELDS:
                 getattr(form, name).data = getattr(defaults, name)
             form.deposit_months.data = defaults.deposit_months
-        return render_template("admin/companies/subscription_form.html", form=form, company=company)
+        return render_template("admin/companies/subscription_form.html", form=form, subject_name=subject_name,
+                               back_url=back_url)
+
+    @bp.route("/companies/<int:company_id>/subscriptions/new", methods=["GET", "POST"])
+    @manager_or_super_required
+    def company_subscription_new(company_id: int):
+        return _subscribe(company=Company.query.get_or_404(company_id))
+
+    @bp.route("/individuals")
+    @admin_required
+    def individuals_list():
+        people = (User.query.filter_by(role=UserRole.INDIVIDUAL, is_active=True).order_by(User.full_name).all())
+        subs = Subscription.query.filter(Subscription.user_id.in_([p.id for p in people] or [0])).all()
+        by_user: dict[int, list] = {}
+        for s in subs:
+            by_user.setdefault(s.user_id, []).append(s)
+        return render_template("admin/individuals.html", people=people, subs=by_user)
+
+    @bp.route("/individuals/<int:user_id>/subscriptions/new", methods=["GET", "POST"])
+    @manager_or_super_required
+    def individual_subscription_new(user_id: int):
+        user = User.query.filter_by(id=user_id, role=UserRole.INDIVIDUAL, is_active=True).first_or_404()
+        return _subscribe(user=user)
+
+    @bp.route("/individuals/<int:user_id>/subscriptions/<int:sub_id>/cancel", methods=["POST"])
+    @manager_or_super_required
+    def individual_subscription_cancel(user_id: int, sub_id: int):
+        sub = Subscription.query.filter_by(id=sub_id, user_id=user_id).first_or_404()
+        sub.status = SubscriptionStatus.CANCELLED
+        sub.end_date = date.today()
+        db.session.commit()
+        audit_service.record("subscription.cancelled", "subscription", sub.id, {"user_id": user_id})
+        flash("Subscription cancelled.", "info")
+        return redirect(url_for("admin.individuals_list"))
 
     @bp.route("/companies/<int:company_id>/subscriptions/<int:sub_id>/cancel", methods=["POST"])
     @manager_or_super_required

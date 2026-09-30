@@ -144,9 +144,82 @@ def update_platform_owner_email_cmd(new_email: str, old_email: str | None) -> No
 PERSONA_PASSWORD = "DemoPass123!"
 
 
+def _seed_sample_billing(demo: Operator, acme: Company, ivy: User) -> None:
+    """Sample GST details, plans, agreements and invoices so the billing screens have something to show."""
+    from datetime import date, datetime
+    from decimal import Decimal
+    from dateutil.relativedelta import relativedelta
+    from .models import (
+        BillingCycle, Invoice, InvoiceStatus, Payment, PlanScope, PlanStatus, PlanType, PricingPlan,
+        Subscription, SubscriptionStatus,
+    )
+    from .services import billing_service as bs
+
+    if Subscription.query.filter_by(operator_id=demo.id).first():
+        return
+    demo.company_legal_name, demo.gstin, demo.pan, demo.gst_state = "Demo Space LLP", "29ABCDE1234F1Z5", "ABCDE1234F", "29"
+    acme.legal_name, acme.tax_id, acme.pan, acme.gst_state = "Acme Co Private Limited", "29AACCA1234A1Z5", "AACCA1234A", "29"
+    acme.billing_address = "12 MG Road, Bengaluru 560001"
+    zenith = Company(operator_id=demo.id, name="Zenith Traders", legal_name="Zenith Traders LLP",
+                     billing_email="accounts@zenithtraders.com", status=CompanyStatus.ACTIVE, tax_id="27AABCZ5678B1Z2",
+                     pan="AABCZ5678B", gst_state="27", billing_address="4 Marine Drive, Mumbai 400020")
+    hot = PricingPlan(operator_id=demo.id, name="Hot Desk", scope=PlanScope.INDIVIDUAL, plan_type=PlanType.HOT_DESK,
+                      billing_cycle=BillingCycle.MONTHLY, base_price=Decimal("6000"), status=PlanStatus.ACTIVE)
+    dedicated = PricingPlan(operator_id=demo.id, name="Dedicated Desk", scope=PlanScope.COMPANY_STANDARD,
+                            plan_type=PlanType.DEDICATED_DESK, billing_cycle=BillingCycle.MONTHLY,
+                            base_price=Decimal("15000"), status=PlanStatus.ACTIVE)
+    db.session.add_all([zenith, hot, dedicated])
+    db.session.flush()
+
+    today = date.today()
+    this_month = today.replace(day=1)
+    two_ago = this_month - relativedelta(months=2)
+
+    def agree(plan, start, qty, company=None, user=None, deposit_months=3, **terms):
+        sub = Subscription(operator_id=demo.id, plan_id=plan.id, company_id=company.id if company else None,
+                           user_id=user.id if user else None, quantity=qty, unit_price=plan.base_price,
+                           start_date=start, status=SubscriptionStatus.ACTIVE)
+        db.session.add(sub)
+        db.session.flush()
+        bs.apply_default_terms(sub)
+        sub.deposit_amount = Decimal(plan.base_price) * qty * deposit_months
+        for key, value in terms.items():
+            setattr(sub, key, value)
+        db.session.flush()
+        return sub
+
+    def pay(inv):
+        db.session.add(Payment(operator_id=demo.id, invoice_id=inv.id, amount=inv.total_amount, method="upi",
+                               reference="DEMO-UPI", paid_at=datetime.utcnow()))
+        inv.amount_paid, inv.status = inv.total_amount, InvoiceStatus.PAID
+        bs.after_payment(inv)
+
+    # Acme: a local company. The earliest month is paid, the next is overdue, so this month carries a late fee.
+    acme_sub = agree(dedicated, two_ago, 5, company=acme, late_fee_mode="per_day", late_fee_value=Decimal("100"),
+                     late_fee_grace_days=3)
+    pay(bs.create_deposit_invoice(acme_sub, today=two_ago))
+    for i, month in enumerate([two_ago, this_month - relativedelta(months=1), this_month]):
+        inv, _ = bs._generate(acme_sub, month, bs._month_end(month), prorate=True, today=max(month, two_ago))
+        if i == 0:
+            pay(inv)
+    # Zenith: another state, so IGST instead of CGST + SGST.
+    zen_sub = agree(dedicated, this_month, 2, company=zenith, deposit_months=2)
+    bs.create_deposit_invoice(zen_sub, today=this_month)
+    bs._generate(zen_sub, this_month, bs._month_end(this_month), prorate=True, today=this_month)
+    # Ivy: an individual, deposit still unpaid.
+    ivy_sub = agree(hot, this_month - relativedelta(months=1), 1, user=ivy, deposit_months=1)
+    bs.create_deposit_invoice(ivy_sub, today=ivy_sub.start_date)
+    for month in (this_month - relativedelta(months=1), this_month):
+        bs._generate(ivy_sub, month, bs._month_end(month), prorate=True, today=month)
+    for inv in Invoice.query.filter_by(operator_id=demo.id).all():
+        bs.recompute_invoice(inv)
+
+
 @click.command("seed-personas")
+@click.option("--password", default=PERSONA_PASSWORD, show_default=False,
+              help="Password for the operator, company and member logins (default: the shared demo password).")
 @with_appcontext
-def seed_personas_cmd() -> None:
+def seed_personas_cmd(password: str) -> None:
     """Development/testing only: one login per role, plus a second operator to check isolation."""
     from decimal import Decimal
     from urllib.parse import urlparse
@@ -157,15 +230,16 @@ def seed_personas_cmd() -> None:
         raise click.ClickException("seed-personas creates known passwords; it only runs in development/testing.")
 
     base = current_app.config["PLATFORM_BASE_DOMAIN"]
+    persona_password = password
     port = urlparse(current_app.config["APP_BASE_URL"]).port
     suffix = f":{port}" if port else ""
 
-    def ensure_user(email, name, role, operator=None, company=None, password=PERSONA_PASSWORD):
+    def ensure_user(email, name, role, operator=None, company=None, password=None):
         if User.query.filter_by(email=email).first():
             return
         u = User(operator_id=operator.id if operator else None, email=email, full_name=name, role=role,
                  company_id=company.id if company else None, is_active=True, email_verified=True)
-        u.set_password(password)
+        u.set_password(password or persona_password)
         db.session.add(u)
 
     def ensure_operator(slug, name):
@@ -223,15 +297,16 @@ def seed_personas_cmd() -> None:
         db.session.add(Company(operator_id=other.id, name="Other Co", billing_email="billing@otherspace.com",
                                status=CompanyStatus.ACTIVE))
     ensure_user("owner@otherspace.com", "Other Owner", UserRole.SUPER_ADMIN, other)
+    _seed_sample_billing(demo, acme, ivy)
     db.session.commit()
 
     rows = [
         ("Platform owner", f"{base}", po_email, po_password),
-        ("Operator owner", f"demo.{base}", "owner@demospace.com", PERSONA_PASSWORD),
-        ("Company admin", f"demo.{base}", "admin@acmeco.com", PERSONA_PASSWORD),
-        ("Employee (by company)", f"demo.{base}", "employee@acmeco.com", PERSONA_PASSWORD),
-        ("Individual", f"demo.{base}", "individual@demospace.com", PERSONA_PASSWORD),
-        ("Other operator owner", f"other.{base}", "owner@otherspace.com", PERSONA_PASSWORD),
+        ("Operator owner", f"demo.{base}", "owner@demospace.com", persona_password),
+        ("Company admin", f"demo.{base}", "admin@acmeco.com", persona_password),
+        ("Employee (by company)", f"demo.{base}", "employee@acmeco.com", persona_password),
+        ("Individual", f"demo.{base}", "individual@demospace.com", persona_password),
+        ("Other operator owner", f"other.{base}", "owner@otherspace.com", persona_password),
     ]
     for role, host, email, password in rows:
         click.echo(f"{role:<22} http://{host}{suffix}/auth/login  {email} / {password}")

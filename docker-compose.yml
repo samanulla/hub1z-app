@@ -22,7 +22,7 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
-    environment:
+    environment: &app-env
       FLASK_ENV: ${FLASK_ENV:-development}
       APP_NAME: ${APP_NAME:-hub1z}
       SECRET_KEY: ${SECRET_KEY:-change-me}
@@ -53,6 +53,23 @@ services:
       sh -c "flask --app wsgi.py db upgrade &&
       if [ \"$${SEED_DEMO}\" = \"true\" ]; then flask --app wsgi.py seed-demo; fi &&
       gunicorn --bind 0.0.0.0:8000 --workers 3 --timeout 60 wsgi:app"
+
+  # Runs the clock-driven jobs (invoices, credits, agreements, recurring bookings, no-shows).
+  # Every job is safe to repeat, so a restart never double-bills.
+  scheduler:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    environment: *app-env
+    volumes:
+      - uploads:/app/var
+    command: >-
+      sh -c "n=0; while true; do
+      if [ $$((n % 12)) -eq 0 ]; then flask --app wsgi.py run-scheduled-jobs;
+      else flask --app wsgi.py release-no-shows; fi;
+      n=$$((n + 1)); sleep 300; done"
 
 volumes:
   pgdata:

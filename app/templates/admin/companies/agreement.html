@@ -10,7 +10,8 @@
       <span class="badge bg-secondary">{{ sub.status.value }}</span></h3>
     <div class="text-muted">{{ sub.plan.name }} × {{ sub.quantity }} from {{ sub.start_date }}</div>
   </div>
-  {% if company %}<a class="btn btn-outline-secondary" href="{{ url_for('admin.company_detail', company_id=company.id) }}">Back to company</a>{% endif %}
+  {% if company %}<a class="btn btn-outline-secondary" href="{{ url_for('admin.company_detail', company_id=company.id) }}">Back to company</a>
+  {% else %}<a class="btn btn-outline-secondary" href="{{ url_for('admin.individuals_list') }}">Back to individuals</a>{% endif %}
 </div>
 
 <div class="row g-3">
@@ -37,10 +38,15 @@
       {% if sub.terminate_on %}
         <p class="mb-1">Notice given on <b>{{ sub.notice_given_on }}</b>. The agreement ends on <b>{{ sub.terminate_on }}</b>.</p>
         {% if held > 0 %}<p class="text-muted small mb-0">Deposit of {{ held | money }} is due back within {{ sub.deposit_refund_days }} days, by {{ refund_by }}.</p>{% endif %}
+        <form method="post" action="{{ url_for('admin.subscription_notice_withdraw', sub_id=sub.id) }}" class="mt-2"
+              onsubmit="return confirm('Withdraw the notice? Unpaid early exit invoices are voided and a forfeited deposit is restored.');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-secondary">Withdraw notice</button>
+        </form>
       {% elif sub.status.value == 'active' %}
         <p class="text-muted small">Notice of {{ sub.notice_months }} month(s) is needed. Leaving before {{ sub.lock_in_ends_on }} costs
         {{ 'the remaining lock-in fees' if sub.early_exit_rule == 'remaining_fees' else 'the security deposit' }}.</p>
-        <form method="post" action="{{ url_for('admin.subscription_notice', company_id=company.id, sub_id=sub.id) }}" class="row g-2 align-items-end"
+        <form method="post" action="{{ url_for('admin.subscription_notice', sub_id=sub.id) }}" class="row g-2 align-items-end"
               onsubmit="return confirm('Record notice? This sets the end date and may raise an early exit charge.');">
           {{ notice_form.hidden_tag() }}
           <div class="col-8">{{ notice_form.notice_date(class="form-control") }}</div>
@@ -67,7 +73,7 @@
         </tbody>
       </table>
       {% if held > 0 %}
-      <form method="post" action="{{ url_for('admin.subscription_deposit', company_id=company.id, sub_id=sub.id) }}" class="row g-2 align-items-end">
+      <form method="post" action="{{ url_for('admin.subscription_deposit', sub_id=sub.id) }}" class="row g-2 align-items-end">
         {{ deposit_form.hidden_tag() }}
         <div class="col-md-3">{{ deposit_form.entry_type(class="form-select") }}</div>
         <div class="col-md-2">{{ deposit_form.amount(class="form-control", placeholder="Amount") }}</div>
@@ -93,12 +99,12 @@
             <td class="text-end">{{ r.old_unit_price | money }} → {{ r.new_unit_price | money }}</td>
             <td class="text-end">
               {% if r.status == 'proposed' %}
-              <form method="post" action="{{ url_for('admin.subscription_revision', company_id=company.id, sub_id=sub.id, rev_id=r.id, decision='confirm') }}" class="d-inline-flex gap-1">
+              <form method="post" action="{{ url_for('admin.subscription_revision', sub_id=sub.id, rev_id=r.id, decision='confirm') }}" class="d-inline-flex gap-1">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input name="percent" class="form-control form-control-sm" style="width:5rem" placeholder="{{ r.percent }}%">
                 <button class="btn btn-sm btn-dark">Confirm</button>
               </form>
-              <form method="post" action="{{ url_for('admin.subscription_revision', company_id=company.id, sub_id=sub.id, rev_id=r.id, decision='dismiss') }}" class="d-inline">
+              <form method="post" action="{{ url_for('admin.subscription_revision', sub_id=sub.id, rev_id=r.id, decision='dismiss') }}" class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button class="btn btn-sm btn-outline-secondary">Dismiss</button>
               </form>
@@ -107,6 +113,38 @@
           </tr>
           {% else %}
           <tr><td colspan="4" class="text-muted text-center py-2">None yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <div class="col-12">
+    <div class="card"><div class="card-body">
+      <h6>Agreement document</h6>
+      <p class="text-muted small">Written from the terms above. Generate it once the price is agreed, get it signed, then attach the signed copy.</p>
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.subscription_contract_preview', sub_id=sub.id) }}">Preview draft</a>
+        <form method="post" action="{{ url_for('admin.subscription_contract_generate', sub_id=sub.id) }}" class="d-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-dark">Generate agreement</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.subscription_signed_copy', sub_id=sub.id) }}" enctype="multipart/form-data" class="d-inline-flex gap-2">
+          {{ signed_form.hidden_tag() }}
+          {{ signed_form.file(class="form-control form-control-sm") }}
+          <button class="btn btn-sm btn-outline-dark">Attach signed copy</button>
+        </form>
+      </div>
+      <table class="table table-sm mb-0">
+        <tbody>
+          {% for d in contracts %}
+          <tr>
+            <td><a href="{{ url_for('admin.document_download', doc_id=d.id) }}">{{ d.filename }}</a>
+              {% if d.id == sub.agreement_document_id %}<span class="badge bg-success">Signed copy</span>{% endif %}</td>
+            <td class="text-end text-muted">{{ d.created_at | dt }}</td>
+          </tr>
+          {% else %}
+          <tr><td class="text-muted text-center py-2">No agreement generated yet.</td></tr>
           {% endfor %}
         </tbody>
       </table>

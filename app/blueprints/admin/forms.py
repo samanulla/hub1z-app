@@ -522,6 +522,13 @@ class NoticeForm(FlaskForm):
     submit = SubmitField("Record notice")
 
 
+class SignedCopyForm(FlaskForm):
+    file = FileField("Signed agreement", validators=[
+        DataRequired(), FileAllowed(["pdf", "png", "jpg", "jpeg"], "Unsupported file type."),
+    ])
+    submit = SubmitField("Attach signed copy")
+
+
 class DepositEntryForm(FlaskForm):
     entry_type = SelectField("Action", choices=[("deduction", "Deduct (dues, damages)"), ("refund", "Refund")])
     amount = DecimalField("Amount", validators=[DataRequired(), NumberRange(min=0.01)])

@@ -3,7 +3,7 @@
 {% block title %}Add subscription{% endblock %}
 
 {% block content %}
-<h3>Add subscription for {{ company.name }}</h3>
+<h3>Add subscription for {{ subject_name }}</h3>
 <form method="post" novalidate>
   {{ form.hidden_tag() }}
   <div class="card mb-3"><div class="card-body">
@@ -40,6 +40,6 @@
   </div></div>
 
   <button class="btn btn-dark">Add subscription</button>
-  <a class="btn btn-link" href="{{ url_for('admin.company_detail', company_id=company.id) }}">Cancel</a>
+  <a class="btn btn-link" href="{{ back_url }}">Cancel</a>
 </form>
 {% endblock %}

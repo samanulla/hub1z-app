@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 2cm 2cm 2cm 2cm; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 10.5pt; color: #222; line-height: 1.4; }
+  h1 { font-size: 17pt; margin: 0 0 4px; text-align: center; }
+  h2 { font-size: 11.5pt; margin: 14px 0 4px; }
+  .muted { color: #666; font-size: 9pt; }
+  .center { text-align: center; }
+  table.terms { width: 100%; border-collapse: collapse; margin-top: 6px; }
+  table.terms td { border: 1px solid #ccc; padding: 5px 8px; vertical-align: top; }
+  table.terms td.k { width: 34%; background: #f6f7f8; }
+  table.sign { width: 100%; margin-top: 40px; }
+  table.sign td { width: 50%; vertical-align: top; padding-right: 20px; }
+  .line { border-bottom: 1px solid #333; height: 34px; }
+  .draft { color: #b91c1c; font-weight: bold; text-align: center; }
+</style>
+</head>
+<body>
+  {% if draft %}<div class="draft">DRAFT - NOT YET AGREED</div>{% endif %}
+  <h1>Workspace Agreement</h1>
+  <div class="center muted">Version {{ version }} - prepared {{ today }}</div>
+
+  <h2>1. Parties</h2>
+  <p>This agreement starts on <b>{{ start }}</b> between:</p>
+  <p><b>{{ operator.name }}</b> (the "Operator"){% if operator.address %}, {{ operator.address }}{% endif %}{% if operator.gstin %}, GSTIN {{ operator.gstin }}{% endif %}{% if operator.pan %}, PAN {{ operator.pan }}{% endif %}; and</p>
+  <p><b>{{ party.name }}</b> (the "Member"){% if party.address %}, {{ party.address }}{% endif %}{% if party.gstin %}, GSTIN {{ party.gstin }}{% endif %}{% if party.pan %}, PAN {{ party.pan }}{% endif %}{% if party.email %}, {{ party.email }}{% endif %}{% if party.phone %}, {{ party.phone }}{% endif %}.</p>
+
+  <h2>2. Agreed terms</h2>
+  <table class="terms">
+    <tr><td class="k">Plan</td><td>{{ plan_name }} for {{ quantity }} seat{{ 's' if quantity != 1 }}</td></tr>
+    <tr><td class="k">Monthly fee</td><td>{{ unit_price }} per seat{% if tax_inclusive %}, including GST{% else %}, plus GST{% endif %}.
+      Monthly total {{ net }} + GST at {{ gst_rate }}% ({{ gst_amount }}) = <b>{{ monthly_total }}</b>{% if sac %} (SAC {{ sac }}){% endif %}. GST is charged as {{ gst_kind }}.</td></tr>
+    <tr><td class="k">Term</td><td>{{ sub.term_months }} months, from {{ start }} to {{ term_end }}.</td></tr>
+    <tr><td class="k">Lock-in</td><td>{{ sub.lock_in_months }} months, until {{ lock_in_end }}.</td></tr>
+    <tr><td class="k">Notice to end</td><td>{{ sub.notice_months }} month{{ 's' if sub.notice_months != 1 }} in writing.</td></tr>
+    <tr><td class="k">Payment</td><td>Invoiced monthly in advance, due by day {{ sub.due_day }} of each month.</td></tr>
+    {% if has_deposit %}<tr><td class="k">Security deposit</td><td>{{ deposit }}, refundable within {{ sub.deposit_refund_days }} days after the agreement ends, less any dues or damages.</td></tr>{% endif %}
+    {% if escalation %}<tr><td class="k">Yearly increase</td><td>{{ escalation }}% after {{ escalation_after }} months and then each year, once confirmed by the Operator in writing.</td></tr>{% endif %}
+  </table>
+
+  <h2>3. Fees and payment</h2>
+  <p>The Member pays each invoice by its due date. {% if late %}A late fee of {{ late }} applies{% if sub.late_fee_grace_days %} after {{ sub.late_fee_grace_days }} grace day{{ 's' if sub.late_fee_grace_days != 1 }}{% endif %}.{% else %}No late fee applies.{% endif %}
+  The fee may change only as set out under "Yearly increase" above.</p>
+
+  <h2>4. Lock-in and ending the agreement</h2>
+  <p>Neither party may end the agreement before {{ lock_in_end }} except as below. After the lock-in, either party may end it by giving {{ sub.notice_months }} month{{ 's' if sub.notice_months != 1 }} written notice.
+  {% if sub.early_exit_rule == 'remaining_fees' %}If the Member ends the agreement during the lock-in, the Member pays the monthly fees for the rest of the lock-in period.{% else %}If the Member ends the agreement during the lock-in, the security deposit is forfeited.{% endif %}</p>
+
+  <h2>5. Use of the workspace</h2>
+  <p>The Member uses the workspace lawfully, follows the house rules the Operator publishes, and is responsible for damage caused by the Member, its staff and its guests. The Operator provides the seats, and the shared facilities included in the plan.</p>
+
+  <h2>6. General</h2>
+  <p>This agreement is the whole understanding between the parties on this subject. Changes must be in writing and signed by both parties.</p>
+
+  <table class="sign"><tr>
+    <td><b>For the Operator</b><div class="line"></div>Name and date</td>
+    <td><b>For the Member</b><div class="line"></div>Name and date</td>
+  </tr></table>
+</body>
+</html>

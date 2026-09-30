@@ -19,6 +19,8 @@ from . import gst
 from .gst import money
 
 OPEN_STATUSES = (InvoiceStatus.ISSUED, InvoiceStatus.PARTIAL, InvoiceStatus.OVERDUE)
+FORFEIT_NOTE = "Early exit inside the lock-in: deposit forfeited"
+REVERSAL_NOTE = "Notice withdrawn: forfeited deposit restored"
 
 
 class BillingError(Exception):
@@ -270,7 +272,7 @@ def run_monthly_billing(target_month: date | None = None, today: date | None = N
 def deposit_balance(sub: Subscription) -> Decimal:
     total = Decimal("0")
     for e in _q(DepositEntry, sub.operator_id).filter(DepositEntry.subscription_id == sub.id):
-        total += Decimal(e.amount) if e.entry_type == "received" else -Decimal(e.amount)
+        total += Decimal(e.amount) if e.entry_type in ("received", "reversal") else -Decimal(e.amount)
     return money(total)
 
 
@@ -419,7 +421,7 @@ def give_notice(sub: Subscription, on: date, actor=None) -> dict:
     if sub.early_exit_rule == "forfeit_deposit":
         held = deposit_balance(sub)
         if held > 0:
-            record_deposit(sub, "deduction", held, on, "Early exit inside the lock-in: deposit forfeited", actor)
+            record_deposit(sub, "deduction", held, on, FORFEIT_NOTE, actor)
             result["forfeited"] = held
     else:
         price = effective_unit_price(sub, ends)
@@ -432,6 +434,31 @@ def give_notice(sub: Subscription, on: date, actor=None) -> dict:
         recompute_invoice(inv)
         result["early_exit_invoice"] = inv
     return result
+
+
+def withdraw_notice(sub: Subscription, on: date, actor=None) -> dict:
+    """Take back a notice. Unpaid early-exit invoices are voided and a forfeited deposit is restored;
+    a paid exit charge must be refunded through a credit note instead."""
+    if sub.status != SubscriptionStatus.ACTIVE or not sub.terminate_on:
+        raise BillingError("There is no notice to withdraw on this agreement.")
+    exit_invoices = (_q(Invoice, sub.operator_id).join(InvoiceLineItem, InvoiceLineItem.invoice_id == Invoice.id)
+                     .filter(Invoice.subscription_id == sub.id, InvoiceLineItem.line_type == "early_exit",
+                             Invoice.status != InvoiceStatus.VOID).distinct().all())
+    if any(Decimal(i.amount_paid or 0) > 0 for i in exit_invoices):
+        raise BillingError("The early exit charge has been paid. Issue a credit note for it, then withdraw the notice.")
+    for inv in exit_invoices:
+        inv.status = InvoiceStatus.VOID
+    forfeits = _q(DepositEntry, sub.operator_id).filter(
+        DepositEntry.subscription_id == sub.id, DepositEntry.note == FORFEIT_NOTE).all()
+    reversals = _q(DepositEntry, sub.operator_id).filter(
+        DepositEntry.subscription_id == sub.id, DepositEntry.note == REVERSAL_NOTE).count()
+    restored = Decimal("0")
+    for entry in forfeits[reversals:]:
+        record_deposit(sub, "reversal", entry.amount, on, REVERSAL_NOTE, actor)
+        restored += Decimal(entry.amount)
+    sub.notice_given_on = None
+    sub.terminate_on = None
+    return {"voided": len(exit_invoices), "restored": restored}
 
 
 def end_terminated_subscriptions(today: date | None = None, operator_id: int | None = None) -> int:

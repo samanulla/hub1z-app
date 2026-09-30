@@ -407,12 +407,12 @@ def test_paying_the_deposit_invoice_on_screen_puts_it_on_the_ledger():
     assert r.status_code == 302
     with app.app_context():
         assert bs.deposit_balance(db.session.get(Subscription, sub_id)) == Decimal("66000.00")
-    r = c.post(f"/admin/companies/{ids['local']}/subscriptions/{sub_id}/deposit",
+    r = c.post(f"/admin/subscriptions/{sub_id}/deposit",
                data={"entry_type": "refund", "amount": "16000", "entry_date": "2026-09-01", "note": "Part"})
     assert r.status_code == 302
     with app.app_context():
         assert bs.deposit_balance(db.session.get(Subscription, sub_id)) == Decimal("50000.00")
-    page = c.get(f"/admin/companies/{ids['local']}/subscriptions/{sub_id}/agreement")
+    page = c.get(f"/admin/subscriptions/{sub_id}/agreement")
     assert page.status_code == 200 and b"Security deposit" in page.data and b"50,000" in page.data
 
 
@@ -426,7 +426,7 @@ def test_agreement_page_notice_and_revision_actions():
         rev_id = RateRevision.query.one().id
     c = app.test_client()
     _login(c)
-    base = f"/admin/companies/{ids['local']}/subscriptions/{sub_id}"
+    base = f"/admin/subscriptions/{sub_id}"
     assert b"Yearly increases" in c.get(base + "/agreement").data
     assert c.post(f"{base}/revisions/{rev_id}/confirm", data={"percent": "6"}).status_code == 302
     assert c.post(f"{base}/notice", data={"notice_date": "2026-02-01"}).status_code == 302

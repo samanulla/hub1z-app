@@ -1,22 +1,25 @@
-"""Operator billing settings (invoice timing, default terms, GST) and the agreement page of a subscription."""
+"""Operator billing settings (invoice timing, default terms, GST) and each subscription's agreement page."""
 from __future__ import annotations
 
+import os
 from datetime import date, timedelta
-from decimal import Decimal
+from io import BytesIO
 
-from flask import render_template, redirect, url_for, flash, g
+from flask import render_template, redirect, url_for, flash, g, send_file, send_from_directory, current_app
 from flask_login import current_user
 
 from ...extensions import db
 from ...models import (
-    BillingSettings, DepositEntry, Invoice, RateRevision, Subscription, SubscriptionStatus, TaxRate,
+    BillingSettings, DepositEntry, Document, DocumentKind, Invoice, RateRevision, Subscription, TaxRate,
 )
-from ...services import audit_service, billing_service
+from ...services import audit_service, billing_service, contract_service
 from ...services.billing_service import BillingError
 from ...services.gst import CHARGE_TYPES, STATE_NAMES
+from ...services.storage import storage_service
 from ...utils.decorators import admin_required, manager_or_super_required, super_admin_required
 from .forms import (
-    BillingSettingsForm, DepositEntryForm, NoticeForm, OperatorTaxForm, RevisionDecisionForm, TaxRateForm,
+    BillingSettingsForm, DepositEntryForm, NoticeForm, OperatorTaxForm, RevisionDecisionForm, SignedCopyForm,
+    TaxRateForm,
 )
 
 _SETTINGS_FIELDS = (
@@ -24,6 +27,23 @@ _SETTINGS_FIELDS = (
     "deposit_refund_days", "escalation_percent", "escalation_after_months", "late_fee_mode", "late_fee_value",
     "late_fee_grace_days", "early_exit_rule",
 )
+
+
+def _contract_documents(sub: Subscription):
+    return (Document.query.filter_by(owner_type="subscription", owner_id=sub.id, kind=DocumentKind.CONTRACT)
+            .order_by(Document.created_at.desc(), Document.id.desc()).all())
+
+
+def _store_document(sub: Subscription, filename: str, stream, content_type: str) -> Document:
+    stored = storage_service.upload(namespace=f"operators/{sub.operator_id}/subscriptions/{sub.id}",
+                                    filename=filename, stream=stream, content_type=content_type, scope="operator")
+    doc = Document(operator_id=sub.operator_id, kind=DocumentKind.CONTRACT, owner_type="subscription",
+                   owner_id=sub.id, filename=filename, content_type=content_type, size_bytes=stored.size_bytes,
+                   storage_backend=stored.backend, storage_bucket=stored.bucket, storage_key=stored.key,
+                   uploaded_by_id=current_user.id)
+    db.session.add(doc)
+    db.session.flush()
+    return doc
 
 
 def register_agreement_routes(bp):
@@ -112,13 +132,13 @@ def register_agreement_routes(bp):
         return redirect(url_for("admin.billing_settings"))
 
     # -------------------------------------------------------- agreement --
-    def _sub_or_404(company_id: int, sub_id: int) -> Subscription:
-        return Subscription.query.filter_by(id=sub_id, company_id=company_id).first_or_404()
+    def _back(sub_id: int):
+        return redirect(url_for("admin.subscription_agreement", sub_id=sub_id))
 
-    @bp.route("/companies/<int:company_id>/subscriptions/<int:sub_id>/agreement")
+    @bp.route("/subscriptions/<int:sub_id>/agreement")
     @admin_required
-    def subscription_agreement(company_id: int, sub_id: int):
-        sub = _sub_or_404(company_id, sub_id)
+    def subscription_agreement(sub_id: int):
+        sub = Subscription.query.get_or_404(sub_id)
         entries = (DepositEntry.query.filter_by(subscription_id=sub.id)
                    .order_by(DepositEntry.entry_date, DepositEntry.id).all())
         revisions = (RateRevision.query.filter_by(subscription_id=sub.id)
@@ -130,26 +150,27 @@ def register_agreement_routes(bp):
         deposit_form = DepositEntryForm()
         deposit_form.entry_date.data = date.today()
         return render_template(
-            "admin/companies/agreement.html", sub=sub, company=sub.company, entries=entries,
+            "admin/companies/agreement.html", sub=sub, company=sub.company, person=sub.user, entries=entries,
             revisions=revisions, invoices=invoices, held=billing_service.deposit_balance(sub),
             notice_form=notice_form, deposit_form=deposit_form, decision_form=RevisionDecisionForm(),
+            contracts=_contract_documents(sub), signed_form=SignedCopyForm(),
             current_price=billing_service.effective_unit_price(sub, date.today()),
             refund_by=(sub.terminate_on + timedelta(days=sub.deposit_refund_days)) if sub.terminate_on else None,
         )
 
-    @bp.route("/companies/<int:company_id>/subscriptions/<int:sub_id>/notice", methods=["POST"])
+    @bp.route("/subscriptions/<int:sub_id>/notice", methods=["POST"])
     @manager_or_super_required
-    def subscription_notice(company_id: int, sub_id: int):
-        sub = _sub_or_404(company_id, sub_id)
+    def subscription_notice(sub_id: int):
+        sub = Subscription.query.get_or_404(sub_id)
         form = NoticeForm()
         if not form.validate_on_submit():
             flash("Enter the date notice was given.", "warning")
-            return redirect(url_for("admin.subscription_agreement", company_id=company_id, sub_id=sub.id))
+            return _back(sub.id)
         try:
             result = billing_service.give_notice(sub, form.notice_date.data, current_user)
         except BillingError as e:
             flash(str(e), "warning")
-            return redirect(url_for("admin.subscription_agreement", company_id=company_id, sub_id=sub.id))
+            return _back(sub.id)
         db.session.commit()
         audit_service.record("subscription.notice", "subscription", sub.id,
                              {"terminate_on": result["terminate_on"].isoformat(), "months": result["months"]})
@@ -159,46 +180,111 @@ def register_agreement_routes(bp):
                   f"the remaining {result['months']} month(s).", "info")
         if result["forfeited"]:
             flash(f"Early exit inside the lock-in: the deposit of {result['forfeited']} is forfeited.", "info")
-        return redirect(url_for("admin.subscription_agreement", company_id=company_id, sub_id=sub.id))
+        return _back(sub.id)
 
-    @bp.route("/companies/<int:company_id>/subscriptions/<int:sub_id>/deposit", methods=["POST"])
+    @bp.route("/subscriptions/<int:sub_id>/notice/withdraw", methods=["POST"])
     @manager_or_super_required
-    def subscription_deposit(company_id: int, sub_id: int):
-        sub = _sub_or_404(company_id, sub_id)
+    def subscription_notice_withdraw(sub_id: int):
+        sub = Subscription.query.get_or_404(sub_id)
+        try:
+            result = billing_service.withdraw_notice(sub, date.today(), current_user)
+        except BillingError as e:
+            flash(str(e), "warning")
+            return _back(sub.id)
+        db.session.commit()
+        audit_service.record("subscription.notice_withdrawn", "subscription", sub.id,
+                             {"voided": result["voided"], "restored": str(result["restored"])})
+        flash("Notice withdrawn. The agreement continues.", "success")
+        if result["voided"]:
+            flash(f"{result['voided']} unpaid early exit invoice(s) voided.", "info")
+        if result["restored"]:
+            flash(f"Forfeited deposit of {result['restored']} restored.", "info")
+        return _back(sub.id)
+
+    @bp.route("/subscriptions/<int:sub_id>/deposit", methods=["POST"])
+    @manager_or_super_required
+    def subscription_deposit(sub_id: int):
+        sub = Subscription.query.get_or_404(sub_id)
         form = DepositEntryForm()
         if not form.validate_on_submit():
             flash("Enter a valid amount and date.", "warning")
-            return redirect(url_for("admin.subscription_agreement", company_id=company_id, sub_id=sub.id))
+            return _back(sub.id)
         try:
             billing_service.record_deposit(sub, form.entry_type.data, form.amount.data, form.entry_date.data,
                                            form.note.data, current_user)
         except BillingError as e:
             flash(str(e), "warning")
-            return redirect(url_for("admin.subscription_agreement", company_id=company_id, sub_id=sub.id))
+            return _back(sub.id)
         db.session.commit()
         audit_service.record(f"deposit.{form.entry_type.data}", "subscription", sub.id,
                              {"amount": str(form.amount.data)})
         flash("Deposit entry recorded.", "success")
-        return redirect(url_for("admin.subscription_agreement", company_id=company_id, sub_id=sub.id))
+        return _back(sub.id)
 
-    @bp.route("/companies/<int:company_id>/subscriptions/<int:sub_id>/revisions/<int:rev_id>/<decision>",
-              methods=["POST"])
+    @bp.route("/subscriptions/<int:sub_id>/revisions/<int:rev_id>/<decision>", methods=["POST"])
     @manager_or_super_required
-    def subscription_revision(company_id: int, sub_id: int, rev_id: int, decision: str):
-        sub = _sub_or_404(company_id, sub_id)
+    def subscription_revision(sub_id: int, rev_id: int, decision: str):
+        sub = Subscription.query.get_or_404(sub_id)
         rev = RateRevision.query.filter_by(id=rev_id, subscription_id=sub.id).first_or_404()
         if decision not in ("confirm", "dismiss"):
             flash("Invalid decision.", "warning")
-            return redirect(url_for("admin.subscription_agreement", company_id=company_id, sub_id=sub.id))
+            return _back(sub.id)
         form = RevisionDecisionForm()
         percent = form.percent.data if form.validate_on_submit() and form.percent.data is not None else None
         try:
             billing_service.decide_revision(rev, decision == "confirm", current_user, percent)
         except BillingError as e:
             flash(str(e), "warning")
-            return redirect(url_for("admin.subscription_agreement", company_id=company_id, sub_id=sub.id))
+            return _back(sub.id)
         db.session.commit()
         audit_service.record(f"rate_revision.{decision}", "subscription", sub.id,
                              {"effective_from": rev.effective_from.isoformat(), "new_price": str(rev.new_unit_price)})
         flash("Increase confirmed." if decision == "confirm" else "Increase dismissed.", "success")
-        return redirect(url_for("admin.subscription_agreement", company_id=company_id, sub_id=sub.id))
+        return _back(sub.id)
+
+    # --------------------------------------------------------- contract --
+    @bp.route("/subscriptions/<int:sub_id>/contract/preview")
+    @admin_required
+    def subscription_contract_preview(sub_id: int):
+        sub = Subscription.query.get_or_404(sub_id)
+        pdf = contract_service.render_contract_pdf(sub, version=len(_contract_documents(sub)) + 1, draft=True)
+        return send_file(BytesIO(pdf), mimetype="application/pdf", download_name="agreement-draft.pdf")
+
+    @bp.route("/subscriptions/<int:sub_id>/contract", methods=["POST"])
+    @manager_or_super_required
+    def subscription_contract_generate(sub_id: int):
+        sub = Subscription.query.get_or_404(sub_id)
+        version = Document.query.filter_by(owner_type="subscription", owner_id=sub.id).filter(
+            Document.filename.like("agreement-v%")).count() + 1
+        pdf = contract_service.render_contract_pdf(sub, version=version)
+        doc = _store_document(sub, f"agreement-v{version}.pdf", BytesIO(pdf), "application/pdf")
+        db.session.commit()
+        audit_service.record("contract.generated", "subscription", sub.id, {"document_id": doc.id, "version": version})
+        flash(f"Agreement version {version} generated. Send it for signature, then attach the signed copy.", "success")
+        return _back(sub.id)
+
+    @bp.route("/subscriptions/<int:sub_id>/signed-copy", methods=["POST"])
+    @manager_or_super_required
+    def subscription_signed_copy(sub_id: int):
+        sub = Subscription.query.get_or_404(sub_id)
+        form = SignedCopyForm()
+        if not form.validate_on_submit():
+            flash("Choose a PDF or image of the signed agreement.", "warning")
+            return _back(sub.id)
+        f = form.file.data
+        doc = _store_document(sub, f"signed-{f.filename}", f.stream, f.mimetype)
+        sub.agreement_document_id = doc.id
+        db.session.commit()
+        audit_service.record("contract.signed_copy", "subscription", sub.id, {"document_id": doc.id})
+        flash("Signed agreement attached.", "success")
+        return _back(sub.id)
+
+    @bp.route("/documents/<int:doc_id>/download")
+    @admin_required
+    def document_download(doc_id: int):
+        doc = Document.query.filter_by(id=doc_id, owner_type="subscription").first_or_404()
+        Subscription.query.get_or_404(doc.owner_id)
+        if doc.storage_backend == "local":
+            return send_from_directory(os.path.abspath(current_app.config["LOCAL_STORAGE_DIR"]), doc.storage_key,
+                                       as_attachment=True, download_name=doc.filename)
+        return redirect(storage_service.signed_url(doc.storage_key, scope="operator", bucket=doc.storage_bucket))

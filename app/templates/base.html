@@ -380,6 +380,7 @@
     <div class="side-group">
       <div class="side-group-label">People</div>
       <a class="side-link {{ 'active' if request.endpoint in ('admin.companies_list','admin.company_new','admin.company_detail','admin.company_edit') }}" href="{{ url_for('admin.companies_list') }}">Companies</a>
+      <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.individual') }}" href="{{ url_for('admin.individuals_list') }}">Individuals</a>
       {% if current_user.is_manager or current_user.is_super_admin or current_user.is_platform_owner %}
       <a class="side-link {{ 'active' if request.endpoint and request.endpoint.startswith('admin.invite') or request.endpoint in ('admin.invites_list','admin.accept_member_invite','admin.accept_company_invite','admin.accept_team_invite') }}" href="{{ url_for('admin.invites_list') }}">Invites</a>
       {% endif %}
