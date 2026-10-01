@@ -11,6 +11,7 @@ from .subscription_routes import register_subscription_routes
 from .credits_routes import register_credit_routes
 from .agreement_routes import register_agreement_routes
 from .attendance_routes import register_attendance_routes
+from .hub1z_billing_routes import register_hub1z_billing_routes
 from ..lead_routes import register_lead_routes
 from ...utils.decorators import admin_required
 
@@ -26,6 +27,7 @@ register_subscription_routes(admin_bp)
 register_credit_routes(admin_bp)
 register_agreement_routes(admin_bp)
 register_attendance_routes(admin_bp)
+register_hub1z_billing_routes(admin_bp)
 register_lead_routes(admin_bp, "operator", admin_required)
 
 __all__ = ["admin_bp"]

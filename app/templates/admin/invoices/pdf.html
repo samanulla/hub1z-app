@@ -3,7 +3,7 @@
 <head><meta charset="utf-8">
 <style>
   body { font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #222; }
-  h1 { font-size: 20pt; margin: 0 0 4px; color: #0f766e; }
+  h1 { font-size: 20pt; margin: 0 0 4px; color: #4a4ac2; }
   .muted { color: #666; font-size: 9pt; }
   table.items { width: 100%; border-collapse: collapse; margin-top: 20px; }
   table.items th, table.items td { border-bottom: 1px solid #ddd; padding: 6px 8px; text-align: left; }
@@ -14,7 +14,7 @@
 </style>
 </head>
 <body>
-  <h1>{{ app_name }}</h1>
+  <h1>{{ issuer_name or app_name }}</h1>
   <div class="muted">Invoice</div>
 
   <table style="width:100%; margin-top: 16px;"><tr>
@@ -59,8 +59,8 @@
       <tr>
         <td>{{ li.description }}</td>
         <td style="text-align:right;">{{ li.quantity }}</td>
-        <td style="text-align:right;">{{ li.unit_price }}</td>
-        <td style="text-align:right;">{{ li.amount }}</td>
+        <td style="text-align:right;">{{ rs(li.unit_price) }}</td>
+        <td style="text-align:right;">{{ rs(li.amount) }}</td>
         <td style="text-align:right;">{{ li.tax_rate }}%{% if li.sac_code %}<br><span class="muted">SAC {{ li.sac_code }}</span>{% endif %}</td>
       </tr>
       {% endfor %}
@@ -68,17 +68,17 @@
   </table>
 
   <table class="totals">
-    <tr><td>Subtotal</td><td style="text-align:right;">{{ invoice.subtotal }}</td></tr>
+    <tr><td>Subtotal</td><td style="text-align:right;">{{ rs(invoice.subtotal) }}</td></tr>
     {% if invoice.igst_amount > 0 %}
-    <tr><td>IGST</td><td style="text-align:right;">{{ invoice.igst_amount }}</td></tr>
+    <tr><td>IGST</td><td style="text-align:right;">{{ rs(invoice.igst_amount) }}</td></tr>
     {% elif invoice.tax_amount > 0 %}
-    <tr><td>CGST</td><td style="text-align:right;">{{ invoice.cgst_amount }}</td></tr>
-    <tr><td>SGST</td><td style="text-align:right;">{{ invoice.sgst_amount }}</td></tr>
+    <tr><td>CGST</td><td style="text-align:right;">{{ rs(invoice.cgst_amount) }}</td></tr>
+    <tr><td>SGST</td><td style="text-align:right;">{{ rs(invoice.sgst_amount) }}</td></tr>
     {% else %}
-    <tr><td>GST</td><td style="text-align:right;">{{ invoice.tax_amount }}</td></tr>
+    <tr><td>GST</td><td style="text-align:right;">{{ rs(invoice.tax_amount) }}</td></tr>
     {% endif %}
-    <tr class="grand"><td>Total</td><td style="text-align:right;">{{ invoice.total_amount }}</td></tr>
-    <tr><td>Paid</td><td style="text-align:right;">{{ invoice.amount_paid or 0 }}</td></tr>
+    <tr class="grand"><td>Total</td><td style="text-align:right;">{{ rs(invoice.total_amount) }}</td></tr>
+    <tr><td>Paid</td><td style="text-align:right;">{{ rs(invoice.amount_paid) }}</td></tr>
   </table>
 
   <p class="muted" style="margin-top: 40px;">Thank you for your business.</p>

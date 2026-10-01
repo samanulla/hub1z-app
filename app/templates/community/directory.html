@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Community directory{% endblock %}
+{% block title %}Member directory{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h3 class="mb-0">Community</h3>
+  <h3 class="mb-0">Member directory</h3>
   <a class="btn btn-outline-dark btn-sm" href="{{ url_for('community.edit_profile') }}">Edit my profile</a>
 </div>
 <div class="row g-3">
@@ -17,7 +17,7 @@
     </div></div>
   </div>
   {% else %}
-  <div class="col"><p class="text-muted">No community members have opted in yet.</p></div>
+  <div class="col"><p class="text-muted">No members have opted in to the directory yet.</p></div>
   {% endfor %}
 </div>
 {% endblock %}

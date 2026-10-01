@@ -31,7 +31,8 @@
       <td>{{ i.balance_due | money }}</td>
       <td><span class="badge bg-secondary">{{ i.status.value }}</span></td>
       <td>{{ i.due_date }}</td>
-      <td class="text-end">
+      <td class="text-end text-nowrap">
+        <a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="{{ url_for('company.invoice_pdf', invoice_id=i.id) }}"><i class="bi bi-file-earmark-pdf"></i> View PDF</a>
         {% if i.balance_due > 0 %}
         <button class="btn btn-sm btn-outline-dark" type="button" data-bs-toggle="collapse" data-bs-target="#payment-{{ i.id }}">Report payment</button>
         {% endif %}
@@ -54,6 +55,42 @@
     {% endfor %}
   </tbody>
 </table>
+
+<div class="card mt-4"><div class="card-body">
+  <h5>Payments received</h5>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Date</th><th>Invoice</th><th>Amount</th><th>Method</th><th>Reference</th><th></th></tr></thead>
+    <tbody>
+      {% for p in payments %}
+      <tr>
+        <td>{{ p.paid_at | date }}</td><td>{{ p.invoice.number }}</td><td>{{ p.amount | money }}</td>
+        <td>{{ p.method.replace('_', ' ') | title }}</td><td>{{ p.reference or "—" }}</td>
+        <td class="text-end"><a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="{{ url_for('company.payment_receipt', payment_id=p.id) }}"><i class="bi bi-file-earmark-pdf"></i> Receipt</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="text-muted text-center py-3">No payments recorded yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+{% if credit_notes %}
+<div class="card mt-4"><div class="card-body">
+  <h5>Credit notes</h5>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Number</th><th>Invoice</th><th>Amount</th><th>Reason</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for n in credit_notes %}
+      <tr>
+        <td>{{ n.number }}</td><td>{{ n.invoice.number if n.invoice else "—" }}</td><td>{{ n.amount | money }}</td>
+        <td>{{ n.reason }}</td><td><span class="badge bg-secondary">{{ n.status.value }}</span></td>
+        <td class="text-end"><a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="{{ url_for('company.credit_note_pdf', note_id=n.id) }}"><i class="bi bi-file-earmark-pdf"></i> View PDF</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endif %}
 
 <div class="card mt-4"><div class="card-body">
   <h5>Payment reports</h5>

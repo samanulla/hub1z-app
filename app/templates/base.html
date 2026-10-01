@@ -58,6 +58,9 @@
         </a>
       {% endif %}
       <div class="h-top-actions">
+        {% if authed and not current_user.is_platform_staff %}
+        <a class="btn btn-brand btn-sm h-top-checkin" href="{{ url_for('checkin.pass_page') }}" title="Check-in QR"><i class="bi bi-qr-code-scan"></i><span>Check-in QR</span></a>
+        {% endif %}
         {% if authed %}
         <div class="dropdown">
           <a class="h-user" data-bs-toggle="dropdown" href="#" aria-expanded="false">

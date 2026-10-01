@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Hub1z invoices{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>{{ operator.name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Hub1z invoices</span></div>
+    <h1>Hub1z invoices</h1>
+    <div class="muted mt-1">What {{ operator.name }} pays Hub1z for the platform: invoices, credit notes and refunds, each with a PDF.</div>
+  </div>
+</div>
+
+<div class="h-card mb-4"><div class="h-card-body" style="overflow-x:auto">
+  <h5 class="mb-3">Invoices</h5>
+  <table class="h-table">
+    <thead><tr><th>Number</th><th>Period</th><th>Due</th><th class="r">Amount</th><th>Status</th><th class="r">Document</th></tr></thead>
+    <tbody>
+      {% for i in invoices %}
+      <tr>
+        <td><b>{{ i.number }}</b></td>
+        <td class="muted">{{ i.period_start | date }} to {{ i.period_end | date }}</td>
+        <td>{{ i.due_date | date }}</td>
+        <td class="r"><b>{{ i.amount | inr }}</b></td>
+        <td><span class="h-chip sm {{ 'tint-success' if i.status.value == 'paid' else ('tint-danger' if i.status.value == 'overdue' else 'tint-neutral') }}">{{ i.status.value | title }}</span></td>
+        <td class="r"><a class="btn btn-soft btn-sm" target="_blank" rel="noopener" href="{{ url_for('admin.hub1z_invoice_pdf', invoice_id=i.id) }}"><i class="bi bi-file-earmark-pdf"></i> View PDF</a></td>
+      </tr>
+      {% else %}<tr><td colspan="6" class="text-center muted py-4">Hub1z has not invoiced you yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+{% if credit_notes %}
+<div class="h-card mb-4"><div class="h-card-body" style="overflow-x:auto">
+  <h5 class="mb-3">Credit notes</h5>
+  <table class="h-table">
+    <thead><tr><th>Number</th><th>Invoice</th><th>Reason</th><th class="r">Amount</th><th class="r">Document</th></tr></thead>
+    <tbody>
+      {% for n in credit_notes %}
+      <tr>
+        <td><b>{{ n.number }}</b></td><td>{{ n.invoice.number if n.invoice else '—' }}</td><td class="muted">{{ n.reason }}</td>
+        <td class="r"><b>{{ n.amount | inr }}</b></td>
+        <td class="r"><a class="btn btn-soft btn-sm" target="_blank" rel="noopener" href="{{ url_for('admin.hub1z_credit_note_pdf', note_id=n.id) }}"><i class="bi bi-file-earmark-pdf"></i> View PDF</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endif %}
+
+{% if refunds %}
+<div class="h-card"><div class="h-card-body" style="overflow-x:auto">
+  <h5 class="mb-3">Refunds</h5>
+  <table class="h-table">
+    <thead><tr><th>Reference</th><th>Invoice</th><th>Reason</th><th class="r">Amount</th><th class="r">Document</th></tr></thead>
+    <tbody>
+      {% for r in refunds %}
+      <tr>
+        <td><b>{{ r.number }}</b></td><td>{{ r.invoice.number if r.invoice else '—' }}</td><td class="muted">{{ r.reason }}</td>
+        <td class="r"><b>{{ r.amount | inr }}</b></td>
+        <td class="r"><a class="btn btn-soft btn-sm" target="_blank" rel="noopener" href="{{ url_for('admin.hub1z_refund_pdf', refund_id=r.id) }}"><i class="bi bi-file-earmark-pdf"></i> View PDF</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endif %}
+{% endblock %}

@@ -31,7 +31,7 @@ def test_each_role_gets_its_own_left_menu():
     cases = [
         (APEX, "admin@hub1z.com", OWNER_PASSWORD, "/platform/", [b"Operator billing", b"Pricing tiers"], [b"Locations &amp; seats"]),
         (DEMO, "owner@demospace.com", PERSONA_PASSWORD, "/admin/", [b"Locations &amp; seats", b"Billing settings", b"Reception"], [b"Operator billing", b"My space"]),
-        (DEMO, "admin@acmeco.com", PERSONA_PASSWORD, "/company/", [b"Plans &amp; subscriptions", b"Book &amp; community"], [b"Pricing plans", b"Reception"]),
+        (DEMO, "admin@acmeco.com", PERSONA_PASSWORD, "/company/", [b"Plans &amp; subscriptions", b"Check-in QR", b">Book<", b">Community<"], [b"Pricing plans", b"Reception", b"Book &amp; community"]),
         (DEMO, "employee@acmeco.com", PERSONA_PASSWORD, "/me/", [b"My space", b"Announcements"], [b"Pricing plans", b"Billing &amp; finance"]),
         (DEMO, "individual@demospace.com", PERSONA_PASSWORD, "/me/", [b"My space"], [b"Pricing plans"]),
     ]

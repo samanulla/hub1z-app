@@ -14,6 +14,7 @@ from ...models import (
     SubscriptionChangeRequest, SubscriptionRequestStatus,
     Seat, SeatType, SeatAllocation, AllocationStatus, Invoice, InvoiceStatus, PaymentSubmission,
     PaymentSubmissionStatus, SeatBooking, RoomBooking, CompanyCreditPolicy, CreditAllocation,
+    Payment, CreditNote, CreditNoteStatus,
 )
 from ...utils.decorators import company_admin_required
 from .forms import (
@@ -22,6 +23,7 @@ from .forms import (
     CreditRulesForm,
 )
 from ...services import mail_service, tier_limits, credit_service
+from ...services.pdf_docs import pdf_response, receipt_context, credit_note_context
 
 INVITE_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
 
@@ -429,8 +431,43 @@ def invoices():
                    .order_by(PaymentSubmission.created_at.desc()).all())
     form = PaymentSubmissionForm()
     form.paid_on.data = date.today()
-    return render_template("company/invoices.html", company=c, invoices=invs,
-                           submissions=submissions, payment_form=form)
+    payments = (Payment.query.join(Invoice, Payment.invoice_id == Invoice.id)
+                .filter(Invoice.company_id == c.id).order_by(Payment.paid_at.desc()).all())
+    credit_notes = (CreditNote.query.filter(CreditNote.company_id == c.id,
+                                            CreditNote.status != CreditNoteStatus.CANCELLED)
+                    .order_by(CreditNote.created_at.desc()).all())
+    return render_template("company/invoices.html", company=c, invoices=invs, payments=payments,
+                           credit_notes=credit_notes, submissions=submissions, payment_form=form)
+
+
+@company_bp.route("/invoices/<int:invoice_id>/pdf")
+@company_admin_required
+def invoice_pdf(invoice_id: int):
+    c = _own_company()
+    inv = Invoice.query.filter(Invoice.id == invoice_id, Invoice.company_id == c.id,
+                               Invoice.status != InvoiceStatus.DRAFT).first_or_404()
+    return pdf_response("admin/invoices/pdf.html", f"invoice-{inv.number}.pdf", invoice=inv,
+                        issuer_name=(g.operator.company_legal_name or g.operator.name) if g.operator else None)
+
+
+@company_bp.route("/payments/<int:payment_id>/receipt.pdf")
+@company_admin_required
+def payment_receipt(payment_id: int):
+    c = _own_company()
+    payment = (Payment.query.join(Invoice, Payment.invoice_id == Invoice.id)
+               .filter(Payment.id == payment_id, Invoice.company_id == c.id).first_or_404())
+    return pdf_response("pdf/document.html", f"receipt-{payment.invoice.number}-{payment.id}.pdf",
+                        **receipt_context(payment, g.operator))
+
+
+@company_bp.route("/credit-notes/<int:note_id>/pdf")
+@company_admin_required
+def credit_note_pdf(note_id: int):
+    c = _own_company()
+    note = CreditNote.query.filter(CreditNote.id == note_id, CreditNote.company_id == c.id,
+                                   CreditNote.status != CreditNoteStatus.CANCELLED).first_or_404()
+    return pdf_response("pdf/document.html", f"credit-note-{note.number}.pdf",
+                        **credit_note_context(note, g.operator))
 
 
 @company_bp.route("/invoices/<int:invoice_id>/payments", methods=["POST"])

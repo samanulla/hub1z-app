@@ -18,6 +18,7 @@ from ...models import (
 from ...services import billing_service
 from ...services.billing_service import next_invoice_number, recompute_invoice as _recompute_invoice
 from ...services.formatting import format_money
+from ...services.pdf_docs import pdf_response, receipt_context, credit_note_context
 from ...services import audit_service
 from ...utils.decorators import admin_required, super_admin_required
 from .forms import (
@@ -373,14 +374,20 @@ def register_billing_routes(bp):
     @bp.route("/invoices/<int:invoice_id>/pdf")
     @admin_required
     def invoice_pdf(invoice_id: int):
-        from io import BytesIO
-        from flask import send_file, current_app
-        from xhtml2pdf import pisa
         inv = Invoice.query.get_or_404(invoice_id)
-        html = render_template("admin/invoices/pdf.html", invoice=inv,
-                               app_name=current_app.config.get("APP_NAME", "hub1z"))
-        buf = BytesIO()
-        pisa.CreatePDF(html, dest=buf, encoding="utf-8")
-        buf.seek(0)
-        return send_file(buf, mimetype="application/pdf",
-                         download_name=f"invoice-{inv.number or inv.id}.pdf")
+        return pdf_response("admin/invoices/pdf.html", f"invoice-{inv.number or inv.id}.pdf", invoice=inv,
+                            issuer_name=(g.operator.company_legal_name or g.operator.name) if g.operator else None)
+
+    @bp.route("/payments/<int:payment_id>/receipt.pdf")
+    @admin_required
+    def payment_receipt(payment_id: int):
+        payment = Payment.query.get_or_404(payment_id)
+        return pdf_response("pdf/document.html", f"receipt-{payment.invoice.number}-{payment.id}.pdf",
+                            **receipt_context(payment, g.operator))
+
+    @bp.route("/credit-notes/<int:cn_id>/pdf")
+    @admin_required
+    def credit_note_pdf(cn_id: int):
+        note = CreditNote.query.get_or_404(cn_id)
+        return pdf_response("pdf/document.html", f"credit-note-{note.number}.pdf",
+                            **credit_note_context(note, g.operator))

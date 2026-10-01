@@ -15,7 +15,7 @@
 
 <table class="table bg-white shadow-sm">
   <thead>
-    <tr><th>Number</th><th>Customer</th><th>Period</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Issued</th></tr>
+    <tr><th>Number</th><th>Customer</th><th>Period</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Issued</th><th></th></tr>
   </thead>
   <tbody>
     {% for i in invoices %}
@@ -28,9 +28,10 @@
       <td>{{ i.balance_due | money }}</td>
       <td><span class="badge bg-secondary">{{ i.status.value }}</span></td>
       <td>{{ i.issued_at | date if i.issued_at else "—" }}</td>
+      <td class="text-end"><a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="{{ url_for('admin.invoice_pdf', invoice_id=i.id) }}"><i class="bi bi-file-earmark-pdf"></i> View PDF</a></td>
     </tr>
     {% else %}
-    <tr><td colspan="8" class="text-center text-muted py-4">No invoices yet.</td></tr>
+    <tr><td colspan="9" class="text-center text-muted py-4">No invoices yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>

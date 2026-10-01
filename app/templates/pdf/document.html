@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8">
+<style>
+  @page { size: a4; margin: 1.6cm; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 11pt; color: #151a2d; }
+  h1 { font-size: 20pt; margin: 0 0 4px; color: #4a4ac2; }
+  .muted { color: #666666; font-size: 9pt; }
+  table.kv { width: 100%; border-collapse: collapse; margin-top: 22px; }
+  table.kv td { border-bottom: 1px solid #dddddd; padding: 7px 8px; }
+  table.kv td.k { color: #666666; width: 38%; }
+  .amount { margin-top: 22px; padding: 12px 14px; background: #eeeefc; }
+  .amount .label { font-size: 9pt; color: #4a4ac2; text-transform: uppercase; }
+  .amount .value { font-size: 20pt; font-weight: bold; color: #151a2d; }
+</style>
+</head>
+<body>
+  <h1>{{ issuer[0] if issuer else '' }}</h1>
+  {% for line in issuer[1:] %}<div class="muted">{{ line }}</div>{% endfor %}
+  <div style="margin-top:10px; font-size: 14pt;">{{ title }}</div>
+
+  <table style="width:100%; margin-top: 16px;"><tr>
+    <td style="width:50%">
+      {% for label, value in meta %}<strong>{{ label }}:</strong> {{ value }}<br>{% endfor %}
+    </td>
+    <td style="width:50%; text-align:right;">
+      <strong>{{ party_label }}:</strong><br>
+      {% for line in party %}{{ line }}<br>{% endfor %}
+    </td>
+  </tr></table>
+
+  <table class="kv">
+    {% for label, value in rows %}<tr><td class="k">{{ label }}</td><td>{{ value }}</td></tr>{% endfor %}
+  </table>
+
+  <div class="amount"><div class="label">{{ amount_label }}</div><div class="value">{{ amount }}</div></div>
+
+  {% if note %}<p class="muted" style="margin-top: 22px;">{{ note }}</p>{% endif %}
+  <p class="muted" style="margin-top: 36px;">This is a computer-generated document.</p>
+</body>
+</html>

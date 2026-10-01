@@ -12,6 +12,8 @@ from ...models import (
     Operator, PlatformInvoice, PlatformCreditNote, PlatformRefund, PlatformExpense,
 )
 from ...utils.decorators import platform_permission_required
+from ...services.pdf_docs import (pdf_response, platform_credit_note_context, platform_invoice_context,
+                                  platform_refund_context)
 from .forms import (
     PlatformInvoiceForm, PlatformCreditNoteForm, PlatformRefundForm, PlatformExpenseForm,
 )
@@ -40,6 +42,24 @@ def register_finance_routes(bp):
         expenses = PlatformExpense.query.order_by(PlatformExpense.incurred_on.desc()).limit(50).all()
         return render_template("platform/finance/dashboard.html", invoices=invoices,
                                credit_notes=credit_notes, refunds=refunds, expenses=expenses)
+
+    @bp.route("/finance/invoices/<int:invoice_id>/pdf")
+    @platform_permission_required("billing")
+    def finance_invoice_pdf(invoice_id: int):
+        inv = PlatformInvoice.query.get_or_404(invoice_id)
+        return pdf_response("pdf/document.html", f"hub1z-invoice-{inv.number}.pdf", **platform_invoice_context(inv))
+
+    @bp.route("/finance/credit-notes/<int:note_id>/pdf")
+    @platform_permission_required("billing")
+    def finance_credit_note_pdf(note_id: int):
+        note = PlatformCreditNote.query.get_or_404(note_id)
+        return pdf_response("pdf/document.html", f"hub1z-credit-note-{note.number}.pdf", **platform_credit_note_context(note))
+
+    @bp.route("/finance/refunds/<int:refund_id>/pdf")
+    @platform_permission_required("billing")
+    def finance_refund_pdf(refund_id: int):
+        refund = PlatformRefund.query.get_or_404(refund_id)
+        return pdf_response("pdf/document.html", f"hub1z-refund-{refund.number}.pdf", **platform_refund_context(refund))
 
     @bp.route("/finance/invoices/new", methods=["GET", "POST"])
     @platform_permission_required("billing")

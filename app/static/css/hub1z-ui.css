@@ -80,6 +80,15 @@ body.h-ui {
 .h-nav-link.active { background: var(--h-brand); color: #fff !important; box-shadow: 0 6px 16px rgba(91, 91, 214, .35); }
 .h-nav-badge { margin-left: auto; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; }
 .h-nav-link.active .h-nav-badge { background: rgba(255,255,255,.25); }
+.h-nav-cta {
+  display: flex; align-items: center; gap: 10px; margin: 0 4px 6px; padding: 11px 14px; border-radius: 12px; font-weight: 600; font-size: 14px;
+  color: #fff !important; background: linear-gradient(135deg, var(--h-brand), #7c5cf0); box-shadow: 0 8px 18px rgba(91, 91, 214, .35);
+  transition: transform .15s, filter .15s;
+}
+.h-nav-cta i { font-size: 19px; }
+.h-nav-cta:hover { filter: brightness(1.08); transform: translateY(-1px); color: #fff !important; }
+.h-nav-cta.active { box-shadow: 0 0 0 2px rgba(255, 255, 255, .55), 0 8px 18px rgba(91, 91, 214, .35); }
+.h-top-checkin { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .h-side-foot { margin-top: auto; padding: 14px 10px 0; font-size: 12px; color: #6f7694; display: flex; flex-direction: column; gap: 8px; }
 .h-brand-logo { display: block; height: 34px; width: auto; }
 
@@ -291,3 +300,4 @@ body.h-ui {
   .h-top { padding: 0 16px; }
   .h-user .who { display: none; }
 }
+@media (max-width: 575.98px) { .h-top-checkin span { display: none; } }

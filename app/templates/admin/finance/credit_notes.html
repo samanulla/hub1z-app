@@ -21,6 +21,7 @@
       <td>{{ n.reason }}</td>
       <td><span class="badge bg-secondary">{{ n.status.value }}</span></td>
       <td class="text-end">
+        <a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="{{ url_for('admin.credit_note_pdf', cn_id=n.id) }}">View PDF</a>
         {% if n.status.value == 'issued' %}
           <form method="post" action="{{ url_for('admin.credit_note_apply', cn_id=n.id) }}" class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

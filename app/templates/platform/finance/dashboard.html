@@ -16,15 +16,16 @@
 <div class="card mb-4"><div class="card-body">
   <h6>Invoices</h6>
   <table class="table table-sm">
-    <thead><tr><th>Number</th><th>Operator</th><th>Period</th><th>Due</th><th>Amount</th><th>Status</th></tr></thead>
+    <thead><tr><th>Number</th><th>Operator</th><th>Period</th><th>Due</th><th>Amount</th><th>Status</th><th></th></tr></thead>
     <tbody>
       {% for i in invoices %}
       <tr>
         <td>{{ i.number }}</td><td>{{ i.operator.name if i.operator else "\u2014" }}</td>
         <td>{{ i.period_start }} &ndash; {{ i.period_end }}</td><td>{{ i.due_date }}</td>
         <td>{{ i.currency }} {{ "%.2f"|format(i.amount) }}</td><td>{{ i.status.value }}</td>
+        <td class="text-end"><a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="{{ url_for('platform.finance_invoice_pdf', invoice_id=i.id) }}">View PDF</a></td>
       </tr>
-      {% else %}<tr><td colspan="6" class="text-center text-muted py-3">No platform invoices yet.</td></tr>{% endfor %}
+      {% else %}<tr><td colspan="7" class="text-center text-muted py-3">No platform invoices yet.</td></tr>{% endfor %}
     </tbody>
   </table>
 </div></div>
@@ -32,15 +33,16 @@
 <div class="card mb-4"><div class="card-body">
   <h6>Credit notes</h6>
   <table class="table table-sm">
-    <thead><tr><th>Number</th><th>Operator</th><th>Invoice</th><th>Amount</th><th>Reason</th></tr></thead>
+    <thead><tr><th>Number</th><th>Operator</th><th>Invoice</th><th>Amount</th><th>Reason</th><th></th></tr></thead>
     <tbody>
       {% for cn in credit_notes %}
       <tr>
         <td>{{ cn.number }}</td><td>{{ cn.operator.name if cn.operator else "\u2014" }}</td>
         <td>{{ cn.invoice.number if cn.invoice else "\u2014" }}</td>
         <td>{{ "%.2f"|format(cn.amount) }}</td><td>{{ cn.reason }}</td>
+        <td class="text-end"><a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="{{ url_for('platform.finance_credit_note_pdf', note_id=cn.id) }}">View PDF</a></td>
       </tr>
-      {% else %}<tr><td colspan="5" class="text-center text-muted py-3">No credit notes yet.</td></tr>{% endfor %}
+      {% else %}<tr><td colspan="6" class="text-center text-muted py-3">No credit notes yet.</td></tr>{% endfor %}
     </tbody>
   </table>
 </div></div>
@@ -48,15 +50,16 @@
 <div class="card mb-4"><div class="card-body">
   <h6>Refunds</h6>
   <table class="table table-sm">
-    <thead><tr><th>Reference</th><th>Operator</th><th>Invoice</th><th>Amount</th><th>Reason</th></tr></thead>
+    <thead><tr><th>Reference</th><th>Operator</th><th>Invoice</th><th>Amount</th><th>Reason</th><th></th></tr></thead>
     <tbody>
       {% for r in refunds %}
       <tr>
         <td>{{ r.number }}</td><td>{{ r.operator.name if r.operator else "\u2014" }}</td>
         <td>{{ r.invoice.number if r.invoice else "\u2014" }}</td>
         <td>{{ "%.2f"|format(r.amount) }}</td><td>{{ r.reason }}</td>
+        <td class="text-end"><a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="{{ url_for('platform.finance_refund_pdf', refund_id=r.id) }}">View PDF</a></td>
       </tr>
-      {% else %}<tr><td colspan="5" class="text-center text-muted py-3">No refunds yet.</td></tr>{% endfor %}
+      {% else %}<tr><td colspan="6" class="text-center text-muted py-3">No refunds yet.</td></tr>{% endfor %}
     </tbody>
   </table>
 </div></div>
