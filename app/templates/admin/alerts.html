@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "admin/_alert_row.html" import alert_row %}
+{% block title %}Alerts{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>{{ operator.name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Alerts</span></div>
+    <h1>Alerts<span class="h-count">{{ counts.all }}</span></h1>
+    <div class="muted mt-1">Agreements ending in the next 60 days, lock-ins ending in 30, move-outs, overdue invoices and more. Your team also gets each new item by email.</div>
+  </div>
+</div>
+
+<div class="h-toolbar mb-3">
+  <div class="h-pills">
+    {% for key, label in filters %}
+    <a class="h-pill {{ 'active' if kind == key }}" href="{{ url_for('admin.alerts', kind=key) }}">{{ label }}{% if counts[key] %} <span class="faint">{{ counts[key] }}</span>{% endif %}</a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="h-card"><div class="h-card-body">
+  {% for i in items %}
+    {{ alert_row(i) }}
+  {% else %}
+  <div class="text-center py-5">
+    <div class="display-6 text-success"><i class="bi bi-check2-circle"></i></div>
+    <h4 class="mt-2">All clear</h4>
+    <div class="muted">Nothing needs your attention right now.</div>
+  </div>
+  {% endfor %}
+</div></div>
+{% endblock %}

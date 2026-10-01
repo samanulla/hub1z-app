@@ -1,0 +1,8 @@
+Hello,
+
+Your {{ operator.name }} agreement for {{ sub.plan.name }} ends on {{ end.strftime('%d %B %Y') }}.
+
+To continue without a break, reply to this email or speak to the {{ operator.name }} team to renew. If you plan to leave, please let us know so we can arrange the move-out and your deposit refund.
+
+{{ operator.name }}{% if operator.support_email %}
+{{ operator.support_email }}{% endif %}

@@ -4,6 +4,7 @@
 <a class="h-nav-link {{ 'active' if active }}" href="{{ href }}"><i class="bi {{ icon }}"></i>{{ text }}{% if badge %}<span class="h-nav-badge">{{ badge }}</span>{% endif %}</a>
 {% endmacro %}
 {% set ep = request.endpoint or '' %}
+{% set badges = nav_badges() %}
 
 {% macro checkin_cta() %}
 <a class="h-nav-cta {{ 'active' if ep.startswith('checkin.') }}" href="{{ url_for('checkin.pass_page') }}"><i class="bi bi-qr-code-scan"></i><span>Check-in QR</span></a>
@@ -26,6 +27,7 @@
   {{ link('Printing credits', 'bi-printer-fill', url_for('community.printing'), ep == 'community.printing') }}
   {{ link('Refer & earn', 'bi-gift-fill', url_for('community.referrals'), ep == 'community.referrals') }}
   {% if admin %}
+    {{ link('Mail & parcels', 'bi-box-seam', url_for('admin.parcels'), ep.startswith('admin.parcel'), badges.get('parcels')) }}
     {{ link('Lockers', 'bi-lock-fill', url_for('community.lockers'), ep == 'community.lockers') }}
     {{ link('Reception', 'bi-person-check-fill', url_for('community.visitors_reception'), ep == 'community.visitors_reception') }}
   {% endif %}
@@ -46,9 +48,10 @@
   {% if current_user.has_platform_permission('billing') %}
     {{ group('Billing') }}
     {{ link('Operator billing', 'bi-receipt', url_for('platform.billing'), ep.startswith('platform.billing')) }}
-    {{ link('Finance', 'bi-graph-up', url_for('platform.finance_dashboard'), ep.startswith('platform.finance')) }}
+    {{ link('Finance', 'bi-graph-up', url_for('platform.finance_dashboard'), ep.startswith('platform.finance'), badges.get('finance')) }}
     {% if current_user.is_platform_owner %}
       {{ link('Pricing tiers', 'bi-layers-fill', url_for('platform.tiers_list'), ep.startswith('platform.tier')) }}
+      {{ link('Payment details', 'bi-qr-code', url_for('platform.payment_details'), ep == 'platform.payment_details') }}
     {% endif %}
   {% endif %}
   {% if current_user.has_platform_permission('reports') %}
@@ -65,6 +68,7 @@
   {{ checkin_cta() }}
   {{ group('Overview') }}
   {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('admin.dashboard'), ep == 'admin.dashboard') }}
+  {{ link('Alerts', 'bi-bell-fill', url_for('admin.alerts'), ep == 'admin.alerts', badges.get('alerts')) }}
   {{ link('Leads', 'bi-funnel-fill', url_for('admin.leads'), ep.startswith('admin.lead')) }}
   {{ group('Workspace') }}
   {{ book_links() }}
@@ -112,11 +116,12 @@
   {{ link('People', 'bi-people-fill', url_for('company.employees'), ep.startswith('company.employee') or ep == 'company.accept_invite') }}
   {{ link('Seat allocations', 'bi-person-workspace', url_for('company.allocations'), ep.startswith('company.allocation')) }}
   {{ link('Team activity', 'bi-activity', url_for('company.bookings'), ep == 'company.bookings') }}
+  {{ link('Mail & parcels', 'bi-box-seam', url_for('company.parcels'), ep == 'company.parcels', badges.get('parcels')) }}
   {{ group('Plan & billing') }}
   {{ link('Plans & subscriptions', 'bi-layers-fill', url_for('company.plans'), ep == 'company.plans') }}
   {{ link('Meeting credits', 'bi-clock-history', url_for('company.credits'), ep == 'company.credits') }}
   {{ link('Subscription history', 'bi-journal-check', url_for('company.subscriptions'), ep == 'company.subscriptions') }}
-  {{ link('Invoices & payments', 'bi-receipt', url_for('company.invoices'), ep.startswith('company.invoice') or ep == 'company.payment_submission_new') }}
+  {{ link('Invoices & payments', 'bi-receipt', url_for('company.invoices'), ep.startswith('company.invoice') or ep in ('company.payment_submission_new', 'company.payment_receipt', 'company.credit_note_pdf')) }}
   {{ community_links() }}
 
 {% else %}
@@ -124,6 +129,10 @@
   {{ group('My space') }}
   {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('member.dashboard'), ep == 'member.dashboard') }}
   {{ book_links() }}
+  {{ link('My parcels', 'bi-box-seam', url_for('member.parcels'), ep == 'member.parcels', badges.get('parcels')) }}
+  {% if current_user.role.value == 'individual' %}
+    {{ link('Invoices & payments', 'bi-receipt', url_for('member.invoices'), ep.startswith('member.invoice') or ep in ('member.payment_submission_new', 'member.payment_receipt', 'member.credit_note_pdf')) }}
+  {% endif %}
   {{ group('Community') }}
   {{ link('Announcements', 'bi-megaphone-fill', url_for('community.announcements'), ep == 'community.announcements') }}
   {{ link('Guest passes', 'bi-person-plus-fill', url_for('community.guest_passes'), ep == 'community.guest_passes') }}

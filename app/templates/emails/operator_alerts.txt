@@ -1,0 +1,8 @@
+{{ items | length }} thing{{ 's' if items | length != 1 }} to act on at {{ operator.name }}:
+{% for i in items %}
+- {{ i.title }}
+  {{ i.detail }}
+{% endfor %}
+Open your dashboard: {{ site }}/admin/alerts
+
+You get this email once for each new item.

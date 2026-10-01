@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% from "_pay.html" import pay_panel %}
+{% block title %}Invoices & payments{% endblock %}
+
+{% block content %}
+{% set tint = {'paid': 'tint-success', 'partial': 'tint-warn', 'overdue': 'tint-danger', 'issued': 'tint-info', 'void': 'tint-neutral'} %}
+{% set pending_for = submissions | selectattr('status.value', 'equalto', 'pending') | map(attribute='invoice_id') | list %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>{{ operator.name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Invoices &amp; payments</span></div>
+    <h1>Invoices &amp; payments</h1>
+    <div class="muted mt-1">Pay by UPI in one scan, download invoices and receipts, and see what has been confirmed.</div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-brand"><i class="bi bi-wallet2"></i></span>
+    <div><div class="label">To pay</div><div class="value">{{ summary.outstanding | inr }}</div><div class="delta up"><span>{{ summary.open }} open invoice{{ 's' if summary.open != 1 }}</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-danger"><i class="bi bi-exclamation-circle"></i></span>
+    <div><div class="label">Overdue</div><div class="value">{{ summary.overdue }}</div><div class="delta {{ 'down' if summary.overdue else 'up' }}"><span>past the due date</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-warn"><i class="bi bi-hourglass-split"></i></span>
+    <div><div class="label">Awaiting confirmation</div><div class="value">{{ pending_for | length }}</div><div class="delta up"><span>payments you reported</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-success"><i class="bi bi-check2-circle"></i></span>
+    <div><div class="label">Last payment</div><div class="value">{{ (payments[0].amount | inr) if payments else '—' }}</div><div class="delta up"><span>{{ (payments[0].paid_at | date) if payments else 'none yet' }}</span></div></div></div></div>
+</div>
+
+<div class="h-card mb-4"><div class="h-card-body" style="overflow-x:auto">
+  <h5 class="mb-3">Invoices</h5>
+  <table class="h-table">
+    <thead><tr><th>Invoice</th><th>Period</th><th>Due</th><th class="r">Total</th><th class="r">Balance</th><th>Status</th><th class="r"></th></tr></thead>
+    <tbody>
+      {% for i in invoices %}
+      {% set late = i.balance_due > 0 and i.due_date and i.due_date < today %}
+      <tr>
+        <td><b>{{ i.number }}</b></td>
+        <td class="muted">{{ i.period_start | date }} to {{ i.period_end | date }}</td>
+        <td class="{{ 'text-danger fw-semibold' if late }}">{{ i.due_date | date }}</td>
+        <td class="r">{{ i.total_amount | inr }}</td>
+        <td class="r"><b>{{ i.balance_due | inr }}</b></td>
+        <td>
+          <span class="h-chip sm {{ 'tint-danger' if late else tint.get(i.status.value, 'tint-neutral') }}">{{ 'Overdue' if late else i.status.value | title }}</span>
+          {% if i.id in pending_for %}<span class="h-chip sm tint-warn ms-1">Payment reported</span>{% endif %}
+        </td>
+        <td class="r text-nowrap">
+          <a class="btn btn-soft btn-sm" target="_blank" rel="noopener" href="{{ url_for(bp ~ '.invoice_pdf', invoice_id=i.id) }}"><i class="bi bi-file-earmark-pdf"></i> View PDF</a>
+          {% if i.balance_due > 0 and i.status.value != 'void' %}
+          <button class="btn btn-brand btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#pay-{{ i.id }}" aria-expanded="false"><i class="bi bi-qr-code"></i> Pay</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% if i.balance_due > 0 and i.status.value != 'void' %}
+      <tr class="collapse" id="pay-{{ i.id }}"><td colspan="7" class="h-pay-cell">
+        {{ pay_panel(pay, i.balance_due, url_for(bp ~ '.invoice_upi_png', invoice_id=i.id), upi_links.get(i.id), payment_form,
+                     url_for(bp ~ '.payment_submission_new', invoice_id=i.id), i.number) }}
+      </td></tr>
+      {% endif %}
+      {% else %}
+      <tr><td colspan="7" class="text-center muted py-4">No invoices yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="row g-3">
+  <div class="col-xl-6">
+    <div class="h-card h-100"><div class="h-card-body" style="overflow-x:auto">
+      <h5 class="mb-3">Payments received</h5>
+      <table class="h-table">
+        <thead><tr><th>Date</th><th>Invoice</th><th class="r">Amount</th><th>Method</th><th class="r"></th></tr></thead>
+        <tbody>
+          {% for p in payments %}
+          <tr>
+            <td>{{ p.paid_at | date }}</td><td>{{ p.invoice.number }}</td><td class="r"><b>{{ p.amount | inr }}</b></td>
+            <td class="muted">{{ p.method.replace('_', ' ') | title }}{% if p.reference %} · {{ p.reference }}{% endif %}</td>
+            <td class="r"><a class="btn btn-soft btn-sm" target="_blank" rel="noopener" href="{{ url_for(bp ~ '.payment_receipt', payment_id=p.id) }}"><i class="bi bi-file-earmark-pdf"></i> Receipt</a></td>
+          </tr>
+          {% else %}<tr><td colspan="5" class="text-center muted py-3">No payments recorded yet.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+  <div class="col-xl-6">
+    <div class="h-card h-100"><div class="h-card-body" style="overflow-x:auto">
+      <h5 class="mb-3">Payments you reported</h5>
+      <table class="h-table">
+        <thead><tr><th>Invoice</th><th class="r">Amount</th><th>Paid on</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for s in submissions %}
+          <tr>
+            <td>{{ s.invoice.number }}{% if s.reference %}<div class="faint small">{{ s.reference }}</div>{% endif %}</td>
+            <td class="r">{{ s.amount | inr }}</td><td>{{ s.paid_on | date }}</td>
+            <td><span class="h-chip sm {{ {'pending': 'tint-warn', 'accepted': 'tint-success', 'rejected': 'tint-danger'}[s.status.value] }}">{{ {'pending': 'Awaiting confirmation', 'accepted': 'Confirmed', 'rejected': 'Not accepted'}[s.status.value] }}</span>
+              {% if s.operator_message %}<div class="faint small mt-1">{{ s.operator_message }}</div>{% endif %}</td>
+          </tr>
+          {% else %}<tr><td colspan="4" class="text-center muted py-3">Nothing reported yet.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+</div>
+
+{% if credit_notes %}
+<div class="h-card mt-3"><div class="h-card-body" style="overflow-x:auto">
+  <h5 class="mb-3">Credit notes</h5>
+  <table class="h-table">
+    <thead><tr><th>Number</th><th>Invoice</th><th class="r">Amount</th><th>Reason</th><th class="r"></th></tr></thead>
+    <tbody>
+      {% for n in credit_notes %}
+      <tr>
+        <td><b>{{ n.number }}</b></td><td>{{ n.invoice.number if n.invoice else "—" }}</td><td class="r">{{ n.amount | inr }}</td>
+        <td class="muted">{{ n.reason }}</td>
+        <td class="r"><a class="btn btn-soft btn-sm" target="_blank" rel="noopener" href="{{ url_for(bp ~ '.credit_note_pdf', note_id=n.id) }}"><i class="bi bi-file-earmark-pdf"></i> View PDF</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8">
+<style>
+  @page { size: a4; margin: 2.2cm; }
+  body { font-family: Helvetica, Arial, sans-serif; font-size: 11.5pt; color: #151a2d; line-height: 1.55; }
+  h1 { font-size: 16pt; text-align: center; margin: 26px 0 4px; letter-spacing: 1px; }
+  .sub { text-align: center; color: #5a6278; font-size: 10pt; margin-bottom: 26px; }
+  .head { border-bottom: 2px solid #4a4ac2; padding-bottom: 10px; }
+  .head b { font-size: 14pt; color: #4a4ac2; }
+  .muted { color: #5a6278; font-size: 9.5pt; }
+  table.kv { width: 100%; border-collapse: collapse; margin: 14px 0 18px; }
+  table.kv td { border: 1px solid #dddddd; padding: 7px 9px; vertical-align: top; }
+  table.kv td.k { width: 34%; background: #f6f7fb; color: #5a6278; }
+  .sign { margin-top: 56px; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <b>{{ issuer.name }}</b><br>
+    <span class="muted">{{ issuer.address }}{% if issuer.gstin %} · GSTIN {{ issuer.gstin }}{% endif %}{% if issuer.pan %} · PAN {{ issuer.pan }}{% endif %}</span>
+  </div>
+  <p class="muted" style="text-align:right; margin-top:14px;">Date: {{ today }}<br>Ref: {{ reference }}</p>
+
+  <h1>NO OBJECTION CERTIFICATE</h1>
+  <div class="sub">To whomsoever it may concern</div>
+
+  <p>We, <b>{{ issuer.name }}</b>, operate the business centre at the premises described below. We confirm that we have
+    no objection to <b>{{ party.name }}</b> using these premises as its {{ purpose }} for registration and correspondence
+    with the Goods and Services Tax department, the Ministry of Corporate Affairs and other government authorities,
+    under the virtual office agreement in force between us.</p>
+
+  <table class="kv">
+    <tr><td class="k">Address permitted</td><td><b>{{ address }}</b></td></tr>
+    <tr><td class="k">Permitted to</td><td>{{ party.name }}{% if party.gstin %}<br>GSTIN {{ party.gstin }}{% endif %}{% if party.pan %}<br>PAN {{ party.pan }}{% endif %}</td></tr>
+    <tr><td class="k">Agreement period</td><td>{{ start }} to {{ end }}</td></tr>
+    <tr><td class="k">Plan</td><td>{{ plan }}</td></tr>
+  </table>
+
+  <p>This permission is valid only while the agreement is in force. It ends automatically when the agreement ends or is
+    terminated, after which {{ party.name }} must update its registered address with the authorities. This certificate
+    does not create any tenancy, lease or right to occupy the premises beyond the services in the agreement.</p>
+
+  <div class="sign">
+    For <b>{{ issuer.name }}</b><br><br><br><br>
+    Authorised signatory<br>
+    <span class="muted">Name, signature and company stamp</span>
+  </div>
+</body>
+</html>

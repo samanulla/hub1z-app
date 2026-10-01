@@ -255,3 +255,19 @@ class PlatformExpenseForm(FlaskForm):
     incurred_on = DateField("Date incurred", validators=[DataRequired()])
     notes = TextAreaField("Notes", validators=[Optional(), Length(max=2000)])
     submit = SubmitField("Save expense")
+
+
+class PlatformProfileForm(FlaskForm):
+    """Hub1z's own business and payment details, shown on Hub1z invoices and to operators paying them."""
+    legal_name = StringField("Legal name", validators=[DataRequired(), Length(max=200)])
+    gstin = StringField("GSTIN", validators=[Optional(), Length(max=20)])
+    pan = StringField("PAN", validators=[Optional(), Length(max=20)])
+    address = StringField("Registered address", validators=[Optional(), Length(max=300)])
+    billing_email = StringField("Billing email", validators=[Optional(), Email(), Length(max=255)])
+    upi_id = StringField("UPI ID", validators=[Optional(), Length(max=120)],
+                         description="For example hub1z@icici. Operators get a QR with the amount filled in.")
+    gpay = StringField("Google Pay number or UPI ID", validators=[Optional(), Length(max=120)])
+    bank_details = TextAreaField("Bank transfer details", validators=[Optional(), Length(max=500)],
+                                 description="Account name, number, IFSC and branch.")
+    payment_instructions = TextAreaField("Payment note", validators=[Optional(), Length(max=500)])
+    submit = SubmitField("Save payment details")

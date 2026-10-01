@@ -1,0 +1,4 @@
+<p>Hello,</p>
+<p>Your <b>{{ operator.name }}</b> agreement for <b>{{ sub.plan.name }}</b> ends on <b>{{ end.strftime('%d %B %Y') }}</b>.</p>
+<p>To continue without a break, reply to this email or speak to the {{ operator.name }} team to renew. If you plan to leave, please let us know so we can arrange the move-out and your deposit refund.</p>
+<p>— {{ operator.name }}{% if operator.support_email %}<br><span style="color:#5a6278;">{{ operator.support_email }}</span>{% endif %}</p>

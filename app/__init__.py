@@ -61,6 +61,7 @@ def _register_blueprints(app: Flask) -> None:
     from .blueprints.platform import platform_bp
     from .blueprints.community import community_bp
     from .blueprints.checkin import checkin_bp
+    from .blueprints.pwa import pwa_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(admin_bp, url_prefix="/admin")
@@ -71,6 +72,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(platform_bp, url_prefix="/platform")
     app.register_blueprint(community_bp, url_prefix="/hub")
     app.register_blueprint(checkin_bp, url_prefix="/checkin")
+    app.register_blueprint(pwa_bp)
     if app.config.get("DEBUG"):
         from .blueprints.ui_preview import ui_preview_bp
         app.register_blueprint(ui_preview_bp, url_prefix="/ui-preview")
@@ -99,6 +101,9 @@ def _register_error_handlers(app: Flask) -> None:
 
 
 def _register_context(app: Flask) -> None:
+    from .services.nav import nav_badges
+    app.jinja_env.globals["nav_badges"] = nav_badges
+
     @app.context_processor
     def inject_globals():
         from flask import g, has_request_context

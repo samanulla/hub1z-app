@@ -13,8 +13,7 @@ from ...models import (
     User, UserRole, PricingPlan, PlanScope, Subscription, SubscriptionStatus,
     SubscriptionChangeRequest, SubscriptionRequestStatus,
     Seat, SeatType, SeatAllocation, AllocationStatus, Invoice, InvoiceStatus, PaymentSubmission,
-    PaymentSubmissionStatus, SeatBooking, RoomBooking, CompanyCreditPolicy, CreditAllocation,
-    Payment, CreditNote, CreditNoteStatus,
+    PaymentSubmissionStatus, SeatBooking, RoomBooking, CompanyCreditPolicy, CreditAllocation, Parcel,
 )
 from ...utils.decorators import company_admin_required
 from .forms import (
@@ -23,7 +22,9 @@ from .forms import (
     CreditRulesForm,
 )
 from ...services import mail_service, tier_limits, credit_service
-from ...services.pdf_docs import pdf_response, receipt_context, credit_note_context
+from ..customer_billing import register_customer_billing_routes
+from ...services.alerts import customer_agreements
+from ...services.pdf_docs import address_letter_response
 
 INVITE_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
 
@@ -96,8 +97,14 @@ def dashboard():
     pending_requests = SubscriptionChangeRequest.query.filter_by(
         company_id=c.id, status=SubscriptionRequestStatus.PENDING,
     ).count()
+    overdue = [i for i in Invoice.query.filter(Invoice.company_id == c.id,
+                                               Invoice.status.in_([InvoiceStatus.ISSUED, InvoiceStatus.PARTIAL,
+                                                                   InvoiceStatus.OVERDUE])).all()
+               if i.balance_due > 0 and i.due_date and i.due_date < date.today()]
+    waiting = Parcel.query.filter_by(company_id=c.id, status="waiting").order_by(Parcel.received_at.desc()).all()
     return render_template("company/dashboard.html", company=c, stats=stats,
-                           pending_requests=pending_requests)
+                           pending_requests=pending_requests, agreements=customer_agreements(company_id=c.id),
+                           overdue=overdue, parcels=waiting, letter_endpoint="company.address_letter")
 
 
 @company_bp.route("/profile", methods=["GET", "POST"])
@@ -420,83 +427,25 @@ def allocation_release(allocation_id: int):
 
 # --------------------------------------------------------------- invoices --
 
-@company_bp.route("/invoices")
+register_customer_billing_routes(company_bp, company_admin_required, lambda: ("company_id", _own_company().id))
+
+
+@company_bp.route("/parcels")
 @company_admin_required
-def invoices():
+def parcels():
     c = _own_company()
-    invs = (Invoice.query.filter(Invoice.company_id == c.id,
-                                 Invoice.status != InvoiceStatus.DRAFT)
-            .order_by(Invoice.issued_at.desc().nullslast()).all())
-    submissions = (PaymentSubmission.query.filter_by(company_id=c.id)
-                   .order_by(PaymentSubmission.created_at.desc()).all())
-    form = PaymentSubmissionForm()
-    form.paid_on.data = date.today()
-    payments = (Payment.query.join(Invoice, Payment.invoice_id == Invoice.id)
-                .filter(Invoice.company_id == c.id).order_by(Payment.paid_at.desc()).all())
-    credit_notes = (CreditNote.query.filter(CreditNote.company_id == c.id,
-                                            CreditNote.status != CreditNoteStatus.CANCELLED)
-                    .order_by(CreditNote.created_at.desc()).all())
-    return render_template("company/invoices.html", company=c, invoices=invs, payments=payments,
-                           credit_notes=credit_notes, submissions=submissions, payment_form=form)
+    rows = Parcel.query.filter_by(company_id=c.id).order_by(Parcel.received_at.desc()).limit(100).all()
+    return render_template("parcels/mine.html", company_view=True,
+                           waiting=[p for p in rows if p.status == "waiting"],
+                           history=[p for p in rows if p.status != "waiting"][:30])
 
 
-@company_bp.route("/invoices/<int:invoice_id>/pdf")
+@company_bp.route("/subscriptions/<int:sub_id>/address-letter.pdf")
 @company_admin_required
-def invoice_pdf(invoice_id: int):
+def address_letter(sub_id: int):
     c = _own_company()
-    inv = Invoice.query.filter(Invoice.id == invoice_id, Invoice.company_id == c.id,
-                               Invoice.status != InvoiceStatus.DRAFT).first_or_404()
-    return pdf_response("admin/invoices/pdf.html", f"invoice-{inv.number}.pdf", invoice=inv,
-                        issuer_name=(g.operator.company_legal_name or g.operator.name) if g.operator else None)
-
-
-@company_bp.route("/payments/<int:payment_id>/receipt.pdf")
-@company_admin_required
-def payment_receipt(payment_id: int):
-    c = _own_company()
-    payment = (Payment.query.join(Invoice, Payment.invoice_id == Invoice.id)
-               .filter(Payment.id == payment_id, Invoice.company_id == c.id).first_or_404())
-    return pdf_response("pdf/document.html", f"receipt-{payment.invoice.number}-{payment.id}.pdf",
-                        **receipt_context(payment, g.operator))
-
-
-@company_bp.route("/credit-notes/<int:note_id>/pdf")
-@company_admin_required
-def credit_note_pdf(note_id: int):
-    c = _own_company()
-    note = CreditNote.query.filter(CreditNote.id == note_id, CreditNote.company_id == c.id,
-                                   CreditNote.status != CreditNoteStatus.CANCELLED).first_or_404()
-    return pdf_response("pdf/document.html", f"credit-note-{note.number}.pdf",
-                        **credit_note_context(note, g.operator))
-
-
-@company_bp.route("/invoices/<int:invoice_id>/payments", methods=["POST"])
-@company_admin_required
-def payment_submission_new(invoice_id: int):
-    c = _own_company()
-    invoice = Invoice.query.filter(
-        Invoice.id == invoice_id, Invoice.company_id == c.id,
-        Invoice.status != InvoiceStatus.DRAFT,
-    ).first_or_404()
-    form = PaymentSubmissionForm()
-    if form.validate_on_submit():
-        if form.amount.data > invoice.balance_due:
-            flash("Reported amount cannot exceed the invoice balance.", "warning")
-        else:
-            db.session.add(PaymentSubmission(
-                operator_id=getattr(g, "operator_id", None),
-                invoice_id=invoice.id,
-                company_id=c.id,
-                amount=form.amount.data,
-                paid_on=form.paid_on.data,
-                reference=(form.reference.data or "").strip() or None,
-                notes=(form.notes.data or "").strip() or None,
-            ))
-            db.session.commit()
-            flash("Payment reported. It will appear as paid once the workspace operator confirms it.", "success")
-    else:
-        flash("Enter a valid payment amount and date.", "warning")
-    return redirect(url_for("company.invoices"))
+    sub = Subscription.query.filter_by(id=sub_id, company_id=c.id, status=SubscriptionStatus.ACTIVE).first_or_404()
+    return address_letter_response(sub)
 
 
 # --------------------------------------------------------------- bookings --

@@ -11,7 +11,40 @@
   <a class="btn btn-outline-dark btn-sm" href="{{ url_for('platform.finance_credit_note_new') }}">+ Credit note</a>
   <a class="btn btn-outline-dark btn-sm" href="{{ url_for('platform.finance_refund_new') }}">+ Refund</a>
   <a class="btn btn-outline-dark btn-sm" href="{{ url_for('platform.finance_expense_new') }}">+ Expense</a>
+  {% if current_user.is_platform_owner %}<a class="btn btn-outline-dark btn-sm ms-auto" href="{{ url_for('platform.payment_details') }}"><i class="bi bi-qr-code"></i> Hub1z payment details</a>{% endif %}
 </div>
+
+{% if not profile.upi_id and not profile.bank_details %}
+<div class="alert alert-warning">Operators cannot pay you yet: add Hub1z's UPI ID or bank details{% if current_user.is_platform_owner %} in <a href="{{ url_for('platform.payment_details') }}">payment details</a>{% endif %}.</div>
+{% endif %}
+
+<div class="card mb-4"><div class="card-body">
+  <h6>Payments reported by operators</h6>
+  <table class="table table-sm">
+    <thead><tr><th>Operator</th><th>Invoice</th><th>Amount</th><th>Paid on</th><th>Reference</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for r in reports %}
+      <tr>
+        <td>{{ r.operator.name }}</td><td>{{ r.invoice.number }}</td><td>{{ r.amount | inr }}</td><td>{{ r.paid_on | date }}</td>
+        <td>{{ r.reference or "\u2014" }}{% if r.notes %}<div class="text-muted small">{{ r.notes }}</div>{% endif %}</td>
+        <td>{{ {'pending': 'Awaiting confirmation', 'accepted': 'Confirmed', 'rejected': 'Rejected'}[r.status] }}</td>
+        <td class="text-end text-nowrap">
+          {% if r.status == 'pending' %}
+          <form method="post" action="{{ url_for('platform.finance_payment_report_review', report_id=r.id, decision='accept') }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-dark">Confirm</button>
+          </form>
+          <form method="post" action="{{ url_for('platform.finance_payment_report_review', report_id=r.id, decision='reject') }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input class="form-control form-control-sm d-inline-block" style="width:150px" name="message" placeholder="Reason">
+            <button class="btn btn-sm btn-outline-danger">Reject</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}<tr><td colspan="7" class="text-center text-muted py-3">No payments reported yet.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div></div>
 
 <div class="card mb-4"><div class="card-body">
   <h6>Invoices</h6>

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Mail & parcels{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <h1>Mail &amp; parcels</h1>
+    <div class="muted mt-1">{{ 'Items received for your company and your team.' if company_view else 'Items received for you at reception.' }} Show the pickup code at reception to collect.</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  {% for p in waiting %}
+  <div class="col-md-6 col-xl-4">
+    <div class="h-card h-100"><div class="h-card-body">
+      <div class="d-flex align-items-start gap-3">
+        <span class="chip-ico tint-brand"><i class="bi bi-{{ {'letter': 'envelope', 'document': 'file-earmark-text', 'food': 'bag'}.get(p.kind, 'box-seam') }}"></i></span>
+        <div class="flex-grow-1">
+          <b>{{ p.kind_label }}{% if p.carrier %} · {{ p.carrier }}{% endif %}</b>
+          <div class="faint small">{% if company_view %}For {{ p.recipient_name }} · {% endif %}{{ p.received_at | dt_at(p.location or operator.timezone, '%d %b, %I:%M %p') }}{% if p.location %} · {{ p.location.name }}{% endif %}</div>
+          {% if p.sender or p.reference %}<div class="small muted mt-1">{% if p.sender %}From {{ p.sender }}{% endif %}{% if p.reference %} · {{ p.reference }}{% endif %}</div>{% endif %}
+        </div>
+      </div>
+      <div class="h-pickup mt-3"><span class="faint small">Pickup code</span><b>{{ p.pickup_code }}</b></div>
+    </div></div>
+  </div>
+  {% else %}
+  <div class="col-12"><div class="h-card"><div class="h-card-body text-center py-5">
+    <div class="display-6 faint"><i class="bi bi-inbox"></i></div>
+    <h4 class="mt-2">Nothing waiting for you</h4>
+    <div class="muted">You will get an email as soon as something arrives.</div>
+  </div></div></div>
+  {% endfor %}
+</div>
+
+{% if history %}
+<div class="h-card mt-4"><div class="h-card-body" style="overflow-x:auto">
+  <h5 class="mb-3">Collected recently</h5>
+  <table class="h-table">
+    <thead><tr><th>Item</th>{% if company_view %}<th>For</th>{% endif %}<th>Received</th><th>Collected</th></tr></thead>
+    <tbody>
+      {% for p in history %}
+      <tr>
+        <td>{{ p.kind_label }}{% if p.carrier %} · {{ p.carrier }}{% endif %}</td>
+        {% if company_view %}<td>{{ p.recipient_name }}</td>{% endif %}
+        <td>{{ p.received_at | dt_at(p.location or operator.timezone, '%d %b %Y') }}</td>
+        <td>{% if p.status == 'returned' %}<span class="h-chip sm tint-neutral">Returned to sender</span>{% else %}{{ p.collected_at | dt_at(p.location or operator.timezone, '%d %b, %I:%M %p') }}{% if p.collected_by %} · {{ p.collected_by }}{% endif %}{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endif %}
+{% endblock %}

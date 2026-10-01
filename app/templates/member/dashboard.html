@@ -2,76 +2,82 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<h3 class="mb-1">Hi {{ current_user.full_name.split(' ')[0] }} 👋</h3>
-<p class="text-muted mb-4">Your bookings, credits and day passes at a glance.</p>
-
-<div class="row g-3 mb-4">
-  <div class="col-md-4">
-    <div class="card card-stat"><div class="card-body">
-      <div class="text-muted small">Meeting credits</div>
-      <div class="stat-value">{{ credits }}</div>
-      <div class="text-muted small">about {{ (credits / 2) | round(1) }} hours of a Standard room</div>
-    </div></div>
-  </div>
-  <div class="col-md-4">
-    <div class="card card-stat"><div class="card-body">
-      <div class="text-muted small">Upcoming seat bookings</div>
-      <div class="stat-value">{{ upcoming_seats|length }}</div>
-    </div></div>
-  </div>
-  <div class="col-md-4">
-    <div class="card card-stat"><div class="card-body">
-      <div class="text-muted small">Upcoming room bookings</div>
-      <div class="stat-value">{{ upcoming_rooms|length }}</div>
-    </div></div>
+<div class="h-page-head">
+  <div>
+    <h1>Hi {{ current_user.full_name.split(' ')[0] }}</h1>
+    <div class="muted mt-1">Your bookings, credits and deliveries at {{ operator.name }}.</div>
   </div>
 </div>
 
-<div class="mb-4">
-  {% if current_user.role.value in ["employee", "individual"] %}
-  <a class="btn btn-dark" href="{{ url_for('book.calendar') }}">Open calendar</a>
-  {% else %}
-  <a class="btn btn-dark" href="{{ url_for('book.index') }}">Book workspace</a>
-  {% endif %}
-  <a class="btn btn-outline-dark" href="{{ url_for('member.bookings') }}">My bookings</a>
+<div class="h-quick mb-4">
+  <a class="h-quick-tile primary" href="{{ url_for('checkin.pass_page') }}"><i class="bi bi-qr-code-scan"></i><b>Check-in QR</b><small>Show at reception</small></a>
+  <a class="h-quick-tile" href="{{ url_for('book.index') }}"><i class="bi bi-calendar-plus"></i><b>Book</b><small>A desk or a room</small></a>
+  <a class="h-quick-tile" href="{{ url_for('book.calendar') }}"><i class="bi bi-calendar3"></i><b>Calendar</b><small>{{ upcoming_rooms | length + upcoming_seats | length }} coming up</small></a>
+  <a class="h-quick-tile" href="{{ url_for('member.parcels') }}"><i class="bi bi-box-seam"></i><b>Parcels</b><small>{{ parcels | length }} waiting</small></a>
+</div>
+
+{% if parcels %}
+<div class="h-card mb-4"><div class="h-card-body">
+  <h5 class="mb-2">Waiting for you at reception</h5>
+  {% for p in parcels[:3] %}
+  <a class="h-alert" href="{{ url_for('member.parcels') }}">
+    <span class="chip-ico tint-brand"><i class="bi bi-box-seam"></i></span>
+    <span class="t"><b>{{ p.kind_label }}{% if p.carrier %} · {{ p.carrier }}{% endif %}</b><small>Pickup code {{ p.pickup_code }}{% if p.location %} · {{ p.location.name }}{% endif %}</small></span>
+    <i class="bi bi-chevron-right faint"></i>
+  </a>
+  {% endfor %}
+</div></div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4"><div class="h-card h-kpi"><span class="chip-ico tint-info"><i class="bi bi-clock-history"></i></span>
+    <div><div class="label">Meeting credits</div><div class="value">{{ credits }}</div><div class="delta up"><span>about {{ (credits / 2) | round(1) }} hours of a Standard room</span></div></div></div></div>
+  <div class="col-md-4"><div class="h-card h-kpi"><span class="chip-ico tint-brand"><i class="bi bi-person-workspace"></i></span>
+    <div><div class="label">Upcoming desk bookings</div><div class="value">{{ upcoming_seats | length }}</div></div></div></div>
+  <div class="col-md-4"><div class="h-card h-kpi"><span class="chip-ico tint-warn"><i class="bi bi-door-closed"></i></span>
+    <div><div class="label">Upcoming room bookings</div><div class="value">{{ upcoming_rooms | length }}</div></div></div></div>
 </div>
 
 <div class="row g-3">
-  <div class="col-md-6"><div class="card"><div class="card-body">
-    <h6>Upcoming seat bookings</h6>
-    <ul class="list-unstyled mb-0">
-      {% for b in upcoming_seats %}
-        <li class="py-1">
-          <strong>{{ b.seat.code }}</strong> — {{ b.start_at | dt_at(b.seat.location) }} → {{ b.end_at | time_at(b.seat.location) }}
-        </li>
-      {% else %}
-        <li class="text-muted">Nothing coming up.</li>
-      {% endfor %}
-    </ul>
-  </div></div></div>
-  <div class="col-md-6"><div class="card"><div class="card-body">
-    <h6>Upcoming room bookings</h6>
-    <ul class="list-unstyled mb-0">
+  <div class="col-xl-7">
+    <div class="h-card mb-3"><div class="h-card-body">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <h5 class="mb-0">Coming up</h5>
+        <a class="small" href="{{ url_for('member.bookings') }}">All my bookings</a>
+      </div>
       {% for b in upcoming_rooms %}
-        <li class="py-1">
-          <strong>{{ b.room.name }}</strong> — {{ b.start_at | dt_at(b.room.location) }} → {{ b.end_at | time_at(b.room.location) }}
-          {% if b.title %}<span class="text-muted">· {{ b.title }}</span>{% endif %}
-        </li>
-      {% else %}
-        <li class="text-muted">Nothing coming up.</li>
+      <div class="h-alert">
+        <span class="chip-ico tint-warn"><i class="bi bi-door-closed"></i></span>
+        <span class="t"><b>{{ b.room.name }}{% if b.title %} · {{ b.title }}{% endif %}</b><small>{{ b.start_at | dt_at(b.room.location) }} to {{ b.end_at | time_at(b.room.location) }}</small></span>
+      </div>
       {% endfor %}
-    </ul>
-  </div></div></div>
+      {% for b in upcoming_seats %}
+      <div class="h-alert">
+        <span class="chip-ico tint-brand"><i class="bi bi-person-workspace"></i></span>
+        <span class="t"><b>Desk {{ b.seat.code }}</b><small>{{ b.start_at | dt_at(b.seat.location) }} to {{ b.end_at | time_at(b.seat.location) }}</small></span>
+      </div>
+      {% endfor %}
+      {% if not upcoming_rooms and not upcoming_seats %}
+      <div class="muted py-2">Nothing booked. <a href="{{ url_for('book.index') }}">Book a desk or a room</a>.</div>
+      {% endif %}
+    </div></div>
+    {% if agreements %}{% include "_agreements_card.html" %}
+    {% elif subscriptions %}
+    <div class="h-card"><div class="h-card-body">
+      <h5 class="mb-2">{{ 'Your company plan' if current_user.company_id else 'Your plan' }}</h5>
+      {% for s in subscriptions %}<div>{{ s.plan.name }}{% if s.quantity > 1 %} <span class="muted">× {{ s.quantity }}</span>{% endif %}</div>{% endfor %}
+    </div></div>
+    {% endif %}
+  </div>
+  <div class="col-xl-5">
+    {% if current_user.role.value == 'individual' %}
+    <div class="h-card mb-3"><div class="h-card-body">
+      <h5 class="mb-2">Invoices &amp; payments</h5>
+      <div class="muted small mb-2">Pay by UPI in one scan and download receipts.</div>
+      <a class="btn btn-brand btn-sm" href="{{ url_for('member.invoices') }}"><i class="bi bi-receipt"></i> Open invoices</a>
+    </div></div>
+    {% endif %}
+    {% include "_install_card.html" %}
+  </div>
 </div>
-
-{% if subscriptions %}
-<div class="card mt-3"><div class="card-body">
-  <h6>Your subscriptions</h6>
-  <ul class="mb-0">
-    {% for s in subscriptions %}
-      <li>{{ s.plan.name }} × {{ s.quantity }}</li>
-    {% endfor %}
-  </ul>
-</div></div>
-{% endif %}
 {% endblock %}

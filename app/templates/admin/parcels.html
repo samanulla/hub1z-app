@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Mail & parcels{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>{{ operator.name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Mail &amp; parcels</span></div>
+    <h1>Mail &amp; parcels</h1>
+    <div class="muted mt-1">Log what arrives at reception. The recipient is emailed a pickup code straight away.</div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-brand" type="button" data-bs-toggle="collapse" data-bs-target="#logParcel" aria-expanded="{{ 'true' if not rows else 'false' }}"><i class="bi bi-box-seam"></i> Log an item</button>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-brand"><i class="bi bi-box-seam"></i></span>
+    <div><div class="label">Waiting at reception</div><div class="value">{{ stats.waiting }}</div><div class="delta up"><span>to be collected</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-danger"><i class="bi bi-hourglass-bottom"></i></span>
+    <div><div class="label">Waiting over 3 days</div><div class="value">{{ stats.stale }}</div><div class="delta {{ 'down' if stats.stale else 'up' }}"><span>send a reminder</span></div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-info"><i class="bi bi-box-arrow-in-down"></i></span>
+    <div><div class="label">Received, last 24 hours</div><div class="value">{{ stats.received_today }}</div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-success"><i class="bi bi-hand-thumbs-up"></i></span>
+    <div><div class="label">Collected, last 24 hours</div><div class="value">{{ stats.collected_today }}</div></div></div></div>
+</div>
+
+<div class="collapse {{ 'show' if not rows and status == 'waiting' }} mb-4" id="logParcel">
+  <div class="h-card"><div class="h-card-body">
+    <h5 class="mb-3">Log an item</h5>
+    <form method="post" action="{{ url_for('admin.parcel_new') }}" class="row g-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="col-md-5"><label class="form-label">For</label>
+        <select class="form-select" name="recipient" required>
+          <option value="">Choose a person or company</option>
+          <optgroup label="People">{% for p in people %}<option value="user:{{ p.id }}">{{ p.full_name }}{% if p.company %} · {{ p.company.name }}{% endif %}</option>{% endfor %}</optgroup>
+          <optgroup label="Companies (any admin can collect)">{% for c in companies %}<option value="company:{{ c.id }}">{{ c.name }}</option>{% endfor %}</optgroup>
+        </select></div>
+      <div class="col-md-3"><label class="form-label">What</label>
+        <select class="form-select" name="kind">{% for k, label in kinds %}<option value="{{ k }}">{{ label }}</option>{% endfor %}</select></div>
+      <div class="col-md-4"><label class="form-label">Location</label>
+        <select class="form-select" name="location_id">{% for l in locations %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}</select></div>
+      <div class="col-md-3"><label class="form-label">Courier</label><input class="form-control" name="carrier" placeholder="Blue Dart, DTDC, India Post" maxlength="60"></div>
+      <div class="col-md-3"><label class="form-label">Tracking / AWB</label><input class="form-control" name="reference" maxlength="120"></div>
+      <div class="col-md-3"><label class="form-label">From</label><input class="form-control" name="sender" placeholder="Sender" maxlength="120"></div>
+      <div class="col-md-3"><label class="form-label">Note</label><input class="form-control" name="note" placeholder="Size, shelf, fragile..." maxlength="255"></div>
+      <div class="col-12 d-flex align-items-center gap-3">
+        <div class="form-check"><input class="form-check-input" type="checkbox" name="notify" value="1" id="notifyParcel" checked><label class="form-check-label" for="notifyParcel">Email them now</label></div>
+        <button class="btn btn-brand ms-auto">Save</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+
+<div class="h-card"><div class="h-card-body">
+  <div class="h-toolbar mb-3">
+    <div class="h-pills">
+      {% for key, label in [('waiting', 'Waiting'), ('collected', 'Collected'), ('returned', 'Returned'), ('all', 'All')] %}
+      <a class="h-pill {{ 'active' if status == key }}" href="{{ url_for('admin.parcels', status=key, q=q or None) }}">{{ label }}</a>
+      {% endfor %}
+    </div>
+    <form method="get" class="ms-auto" style="min-width:260px">
+      <input type="hidden" name="status" value="{{ status }}">
+      <div class="h-search"><i class="bi bi-search"></i><input type="search" name="q" value="{{ q }}" placeholder="Name, company, courier or tracking"></div>
+    </form>
+  </div>
+  <div style="overflow-x:auto">
+  <table class="h-table">
+    <thead><tr><th>For</th><th>Item</th><th>Received</th><th>Pickup code</th><th>Status</th><th class="r"></th></tr></thead>
+    <tbody>
+      {% for p in rows %}
+      {% set stale = p.status == 'waiting' and p.received_at < stale_before %}
+      <tr>
+        <td><div class="d-flex align-items-center gap-3"><span class="h-avatar sm round av-{{ loop.index % 6 + 1 }}">{{ p.recipient_name | initials }}</span>
+          <div><b>{{ p.recipient_name }}</b><div class="faint small">{{ p.company.name if p.user and p.company else ('Company' if not p.user else (p.user.role.value.replace('_', ' ') | title)) }}</div></div></div></td>
+        <td>{{ p.kind_label }}{% if p.carrier %} · {{ p.carrier }}{% endif %}<div class="faint small">{{ p.reference or '' }}{% if p.sender %} · from {{ p.sender }}{% endif %}{% if p.note %} · {{ p.note }}{% endif %}</div></td>
+        <td class="{{ 'text-danger fw-semibold' if stale }}">{{ p.received_at | dt_at(p.location or operator.timezone, '%d %b, %I:%M %p') }}<div class="faint small">{{ p.location.name if p.location else '' }}</div></td>
+        <td><code class="fs-6">{{ p.pickup_code }}</code></td>
+        <td>
+          {% if p.status == 'waiting' %}<span class="h-chip sm {{ 'tint-danger' if stale else 'tint-warn' }}">{{ 'Waiting 3+ days' if stale else 'Waiting' }}</span>
+          {% elif p.status == 'collected' %}<span class="h-chip sm tint-success">Collected</span><div class="faint small">{{ p.collected_by }} · {{ p.collected_at | dt_at(p.location or operator.timezone, '%d %b, %I:%M %p') }}</div>
+          {% else %}<span class="h-chip sm tint-neutral">Returned</span>{% endif %}
+          {% if p.notified_at and p.status == 'waiting' %}<div class="faint small"><i class="bi bi-envelope-check"></i> emailed</div>{% endif %}
+        </td>
+        <td class="r text-nowrap">
+          {% if p.status == 'waiting' %}
+          <button class="btn btn-brand btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#collect-{{ p.id }}">Hand over</button>
+          <form class="d-inline" method="post" action="{{ url_for('admin.parcel_remind', parcel_id=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-soft btn-sm" title="Email a reminder"><i class="bi bi-bell"></i></button></form>
+          <form class="d-inline" method="post" action="{{ url_for('admin.parcel_return', parcel_id=p.id) }}" onsubmit="return confirm('Mark as returned to the sender?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-soft btn-sm" title="Returned to sender"><i class="bi bi-arrow-return-left"></i></button></form>
+          {% endif %}
+        </td>
+      </tr>
+      {% if p.status == 'waiting' %}
+      <tr class="collapse" id="collect-{{ p.id }}"><td colspan="6">
+        <form method="post" action="{{ url_for('admin.parcel_collect', parcel_id=p.id) }}" class="row g-2 align-items-end">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="col-md-4"><label class="form-label small muted mb-1">Collected by</label><input class="form-control form-control-sm" name="collected_by" value="{{ p.recipient_name }}" maxlength="120"></div>
+          <div class="col-md-3"><label class="form-label small muted mb-1">Pickup code (optional check)</label><input class="form-control form-control-sm" name="code" inputmode="numeric" maxlength="6" placeholder="6 digits"></div>
+          <div class="col-md-3"><button class="btn btn-brand btn-sm">Confirm hand-over</button></div>
+        </form>
+      </td></tr>
+      {% endif %}
+      {% else %}
+      <tr><td colspan="6" class="text-center muted py-4">{{ 'Nothing waiting at reception.' if status == 'waiting' else 'Nothing here.' }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div></div>
+{% endblock %}

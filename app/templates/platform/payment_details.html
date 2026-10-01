@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Hub1z payment details{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><a href="{{ url_for('platform.finance_dashboard') }}">Finance</a><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Payment details</span></div>
+    <h1>Hub1z payment details</h1>
+    <div class="muted mt-1">How operators pay Hub1z. These appear on every Hub1z invoice and on the operator's "Hub1z invoices" page.</div>
+  </div>
+</div>
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="h-card"><div class="h-card-body">
+      <form method="post" novalidate>
+        {{ form.hidden_tag() }}
+        <h5 class="mb-3">Business</h5>
+        <div class="row">
+          <div class="col-md-6">{{ field(form.legal_name) }}</div>
+          <div class="col-md-3">{{ field(form.gstin) }}</div>
+          <div class="col-md-3">{{ field(form.pan) }}</div>
+        </div>
+        <div class="row">
+          <div class="col-md-8">{{ field(form.address) }}</div>
+          <div class="col-md-4">{{ field(form.billing_email) }}</div>
+        </div>
+        <h5 class="mb-3 mt-2">Payments</h5>
+        <div class="row">
+          <div class="col-md-6">{{ field(form.upi_id) }}</div>
+          <div class="col-md-6">{{ field(form.gpay) }}</div>
+        </div>
+        {{ field(form.bank_details) }}
+        {{ field(form.payment_instructions) }}
+        <button class="btn btn-brand">Save payment details</button>
+      </form>
+    </div></div>
+  </div>
+  <div class="col-xl-4">
+    <div class="h-card mb-3"><div class="h-card-body">
+      <h5><i class="bi bi-qr-code me-2" style="color:var(--h-brand)"></i>UPI, today</h5>
+      <p class="muted small mb-0">Operators scan a QR with the invoice amount filled in, pay from any UPI app, and report the payment. You confirm it on the Finance page.</p>
+    </div></div>
+    <div class="h-card"><div class="h-card-body">
+      <h5><i class="bi bi-credit-card me-2" style="color:var(--h-brand)"></i>Razorpay <span class="h-chip sm tint-info ms-1">Coming soon</span></h5>
+      <p class="muted small mb-0">Cards, netbanking and automatic confirmation will arrive with the Razorpay integration.</p>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

@@ -62,10 +62,13 @@ def run_scheduled_jobs_cmd(month: str | None) -> None:
     invoices = run_monthly_billing(target_month)
     credits = credit_service.run_all_cycles()
     no_shows = release_no_shows()
+    from .services.alerts import run_alert_emails
+    reminders = run_alert_emails()
     click.echo(f"Created {bookings} recurring booking(s); generated {len(invoices)} invoice(s); "
                f"agreements: {agreements['ended']} ended, {agreements['proposed']} rate revision(s) proposed; "
                f"credits: {credits['granted']} granted, {credits['expired']} expired; "
-               f"{no_shows['released']} no-show(s) released.")
+               f"{no_shows['released']} no-show(s) released; "
+               f"alerts: {reminders['digests']} digest(s), {reminders['customer']} customer reminder(s).")
 
 
 @click.command("create-admin")

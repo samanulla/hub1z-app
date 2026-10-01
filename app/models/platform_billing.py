@@ -79,3 +79,49 @@ class PlatformExpense(db.Model, PkMixin, TimestampMixin):
     amount = Column(Numeric(10, 2), nullable=False)
     incurred_on = Column(Date, nullable=False)
     notes = Column(Text)
+
+
+class PlatformProfile(db.Model, PkMixin, TimestampMixin):
+    """Hub1z's own business and payment details (a single row), shown to operators and on Hub1z documents."""
+    __tablename__ = "platform_profile"
+
+    legal_name = Column(String(200), nullable=False, default="Hub1z Technologies Private Limited")
+    gstin = Column(String(20))
+    pan = Column(String(20))
+    address = Column(String(300))
+    billing_email = Column(String(255))
+    upi_id = Column(String(120))
+    gpay = Column(String(120))
+    bank_details = Column(String(500))
+    payment_instructions = Column(String(500))
+
+    @classmethod
+    def get(cls) -> "PlatformProfile":
+        row = cls.query.order_by(cls.id).first()
+        if row is None:
+            row = cls()
+            db.session.add(row)
+            db.session.flush()
+        return row
+
+
+class PlatformPaymentReport(db.Model, PkMixin, TimestampMixin):
+    """An operator telling Hub1z it has paid a Hub1z invoice (by UPI or bank), for Hub1z to confirm."""
+    __tablename__ = "platform_payment_reports"
+
+    operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"), nullable=False, index=True)
+    invoice_id = Column(Integer, ForeignKey("platform_invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    amount = Column(Numeric(10, 2), nullable=False)
+    paid_on = Column(Date, nullable=False)
+    reference = Column(String(120))
+    notes = Column(Text)
+    status = Column(String(12), nullable=False, default="pending", index=True)  # pending / accepted / rejected
+    platform_message = Column(Text)
+    reported_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    reviewed_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    reviewed_at = Column(DateTime)
+
+    operator = relationship("Operator")
+    invoice = relationship("PlatformInvoice")
+    reported_by = relationship("User", foreign_keys=[reported_by_id])
+    reviewed_by = relationship("User", foreign_keys=[reviewed_by_id])

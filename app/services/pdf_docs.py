@@ -67,12 +67,63 @@ def credit_note_context(note, operator) -> dict:
         amount_label="Credit amount", amount=rs(note.amount), note=note.notes or "")
 
 
-HUB1Z_ISSUER = ["Hub1z Technologies Private Limited"]
+def _hub1z_issuer() -> list[str]:
+    from ..models import PlatformProfile
+
+    p = PlatformProfile.get()
+    lines = [p.legal_name]
+    if p.address:
+        lines.append(p.address)
+    if p.gstin:
+        lines.append(f"GSTIN: {p.gstin}")
+    if p.pan:
+        lines.append(f"PAN: {p.pan}")
+    return lines
+
+
+def address_letter_location(sub, operator):
+    """Where a virtual office client may register: the plan's location, else the operator's primary location."""
+    plan_locations = [l for l in (sub.plan.locations or []) if l.is_active]
+    primary = operator.primary_location
+    if primary is not None and (not plan_locations or primary in plan_locations):
+        return primary
+    return plan_locations[0] if plan_locations else primary
+
+
+def address_letter_response(sub):
+    """The No Objection Certificate a virtual office client needs for GST and company registration."""
+    from datetime import date
+
+    from ..models import Operator, PlanType
+    from .contract_service import _address
+    from ..extensions import db
+
+    if sub.plan.plan_type != PlanType.VIRTUAL_OFFICE:
+        abort(404)
+    operator = db.session.get(Operator, sub.operator_id)
+    location = address_letter_location(sub, operator)
+    if location is None:
+        abort(404)
+    company, person = sub.company, sub.user
+    if company is not None:
+        party = {"name": company.legal_name or company.name, "gstin": company.tax_id, "pan": company.pan}
+        purpose = "registered office and principal place of business"
+    else:
+        party = {"name": person.full_name, "gstin": None, "pan": None}
+        purpose = "principal place of business"
+    end = sub.terminate_on or sub.end_date or sub.term_ends_on
+    return pdf_response(
+        "pdf/address_letter.html", f"noc-{(company.name if company else person.full_name).replace(' ', '-').lower()}.pdf",
+        issuer={"name": operator.company_legal_name or operator.name, "gstin": operator.gstin, "pan": operator.pan,
+                "address": _address(operator.primary_location or location)},
+        party=party, purpose=purpose, address=_address(location), plan=sub.plan.name,
+        start=sub.start_date.strftime("%d %B %Y"), end=end.strftime("%d %B %Y") if end else "until terminated",
+        today=date.today().strftime("%d %B %Y"), reference=f"NOC-{sub.id:05d}")
 
 
 def platform_invoice_context(inv) -> dict:
     return dict(
-        issuer=HUB1Z_ISSUER, title="Invoice for your Hub1z subscription",
+        issuer=_hub1z_issuer(), title="Invoice for your Hub1z subscription",
         meta=[("Invoice no.", inv.number), ("Due", inv.due_date.strftime("%d %b %Y")), ("Status", inv.status.value.title())],
         party_label="Billed to", party=[inv.operator.company_legal_name or inv.operator.name] if inv.operator else [],
         rows=[("Period", f"{inv.period_start:%d %b %Y} to {inv.period_end:%d %b %Y}")],
@@ -81,7 +132,7 @@ def platform_invoice_context(inv) -> dict:
 
 def platform_credit_note_context(note) -> dict:
     return dict(
-        issuer=HUB1Z_ISSUER, title="Credit note",
+        issuer=_hub1z_issuer(), title="Credit note",
         meta=[("Credit note no.", note.number), ("Date", (note.issued_at or note.created_at).strftime("%d %b %Y"))],
         party_label="Issued to", party=[note.operator.company_legal_name or note.operator.name] if note.operator else [],
         rows=[("Against invoice", note.invoice.number if note.invoice else "-"), ("Reason", note.reason)],
@@ -90,7 +141,7 @@ def platform_credit_note_context(note) -> dict:
 
 def platform_refund_context(refund) -> dict:
     return dict(
-        issuer=HUB1Z_ISSUER, title="Refund advice",
+        issuer=_hub1z_issuer(), title="Refund advice",
         meta=[("Reference", refund.number), ("Date", (refund.processed_at or refund.created_at).strftime("%d %b %Y"))],
         party_label="Refunded to", party=[refund.operator.company_legal_name or refund.operator.name] if refund.operator else [],
         rows=[("Against invoice", refund.invoice.number if refund.invoice else "-"), ("Reason", refund.reason)],

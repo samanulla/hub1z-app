@@ -4,18 +4,21 @@ commercial relationship with operators — separate from an operator's own
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
-from flask import render_template, redirect, url_for, flash
+from flask import render_template, redirect, url_for, flash, request
+from flask_login import current_user
 
 from ...extensions import db
 from ...models import (
-    Operator, PlatformInvoice, PlatformCreditNote, PlatformRefund, PlatformExpense,
+    Operator, PlatformInvoice, PlatformCreditNote, PlatformRefund, PlatformExpense, PlatformInvoiceStatus,
+    PlatformPaymentReport, PlatformProfile,
 )
-from ...utils.decorators import platform_permission_required
+from ...utils.decorators import platform_permission_required, platform_owner_required
 from ...services.pdf_docs import (pdf_response, platform_credit_note_context, platform_invoice_context,
                                   platform_refund_context)
 from .forms import (
-    PlatformInvoiceForm, PlatformCreditNoteForm, PlatformRefundForm, PlatformExpenseForm,
+    PlatformInvoiceForm, PlatformCreditNoteForm, PlatformRefundForm, PlatformExpenseForm, PlatformProfileForm,
 )
 
 
@@ -40,8 +43,48 @@ def register_finance_routes(bp):
         credit_notes = PlatformCreditNote.query.order_by(PlatformCreditNote.created_at.desc()).limit(50).all()
         refunds = PlatformRefund.query.order_by(PlatformRefund.created_at.desc()).limit(50).all()
         expenses = PlatformExpense.query.order_by(PlatformExpense.incurred_on.desc()).limit(50).all()
-        return render_template("platform/finance/dashboard.html", invoices=invoices,
-                               credit_notes=credit_notes, refunds=refunds, expenses=expenses)
+        reports = (PlatformPaymentReport.query.order_by((PlatformPaymentReport.status == "pending").desc(),
+                                                        PlatformPaymentReport.created_at.desc()).limit(50).all())
+        profile = PlatformProfile.get()
+        db.session.commit()
+        return render_template("platform/finance/dashboard.html", invoices=invoices, reports=reports,
+                               credit_notes=credit_notes, refunds=refunds, expenses=expenses, profile=profile)
+
+    @bp.route("/finance/payment-reports/<int:report_id>/<decision>", methods=["POST"])
+    @platform_permission_required("billing")
+    def finance_payment_report_review(report_id: int, decision: str):
+        report = PlatformPaymentReport.query.filter_by(id=report_id, status="pending").first_or_404()
+        message = (request.form.get("message") or "").strip()[:500] or None
+        if decision == "accept":
+            report.status = "accepted"
+            if report.invoice.status in (PlatformInvoiceStatus.ISSUED, PlatformInvoiceStatus.OVERDUE) \
+                    and Decimal(report.amount) >= Decimal(report.invoice.amount):
+                report.invoice.status = PlatformInvoiceStatus.PAID
+            flash(f"Payment from {report.operator.name} confirmed.", "success")
+        elif decision == "reject" and message:
+            report.status = "rejected"
+            flash("Payment report rejected.", "info")
+        else:
+            flash("Add a message explaining why the payment was not accepted.", "warning")
+            return redirect(url_for("platform.finance_dashboard"))
+        report.platform_message = message
+        report.reviewed_by_id = current_user.id
+        report.reviewed_at = datetime.utcnow()
+        db.session.commit()
+        return redirect(url_for("platform.finance_dashboard"))
+
+    @bp.route("/payment-details", methods=["GET", "POST"])
+    @platform_owner_required
+    def payment_details():
+        profile = PlatformProfile.get()
+        form = PlatformProfileForm(obj=profile)
+        if form.validate_on_submit():
+            form.populate_obj(profile)
+            db.session.commit()
+            flash("Hub1z payment details saved. Operators see them on their Hub1z invoices.", "success")
+            return redirect(url_for("platform.payment_details"))
+        db.session.commit()
+        return render_template("platform/payment_details.html", form=form)
 
     @bp.route("/finance/invoices/<int:invoice_id>/pdf")
     @platform_permission_required("billing")

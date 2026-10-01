@@ -2,59 +2,69 @@
 {% block title %}{{ company.name }}{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-start mb-4">
+<div class="h-page-head">
   <div>
-    <h3 class="mb-1">{{ company.name }}</h3>
-    <p class="text-muted mb-0">Company management overview</p>
+    <h1>{{ company.name }}</h1>
+    <div class="muted mt-1">Your team, plan and payments at {{ operator.name }}.</div>
   </div>
-  <a class="btn btn-outline-dark" href="{{ url_for('company.profile') }}">Edit profile</a>
+  <div class="actions">
+    <a class="btn btn-brand" href="{{ url_for('book.index') }}"><i class="bi bi-calendar-plus"></i> Book</a>
+    <a class="btn btn-soft" href="{{ url_for('book.calendar') }}"><i class="bi bi-calendar3"></i> Calendar</a>
+  </div>
 </div>
 
 <div class="row g-3 mb-4">
-  <div class="col-md-3"><div class="card card-stat"><div class="card-body">
-    <div class="text-muted small">Employees</div>
-    <div class="stat-value">{{ stats.employees }}</div>
-  </div></div></div>
-  <div class="col-md-3"><div class="card card-stat"><div class="card-body">
-    <div class="text-muted small">Active seats</div>
-    <div class="stat-value">{{ stats.allocations }}</div>
-  </div></div></div>
-  <div class="col-md-3"><div class="card card-stat"><div class="card-body">
-    <div class="text-muted small">Meeting credits</div>
-    <div class="stat-value">{{ stats.meeting_credits }}</div>
-  </div></div></div>
-  <div class="col-md-3"><div class="card card-stat"><div class="card-body">
-    <div class="text-muted small">Open invoices</div>
-    <div class="stat-value">{{ stats.open_invoices }}</div>
-  </div></div></div>
+  <div class="col-6 col-xl-3"><a class="h-card h-kpi text-body" href="{{ url_for('company.employees') }}"><span class="chip-ico tint-brand"><i class="bi bi-people-fill"></i></span>
+    <div><div class="label">Employees</div><div class="value">{{ stats.employees }}</div><div class="delta up"><span>{{ stats.allocations }} with a seat</span></div></div></a></div>
+  <div class="col-6 col-xl-3"><a class="h-card h-kpi text-body" href="{{ url_for('company.credits') }}"><span class="chip-ico tint-info"><i class="bi bi-clock-history"></i></span>
+    <div><div class="label">Meeting credits</div><div class="value">{{ stats.meeting_credits }}</div><div class="delta up"><span>about {{ (stats.meeting_credits / 2) | round(1) }} room hours</span></div></div></a></div>
+  <div class="col-6 col-xl-3"><a class="h-card h-kpi text-body" href="{{ url_for('company.invoices') }}"><span class="chip-ico {{ 'tint-danger' if overdue else 'tint-warn' }}"><i class="bi bi-receipt"></i></span>
+    <div><div class="label">Open invoices</div><div class="value">{{ stats.open_invoices }}</div><div class="delta {{ 'down' if overdue else 'up' }}"><span>{{ overdue | length }} overdue</span></div></div></a></div>
+  <div class="col-6 col-xl-3"><a class="h-card h-kpi text-body" href="{{ url_for('company.parcels') }}"><span class="chip-ico tint-success"><i class="bi bi-box-seam"></i></span>
+    <div><div class="label">Parcels waiting</div><div class="value">{{ parcels | length }}</div><div class="delta up"><span>at reception</span></div></div></a></div>
 </div>
 
+{% if overdue or parcels %}
+<div class="h-card mb-4"><div class="h-card-body">
+  <h5 class="mb-2">Needs your attention</h5>
+  {% for i in overdue %}
+  <a class="h-alert" href="{{ url_for('company.invoices') }}">
+    <span class="chip-ico tint-danger"><i class="bi bi-exclamation-octagon"></i></span>
+    <span class="t"><b>Invoice {{ i.number }} is overdue</b><small>{{ i.balance_due | inr }} was due on {{ i.due_date | date }} · pay by UPI in one scan</small></span>
+    <i class="bi bi-chevron-right faint"></i>
+  </a>
+  {% endfor %}
+  {% for p in parcels[:3] %}
+  <a class="h-alert" href="{{ url_for('company.parcels') }}">
+    <span class="chip-ico tint-brand"><i class="bi bi-box-seam"></i></span>
+    <span class="t"><b>{{ p.kind_label }} for {{ p.recipient_name }}</b><small>At reception · pickup code {{ p.pickup_code }}</small></span>
+    <i class="bi bi-chevron-right faint"></i>
+  </a>
+  {% endfor %}
+</div></div>
+{% endif %}
+
 <div class="row g-3">
-  <div class="col-md-6"><div class="card h-100"><div class="card-body">
-    <h5 class="mb-3">Company</h5>
-    {% for label, description, icon, href in [
-      ('People', 'Invite and manage employees', 'people', url_for('company.employees')),
-      ('Seat allocations', 'Assign company seats to employees', 'diagram-3', url_for('company.allocations')),
-      ('Team activity', 'Review employee seat and room bookings', 'calendar-check', url_for('company.bookings')),
-      ('Profile', 'Billing and company contact details', 'building', url_for('company.profile'))
-    ] %}
-    <a class="d-flex align-items-center gap-3 p-2 mb-2 text-body" style="background: color-mix(in srgb, var(--brand) 6%, transparent); text-decoration:none;" href="{{ href }}">
-      <span class="stat-icon m-0" style="width:36px;height:36px;"><i class="bi bi-{{ icon }}"></i></span>
-      <div><div class="fw-semibold small">{{ label }}</div><small class="text-muted">{{ description }}</small></div>
-    </a>
-    {% endfor %}
-  </div></div></div>
-  <div class="col-md-6"><div class="card h-100"><div class="card-body">
-    <h5 class="mb-3">Plan &amp; billing</h5>
-    <a class="d-flex align-items-center gap-3 p-2 mb-2 text-body" style="background: rgba(217,119,6,.06); text-decoration:none;" href="{{ url_for('company.plans') }}">
-      <span class="stat-icon amber m-0" style="width:36px;height:36px;"><i class="bi bi-arrow-repeat"></i></span>
-      <div><div class="fw-semibold small">Plans &amp; subscriptions</div><small class="text-muted">{% if pending_requests %}{{ pending_requests }} request awaiting review{% else %}Request a plan or seat change{% endif %}</small></div>
-    </a>
-    <a class="d-flex align-items-center gap-3 p-2 mb-2 text-body" style="background: rgba(217,119,6,.06); text-decoration:none;" href="{{ url_for('company.invoices') }}">
-      <span class="stat-icon amber m-0" style="width:36px;height:36px;"><i class="bi bi-receipt"></i></span>
-      <div><div class="fw-semibold small">Invoices &amp; payments</div><small class="text-muted">View invoices, payment options and reports</small></div>
-    </a>
-    <a class="btn btn-dark mt-2" href="{{ url_for('book.calendar') }}">Open booking calendar</a>
-  </div></div></div>
+  <div class="col-xl-7">
+    {% include "_agreements_card.html" %}
+  </div>
+  <div class="col-xl-5">
+    <div class="h-card mb-3"><div class="h-card-body">
+      <h5 class="mb-3">Quick links</h5>
+      {% for label, description, icon, href in [
+        ('People', 'Invite and manage employees', 'people', url_for('company.employees')),
+        ('Seat allocations', 'Assign company seats to employees', 'person-workspace', url_for('company.allocations')),
+        ('Team activity', 'See who booked what', 'activity', url_for('company.bookings')),
+        ('Plans & subscriptions', (pending_requests ~ ' request awaiting review') if pending_requests else 'Request a plan or seat change', 'layers', url_for('company.plans')),
+      ] %}
+      <a class="h-alert" href="{{ href }}">
+        <span class="chip-ico tint-neutral"><i class="bi bi-{{ icon }}"></i></span>
+        <span class="t"><b>{{ label }}</b><small>{{ description }}</small></span>
+        <i class="bi bi-chevron-right faint"></i>
+      </a>
+      {% endfor %}
+    </div></div>
+    {% include "_install_card.html" %}
+  </div>
 </div>
 {% endblock %}

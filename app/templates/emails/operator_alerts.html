@@ -1,0 +1,11 @@
+<p><b>{{ items | length }} thing{{ 's' if items | length != 1 }} to act on at {{ operator.name }}</b></p>
+<table style="border-collapse:collapse;width:100%;max-width:560px;">
+  {% for i in items %}
+  <tr><td style="padding:10px 0;border-bottom:1px solid #e6e8f0;">
+    <div style="font-weight:600;color:{{ '#b42318' if i.severity == 'danger' else '#151a2d' }};">{{ i.title }}</div>
+    <div style="color:#5a6278;font-size:13px;">{{ i.detail }}</div>
+  </td></tr>
+  {% endfor %}
+</table>
+<p style="margin-top:18px;"><a href="{{ site }}/admin/alerts" style="background:#5b5bd6;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;">Open alerts</a></p>
+<p style="color:#8b93a7;font-size:12px;">You get this email once for each new item.</p>

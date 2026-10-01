@@ -55,6 +55,9 @@
         <td>{{ s.start_date }}</td>
         <td class="text-end">
           <a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.subscription_agreement', sub_id=s.id) }}">Agreement</a>
+          {% if s.plan.plan_type.value == 'virtual_office' and s.status.value == 'active' %}
+          <a class="btn btn-sm btn-outline-dark" target="_blank" rel="noopener" href="{{ url_for('admin.subscription_address_letter', sub_id=s.id) }}">Address letter (NOC)</a>
+          {% endif %}
           {% if s.status.value == 'active' %}
           <form method="post" action="{{ url_for('admin.company_subscription_cancel', company_id=company.id, sub_id=s.id) }}" class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

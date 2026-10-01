@@ -12,11 +12,14 @@ from flask_login import current_user, login_required
 from ...extensions import db
 from ...models import (
     SeatBooking, RoomBooking, BookingStatus, Invoice, Subscription, SubscriptionStatus,
-    Location, DayPass, DayPassStatus, User, UserRole,
+    Location, DayPass, DayPassStatus, User, UserRole, Parcel,
 )
 from ...services import credit_service
+from ...services.alerts import customer_agreements
+from ...services.pdf_docs import address_letter_response
 from ...services.booking_service import cancel_booking, can_check_in, BookingError
-from ...utils.decorators import member_required, member_or_admin_required
+from ...utils.decorators import member_required, member_or_admin_required, roles_required
+from ..customer_billing import register_customer_billing_routes
 
 member_bp = Blueprint("member", __name__, template_folder="../../templates")
 
@@ -44,6 +47,8 @@ def dashboard():
                 .filter((Invoice.user_id == current_user.id) |
                         (Invoice.company_id == current_user.company_id))
                 .order_by(Invoice.issued_at.desc().nullslast()).limit(5).all())
+    waiting = Parcel.query.filter_by(user_id=current_user.id, status="waiting").order_by(Parcel.received_at.desc()).all()
+    agreements = customer_agreements(user_id=current_user.id) if current_user.role == UserRole.INDIVIDUAL else []
     return render_template(
         "member/dashboard.html",
         upcoming_seats=upcoming_seats,
@@ -51,7 +56,30 @@ def dashboard():
         credits=credits,
         subscriptions=subs,
         invoices=invoices,
+        parcels=waiting,
+        agreements=agreements,
+        letter_endpoint="member.address_letter",
     )
+
+
+register_customer_billing_routes(member_bp, roles_required(UserRole.INDIVIDUAL), lambda: ("user_id", current_user.id))
+
+
+@member_bp.route("/parcels")
+@member_required
+def parcels():
+    rows = Parcel.query.filter_by(user_id=current_user.id).order_by(Parcel.received_at.desc()).limit(100).all()
+    return render_template("parcels/mine.html", company_view=False,
+                           waiting=[p for p in rows if p.status == "waiting"],
+                           history=[p for p in rows if p.status != "waiting"][:30])
+
+
+@member_bp.route("/subscriptions/<int:sub_id>/address-letter.pdf")
+@roles_required(UserRole.INDIVIDUAL)
+def address_letter(sub_id: int):
+    sub = Subscription.query.filter_by(id=sub_id, user_id=current_user.id,
+                                       status=SubscriptionStatus.ACTIVE).first_or_404()
+    return address_letter_response(sub)
 
 
 @member_bp.route("/bookings")

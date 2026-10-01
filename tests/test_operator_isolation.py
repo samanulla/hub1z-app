@@ -31,9 +31,9 @@ MARKERS = [b"ZZA", b"98765.43", b"98,765.43", b"4321.09", b"4,321.09"]
 
 # Tables that legitimately have no operator_id / are platform-level.
 NO_OPERATOR_COLUMN = {"operators", "location_amenities", "room_amenity_link", "pricing_plan_locations",
-                      "pricing_tiers", "platform_modules", "platform_expenses", "tier_modules"}
+                      "pricing_tiers", "platform_modules", "platform_expenses", "tier_modules", "platform_profile"}
 PLATFORM_LEVEL = {"operator_subscriptions", "operator_usage_snapshots", "platform_credit_notes",
-                  "platform_invoices", "platform_refunds"}
+                  "platform_invoices", "platform_refunds", "platform_payment_reports"}
 NULLABLE_OPERATOR_ID = {"users", "audit_logs", "documents", "system_settings",
                         "leads", "lead_activities", "attendance_records"}  # the last three also hold Platform rows
 

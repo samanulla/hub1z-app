@@ -206,4 +206,4 @@ def test_member_navigation_is_limited_to_calendar_and_essentials():
         assert b">Hub<" not in response.data
         assert b">Book<" in response.data
         assert b">Day pass<" not in response.data
-        assert b"Open calendar" in response.data
+        assert b"Coming up" in response.data

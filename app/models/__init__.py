@@ -26,7 +26,7 @@ from .expense import Expense, ExpenseCategory, ExpenseStatus
 from .finance import CreditNote, CreditNoteStatus, Refund, RefundStatus
 from .platform_billing import (
     PlatformInvoice, PlatformInvoiceStatus,
-    PlatformCreditNote, PlatformRefund, PlatformExpense,
+    PlatformCreditNote, PlatformRefund, PlatformExpense, PlatformProfile, PlatformPaymentReport,
 )
 from .email_template import EmailTemplate, EmailKind
 from .settings import SystemSettings
@@ -37,6 +37,7 @@ from .credits import (
 from .audit import AuditLog
 from .lead import Lead, LeadActivity
 from .attendance import AttendanceRecord
+from .parcel import Parcel, AlertNotice
 from .daypass import DayPass, DayPassStatus
 from .booking_addons import (
     RoomWaitlist, WaitlistStatus,

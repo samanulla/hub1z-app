@@ -26,7 +26,7 @@
       <td>{{ i.total_amount | money }}</td>
       <td>{{ i.amount_paid | money }}</td>
       <td>{{ i.balance_due | money }}</td>
-      <td><span class="badge bg-secondary">{{ i.status.value }}</span></td>
+      <td><span class="badge bg-secondary">{{ i.status.value }}</span>{% if i.id in reported %} <a class="h-chip sm tint-warn" href="{{ url_for('admin.invoice_detail', invoice_id=i.id) }}">Payment to confirm</a>{% endif %}</td>
       <td>{{ i.issued_at | date if i.issued_at else "—" }}</td>
       <td class="text-end"><a class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener" href="{{ url_for('admin.invoice_pdf', invoice_id=i.id) }}"><i class="bi bi-file-earmark-pdf"></i> View PDF</a></td>
     </tr>

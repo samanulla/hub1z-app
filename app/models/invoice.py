@@ -67,6 +67,7 @@ class Invoice(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     late_fee_charged_through = Column(Date)
 
     company = relationship("Company", back_populates="invoices")
+    user = relationship("User", foreign_keys=[user_id])
     line_items = relationship("InvoiceLineItem", back_populates="invoice", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="invoice", cascade="all, delete-orphan")
     pdf_document = relationship("Document")
@@ -115,7 +116,8 @@ class PaymentSubmission(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"), nullable=False, index=True)
     invoice_id = Column(Integer, ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False, index=True)
-    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)  # an individual
     amount = Column(Numeric(10, 2), nullable=False)
     paid_on = Column(Date, nullable=False)
     reference = Column(String(120))
@@ -128,4 +130,5 @@ class PaymentSubmission(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     invoice = relationship("Invoice", foreign_keys=[invoice_id])
     company = relationship("Company", foreign_keys=[company_id])
+    user = relationship("User", foreign_keys=[user_id])
     reviewed_by = relationship("User", foreign_keys=[reviewed_by_id])

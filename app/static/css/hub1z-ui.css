@@ -301,3 +301,47 @@ body.h-ui {
   .h-user .who { display: none; }
 }
 @media (max-width: 575.98px) { .h-top-checkin span { display: none; } }
+
+/* ------------------------------------------------- alerts and list rows */
+.chip-ico { width: 38px; height: 38px; border-radius: 11px; display: inline-flex; align-items: center; justify-content: center; font-size: 17px; flex: 0 0 38px; }
+.h-alert { display: flex; align-items: center; gap: 14px; padding: 11px 6px; border-radius: 12px; color: var(--h-ink) !important; transition: background .15s; }
+.h-alert + .h-alert { border-top: 1px solid var(--h-line); border-radius: 0; }
+a.h-alert:hover { background: var(--h-surface-2); }
+.h-alert .t { flex: 1; min-width: 0; }
+.h-alert .t b { display: block; font-weight: 600; font-size: 14px; }
+.h-alert .t small { display: block; color: var(--h-ink-2); font-size: 12.5px; }
+.h-dates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.h-dates > div { background: var(--h-surface-2); border: 1px solid var(--h-line); border-radius: 10px; padding: 8px 12px; }
+.h-dates small { display: block; color: var(--h-ink-3); font-size: 11.5px; }
+.h-dates b { font-size: 14px; }
+.h-dates em { font-style: normal; font-size: 11px; font-weight: 600; color: var(--h-success); margin-left: 6px; }
+
+/* ------------------------------------------------- member quick actions */
+.h-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.h-quick-tile { display: flex; flex-direction: column; gap: 2px; padding: 16px 18px; border-radius: 16px; background: #fff; border: 1px solid var(--h-line); color: var(--h-ink) !important; box-shadow: var(--h-shadow); transition: transform .15s, box-shadow .15s; }
+.h-quick-tile:hover { transform: translateY(-2px); box-shadow: 0 12px 26px -16px rgba(21, 26, 45, .35); }
+.h-quick-tile i { font-size: 22px; color: var(--h-brand); margin-bottom: 6px; }
+.h-quick-tile b { font-size: 15px; }
+.h-quick-tile small { color: var(--h-ink-3); font-size: 12px; }
+.h-quick-tile.primary { background: linear-gradient(135deg, var(--h-brand), #7c5cf0); border-color: transparent; color: #fff !important; }
+.h-quick-tile.primary i, .h-quick-tile.primary small { color: rgba(255, 255, 255, .85); }
+@media (max-width: 767.98px) { .h-quick { grid-template-columns: repeat(2, 1fr); } .h-dates { grid-template-columns: 1fr; } }
+
+/* ---------------------------------------------------------- pay panel */
+.h-pay-cell { background: var(--h-surface-2) !important; }
+.h-pay { display: flex; gap: 22px; flex-wrap: wrap; padding: 6px 2px; }
+.h-pay-qr { flex: 0 0 220px; align-self: flex-start; text-align: center; background: #fff; border: 1px solid var(--h-line); border-radius: 16px; padding: 16px; }
+.h-pay-qr img { display: block; margin: 0 auto; width: 190px; height: 190px; image-rendering: pixelated; }
+.h-pay-noqr { color: var(--h-ink-3); padding: 40px 0; }
+.h-pay-noqr i { font-size: 40px; }
+.h-pay-body { flex: 1 1 320px; min-width: 0; }
+.h-pay-amount b { display: block; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+.h-pay-amount { margin-bottom: 10px; }
+.h-pay-list { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; margin: 0 0 12px; font-size: 14px; }
+.h-pay-list dt { color: var(--h-ink-3); font-weight: 500; }
+.h-pay-list dd { margin: 0; word-break: break-word; }
+.h-pay-report { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--h-line-strong); }
+
+/* ------------------------------------------------------------- parcels */
+.h-pickup { display: flex; align-items: baseline; justify-content: space-between; background: var(--h-brand-50); border-radius: 12px; padding: 10px 14px; }
+.h-pickup b { font-size: 22px; letter-spacing: .25em; color: var(--h-brand-600); }

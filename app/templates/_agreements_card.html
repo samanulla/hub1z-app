@@ -1,0 +1,32 @@
+{# A company's or individual's active agreements with the dates that matter. Needs `agreements` and `letter_endpoint`. #}
+<div class="h-card h-100"><div class="h-card-body">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h5 class="mb-0">Your {{ 'agreements' if agreements | length != 1 else 'agreement' }}</h5>
+    {% if current_user.is_company_admin %}<a class="small" href="{{ url_for('company.plans') }}">Plans &amp; changes</a>{% endif %}
+  </div>
+  {% for a in agreements %}
+  {% set s = a.sub %}
+  <div class="{{ 'border-top pt-3 mt-3' if not loop.first }}">
+    <div class="d-flex align-items-start justify-content-between gap-3">
+      <div>
+        <b>{{ s.plan.name }}</b>{% if s.quantity > 1 %} <span class="muted">× {{ s.quantity }}</span>{% endif %}
+        {% if a.virtual_office %}<span class="h-chip sm tint-brand ms-1">Virtual office</span>{% endif %}
+        <div class="faint small">Since {{ s.start_date | date }}</div>
+      </div>
+      {% if a.leaving %}<span class="h-chip sm tint-warn">Leaving {{ a.end | date }}</span>
+      {% elif a.days_left <= 60 %}<span class="h-chip sm {{ 'tint-danger' if a.days_left <= 30 else 'tint-warn' }}">Renewal due in {{ a.days_left }} days</span>
+      {% else %}<span class="h-chip sm tint-success">Active</span>{% endif %}
+    </div>
+    <div class="h-dates mt-2">
+      <div><small>Lock-in ends</small><b>{{ a.lock_in_end | date }}</b>{% if not a.locked %}<em>completed</em>{% endif %}</div>
+      <div><small>{{ 'Last day' if a.leaving else 'Agreement ends' }}</small><b>{{ a.end | date }}</b></div>
+      <div><small>Notice period</small><b>{{ s.notice_months }} month{{ 's' if s.notice_months != 1 }}</b></div>
+    </div>
+    {% if a.virtual_office %}
+    <a class="btn btn-soft btn-sm mt-2" target="_blank" rel="noopener" href="{{ url_for(letter_endpoint, sub_id=s.id) }}"><i class="bi bi-file-earmark-text"></i> Address letter (NOC) for GST and ROC</a>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="muted">No active plan yet.{% if current_user.is_company_admin %} <a href="{{ url_for('company.plans') }}">See the plans</a> and request one.{% endif %}</div>
+  {% endfor %}
+</div></div>

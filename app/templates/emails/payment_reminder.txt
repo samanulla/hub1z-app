@@ -1,0 +1,10 @@
+Hello,
+
+Invoice {{ invoice.number }} from {{ operator.name }} was due on {{ invoice.due_date.strftime('%d %B %Y') }} and {{ invoice.balance_due | inr }} is still unpaid.
+
+Pay in one scan with any UPI app: {{ link }}
+{% if operator.payment_upi_id %}UPI ID: {{ operator.payment_upi_id }}
+{% endif %}
+Already paid? Report it on the same page so the team can confirm it.
+
+{{ operator.name }}

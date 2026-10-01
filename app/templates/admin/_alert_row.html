@@ -1,0 +1,11 @@
+{# One alert row; used on the Alerts page and the dashboard panel. #}
+{% macro alert_row(i) %}
+{% set icon = {'renewal': 'arrow-repeat', 'lock_in': 'unlock', 'leaving': 'box-arrow-right', 'overdue': 'exclamation-octagon',
+               'revision': 'graph-up-arrow', 'payments': 'wallet2', 'parcels': 'box-seam', 'leads': 'telephone-outbound'}.get(i.kind, 'bell') %}
+{% set tint = {'danger': 'tint-danger', 'warn': 'tint-warn', 'info': 'tint-info'}[i.severity] %}
+<a class="h-alert" href="{{ i.href or '#' }}">
+  <span class="chip-ico {{ tint }}"><i class="bi bi-{{ icon }}"></i></span>
+  <span class="t"><b>{{ i.title }}</b><small>{{ i.detail }}</small></span>
+  <i class="bi bi-chevron-right faint"></i>
+</a>
+{% endmacro %}

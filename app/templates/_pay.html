@@ -1,0 +1,39 @@
+{# "Pay this invoice": UPI QR with the amount filled in, the other ways to pay, and the form to report a payment. #}
+{% macro pay_panel(pay, amount, qr_url, upi_link, form, action, invoice_number) %}
+<div class="h-pay">
+  <div class="h-pay-qr">
+    {% if pay.vpa %}
+      <img src="{{ qr_url }}" alt="UPI QR code to pay {{ amount | inr }}" width="190" height="190">
+      <div class="small fw-semibold mt-2">Scan with any UPI app</div>
+      <div class="faint small">Google Pay, PhonePe, Paytm, BHIM or your bank's app</div>
+      <a class="btn btn-brand btn-sm mt-2 d-md-none" href="{{ upi_link }}"><i class="bi bi-phone"></i> Pay {{ amount | inr }} in a UPI app</a>
+    {% else %}
+      <div class="h-pay-noqr"><i class="bi bi-qr-code"></i><div class="small mt-2">UPI QR not set up yet.<br>Use the details on the right.</div></div>
+    {% endif %}
+  </div>
+  <div class="h-pay-body">
+    <div class="h-pay-amount"><span class="faint small">Amount to pay</span><b>{{ amount | inr }}</b><span class="faint small">Invoice {{ invoice_number }} · add the invoice number in the payment note</span></div>
+    <dl class="h-pay-list">
+      <dt>Pay to</dt><dd>{{ pay.payee }}</dd>
+      {% if pay.upi_id %}<dt>UPI ID</dt><dd><span>{{ pay.upi_id }}</span> <button class="btn btn-link btn-sm p-0 ms-1" type="button" data-copy="{{ pay.upi_id }}"><i class="bi bi-copy"></i> Copy</button></dd>{% endif %}
+      {% if pay.gpay %}<dt>Google Pay</dt><dd><span>{{ pay.gpay }}</span> <button class="btn btn-link btn-sm p-0 ms-1" type="button" data-copy="{{ pay.gpay }}"><i class="bi bi-copy"></i> Copy</button></dd>{% endif %}
+      {% if pay.bank %}<dt>Bank transfer</dt><dd>{{ pay.bank }}</dd>{% endif %}
+      {% if pay.instructions %}<dt>Note</dt><dd>{{ pay.instructions }}</dd>{% endif %}
+    </dl>
+    <button class="btn btn-soft btn-sm" type="button" disabled title="Online payments with cards and netbanking are coming soon">
+      <i class="bi bi-credit-card"></i> Cards &amp; netbanking <span class="h-chip sm tint-info ms-1">Coming soon</span>
+    </button>
+    <form method="post" action="{{ action }}" class="h-pay-report">
+      {{ form.hidden_tag() }}
+      <div class="fw-semibold small mb-2">Paid already? Tell us so we can confirm it</div>
+      <div class="row g-2">
+        <div class="col-sm-4">{{ form.amount(class="form-control form-control-sm", placeholder="Amount paid", value=('%.2f' % amount)) }}</div>
+        <div class="col-sm-4">{{ form.paid_on(class="form-control form-control-sm") }}</div>
+        <div class="col-sm-4">{{ form.reference(class="form-control form-control-sm", placeholder="UPI / UTR reference") }}</div>
+        <div class="col-12">{{ form.notes(class="form-control form-control-sm", placeholder="Note (optional)", rows=1) }}</div>
+      </div>
+      <button class="btn btn-brand btn-sm mt-2">Report payment</button>
+    </form>
+  </div>
+</div>
+{% endmacro %}

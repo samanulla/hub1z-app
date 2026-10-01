@@ -10,8 +10,13 @@
       <span class="badge bg-secondary">{{ sub.status.value }}</span></h3>
     <div class="text-muted">{{ sub.plan.name }} × {{ sub.quantity }} from {{ sub.start_date }}</div>
   </div>
-  {% if company %}<a class="btn btn-outline-secondary" href="{{ url_for('admin.company_detail', company_id=company.id) }}">Back to company</a>
-  {% else %}<a class="btn btn-outline-secondary" href="{{ url_for('admin.individuals_list') }}">Back to individuals</a>{% endif %}
+  <div class="d-flex gap-2">
+    {% if sub.plan.plan_type.value == 'virtual_office' and sub.status.value == 'active' %}
+    <a class="btn btn-outline-dark" target="_blank" rel="noopener" href="{{ url_for('admin.subscription_address_letter', sub_id=sub.id) }}"><i class="bi bi-file-earmark-text"></i> Address letter (NOC)</a>
+    {% endif %}
+    {% if company %}<a class="btn btn-outline-secondary" href="{{ url_for('admin.company_detail', company_id=company.id) }}">Back to company</a>
+    {% else %}<a class="btn btn-outline-secondary" href="{{ url_for('admin.individuals_list') }}">Back to individuals</a>{% endif %}
+  </div>
 </div>
 
 <div class="row g-3">

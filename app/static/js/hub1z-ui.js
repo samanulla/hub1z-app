@@ -129,4 +129,50 @@
       }
     });
   });
+
+  // Copy buttons (UPI ID, Google Pay number)
+  $$('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (!navigator.clipboard) return;
+      navigator.clipboard.writeText(btn.getAttribute('data-copy')).then(function () {
+        var before = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check2"></i> Copied';
+        setTimeout(function () { btn.innerHTML = before; }, 1600);
+      });
+    });
+  });
+
+  // Installable app: register the service worker and offer "Install app" where the browser supports it
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+  }
+  var installPrompt = null;
+  var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  var isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  if (standalone) {
+    $$('[data-install-card]').forEach(function (el) { el.hidden = true; });
+  } else if (isIos) {
+    $$('[data-install-ios]').forEach(function (el) { el.hidden = false; });
+    $$('[data-install-other]').forEach(function (el) { el.hidden = true; });
+  }
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    installPrompt = e;
+    $$('[data-install-app]').forEach(function (el) { el.hidden = false; });
+    $$('[data-install-other]').forEach(function (el) { el.hidden = true; });
+  });
+  $$('[data-install-app]').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (!installPrompt) return;
+      installPrompt.prompt();
+      installPrompt.userChoice.finally(function () {
+        installPrompt = null;
+        $$('[data-install-app]').forEach(function (el) { el.hidden = true; });
+      });
+    });
+  });
+  window.addEventListener('appinstalled', function () {
+    $$('[data-install-card]').forEach(function (el) { el.hidden = true; });
+  });
 })();

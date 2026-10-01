@@ -56,8 +56,10 @@ def dashboard():
     recent_companies = Company.query.order_by(Company.created_at.desc()).limit(5).all()
     recent_bookings = (RoomBooking.query
                        .order_by(RoomBooking.created_at.desc()).limit(10).all())
+    from ...services.alerts import operator_alerts
     return render_template("admin/dashboard.html",
                            stats=stats,
+                           alerts=operator_alerts(g.operator_id) if getattr(g, "operator_id", None) else [],
                            recent_companies=recent_companies,
                            recent_bookings=recent_bookings)
 
@@ -469,8 +471,11 @@ def company_documents(company_id: int):
 @admin_bp.route("/invoices")
 @admin_required
 def invoices_list():
+    from ...models import PaymentSubmission, PaymentSubmissionStatus
     invoices = Invoice.query.order_by(Invoice.issued_at.desc().nullslast()).limit(200).all()
-    return render_template("admin/invoices/list.html", invoices=invoices)
+    reported = {s.invoice_id for s in PaymentSubmission.query.filter_by(status=PaymentSubmissionStatus.PENDING).all()}
+    invoices.sort(key=lambda i: i.id not in reported)  # invoices with a payment to confirm come first
+    return render_template("admin/invoices/list.html", invoices=invoices, reported=reported)
 
 
 @admin_bp.route("/billing/run", methods=["POST"])

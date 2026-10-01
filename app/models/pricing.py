@@ -17,6 +17,7 @@ class PlanType(str, enum.Enum):
     MANAGED_OFFICE = "managed_office"
     ALL_ACCESS = "all_access"
     DAY_PASS = "day_pass"
+    VIRTUAL_OFFICE = "virtual_office"  # business address + mail handling, no desk
     CUSTOM = "custom"
 
 

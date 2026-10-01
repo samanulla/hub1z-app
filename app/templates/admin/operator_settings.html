@@ -19,13 +19,20 @@
     <p class="text-muted small">Choose the primary location whose address will appear on new invoices for {{ operator.name }}.</p>
     {{ field(form.primary_location_id) }}
     <hr>
-    <h6>Manual payment details</h6>
-    <p class="text-muted small">These details are displayed publicly. No payment gateway is connected.</p>
+    <h6>How members pay you</h6>
+    <p class="text-muted small">Add your UPI ID and every invoice gets a QR code with the amount filled in. Members scan it with
+      Google Pay, PhonePe, Paytm or their bank app, then report the payment for you to confirm. These details are also shown on
+      your public membership page.</p>
     {{ field(form.payment_instructions) }}
     <div class="row">
       <div class="col-md-4">{{ field(form.payment_upi_id) }}</div>
       <div class="col-md-4">{{ field(form.payment_gpay) }}</div>
       <div class="col-md-4">{{ field(form.payment_bank_details) }}</div>
+    </div>
+    <div class="d-flex align-items-center gap-3 p-3 mb-3 rounded-3" style="background:var(--h-surface-2, #f6f7fb);border:1px dashed var(--h-line, #e6e8f0)">
+      <i class="bi bi-credit-card fs-4" style="color:var(--h-brand)"></i>
+      <div class="small"><b>Online payments with Razorpay</b> <span class="h-chip sm tint-info ms-1">Coming soon</span><br>
+        <span class="text-muted">Cards, netbanking and UPI with automatic confirmation, paid straight into your own Razorpay account.</span></div>
     </div>
     <button class="btn btn-dark">Save settings</button>
   </form>

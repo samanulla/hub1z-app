@@ -1,0 +1,10 @@
+Hi {{ parcel.user.full_name.split(' ')[0] if parcel.user else parcel.company.name }},
+
+A {{ parcel.kind_label | lower }}{% if parcel.carrier %} ({{ parcel.carrier }}){% endif %}{% if parcel.sender %} from {{ parcel.sender }}{% endif %} has arrived for {{ 'you' if parcel.user else parcel.company.name }} at {{ parcel.location.name if parcel.location else operator.name }} reception.
+
+Pickup code: {{ parcel.pickup_code }}
+
+Show this code at reception to collect it.{% if parcel.reference %}
+Tracking: {{ parcel.reference }}{% endif %}
+
+{{ operator.name }}

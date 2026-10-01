@@ -1,0 +1,6 @@
+<p>Hi {{ parcel.user.full_name.split(' ')[0] if parcel.user else parcel.company.name }},</p>
+<p>A {{ parcel.kind_label | lower }}{% if parcel.carrier %} ({{ parcel.carrier }}){% endif %}{% if parcel.sender %} from {{ parcel.sender }}{% endif %} has arrived for {{ 'you' if parcel.user else parcel.company.name }} at <b>{{ parcel.location.name if parcel.location else operator.name }}</b> reception.</p>
+<p style="font-size:13px;color:#5a6278;margin:18px 0 4px;">Pickup code</p>
+<p style="font-size:30px;font-weight:700;letter-spacing:6px;color:#151a2d;margin:0 0 18px;">{{ parcel.pickup_code }}</p>
+<p>Show this code at reception to collect it.{% if parcel.reference %}<br><span style="color:#5a6278;">Tracking: {{ parcel.reference }}</span>{% endif %}</p>
+<p>— {{ operator.name }}</p>

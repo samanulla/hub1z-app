@@ -76,7 +76,7 @@ All actions audit-logged.
 - **Platform discovery** — `/features`, `/features/<slug>`, and `/pricing` explain the operator product and published pricing tiers.
 - **Operator microsites** — each operator homepage links to `/spaces`, `/membership`, and `/availability`, using that operator's locations, active plans, and current resource snapshot.
 - **Regional signup** — self-serve operator signup captures country and applies initial currency, locale, and timezone defaults; these can be edited later.
-- **Manual payment display** — operator admins can publish UPI, Google Pay, bank details, and instructions on the public membership page. This is informational only; no gateway or payment automation is connected.
+- **UPI payments (no gateway)** — every open invoice has a UPI QR with the payee and amount filled in (`/company/invoices`, `/me/invoices` for individuals), plus Google Pay and bank details. The payer reports the payment; the operator confirms it on the invoice. Operators pay Hub1z the same way from `/admin/hub1z-billing`, using the Hub1z payment details the Platform Owner sets at `/platform/payment-details`; Hub1z confirms on the Finance page. Razorpay (cards, netbanking, automatic confirmation, paid into the operator's own Razorpay account) is shown as coming soon.
 
 **Operator lifecycle:** `TRIAL` (invited/self-registered, pending approval) → `ACTIVE` ⇄ `HOLD` (shared, reversible) → `SUSPENDED` (Owner-only hard stop) → `CHURNED`. Direct provisioning skips straight to `ACTIVE`.
 
@@ -100,6 +100,10 @@ All actions audit-logged.
 - **Reception** — day-pass QR scan (`/admin/reception`) and visitor check-in/out (`/hub/reception/visitors`).
 - **Leads** (`/admin/leads`) — the operator's own enquiry pipeline (New, Contacted, Tour booked, Proposal sent, Won/Lost): board with drag-and-drop, list, follow-ups due, conversion, history notes, CSV export.
 - **Attendance** (`/admin/attendance`) — who is in the space (members and team), a filterable log with CSV export, manual check-in, and QR check-in with no hardware: a signed **location QR** (printed poster, or a rotating code on a reception screen) is scanned with the person's own phone camera and opens `/checkin/<token>`; a personal **member QR** (`/checkin/pass`) is scanned by reception with the browser camera (`/admin/attendance/scan`). Posters can be retired from `/admin/attendance/qr`.
+- **Mail & parcels** (`/admin/parcels`) — reception logs letters, parcels and courier documents for a person or a company; the recipient is emailed a 6-digit pickup code; hand-over (with optional code check), return to sender and reminders. Members see theirs at `/me/parcels`, company admins at `/company/parcels`.
+- **Virtual office** — a plan type with no desk. Active virtual office clients (and the operator) download a No Objection Certificate for GST and ROC registration (`/company/subscriptions/<id>/address-letter.pdf`).
+- **Alerts** (`/admin/alerts`, plus "Needs attention" on the dashboard) — agreements ending within 60 days, lock-ins ending within 30, move-outs, rate revisions, overdue invoices, payments to confirm, parcels waiting over 3 days and lead follow-ups. The hourly scheduler emails each new item once: a digest to the operator team, renewal reminders and overdue payment reminders (with the UPI link) to the customer.
+- **Installable phone app** — every site is a Progressive Web App (`/manifest.webmanifest`, `/sw.js`): operator sites install with the operator's name and colour, the Platform as Hub1z, with shortcuts to Check in, Book and Calendar.
 
 ### Company (`/company/*`)
 Dashboard, employees CRUD (with **email invitations**, capped by both the company's own `max_employees` and the operator's tier-wide people cap — §5), team bookings visibility, invoices, allocations. Subscriptions are **read-only** here (`/company/plans` shows what the operator offers; subscribing is operator-controlled — see Admin above).
