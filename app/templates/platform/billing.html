@@ -11,7 +11,7 @@
       which is what that operator charges its member companies.)
     </div>
   </div>
-  {% if current_user.is_platform_owner %}
+  {% if current_user.has_platform_permission('pricing') %}
   <a class="btn btn-outline-dark" href="{{ url_for('platform.tiers_list') }}">Manage tiers</a>
   {% endif %}
 </div>

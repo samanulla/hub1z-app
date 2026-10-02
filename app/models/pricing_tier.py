@@ -13,7 +13,7 @@ from __future__ import annotations
 import enum
 from decimal import Decimal
 
-from sqlalchemy import Column, String, Integer, Numeric, Boolean, Enum, ForeignKey, Date, Text
+from sqlalchemy import Column, String, Integer, Numeric, Boolean, Enum, ForeignKey, Date, Text, JSON
 from sqlalchemy.orm import relationship
 
 from ..extensions import db
@@ -51,21 +51,26 @@ class PricingTier(db.Model, PkMixin, TimestampMixin):
 
     key = Column(String(30), unique=True, nullable=False, index=True)
     name = Column(String(80), nullable=False)
+    description = Column(String(200))
+    sort_order = Column(Integer, nullable=False, default=0)
     monthly_price = Column(Numeric(10, 2), nullable=True)  # null = custom/contact us
     annual_price = Column(Numeric(10, 2), nullable=True)
-    annual_discount = Column(Numeric(10, 2), nullable=False, default=0)
+    annual_discount = Column(Numeric(10, 2), nullable=False, default=0)  # percent off 12 months
     is_active = Column(Boolean, default=True, nullable=False)  # retired tiers stay valid for operators already on them
     status = Column(Enum(TierStatus), nullable=False, default=TierStatus.DRAFT)
+    is_public = Column(Boolean, nullable=False, default=False)  # shown on the public pricing page
+    is_highlighted = Column(Boolean, nullable=False, default=False)  # "Most popular" badge
+    contact_sales = Column(Boolean, nullable=False, default=False)  # custom pricing, no self-serve price
+    all_features = Column(Boolean, nullable=False, default=False)   # every lockable feature, no limits
 
     # Resource caps for operators on this tier. null = unlimited.
     max_locations = Column(Integer, nullable=True)
-    max_seats = Column(Integer, nullable=True)              # hot + dedicated desks
     included_active_contracted_seats = Column(Integer, nullable=True)
+    max_staff_users = Column(Integer, nullable=True)
+    max_open_leads = Column(Integer, nullable=True)
+    storage_mb = Column(Integer, nullable=True)
     additional_seat_rate = Column(Numeric(10, 2), nullable=False, default=0)
     additional_location_rate = Column(Numeric(10, 2), nullable=False, default=0)
-    included_features = Column(Text)
-    premium_modules = Column(Text)
-    trial_period_days = Column(Integer, nullable=False, default=0)
     seat_overage_policy = Column(Enum(OveragePolicy), nullable=False, default=OveragePolicy.ALLOW_AND_CHARGE)
     location_overage_policy = Column(Enum(OveragePolicy), nullable=False, default=OveragePolicy.REQUIRE_PLAN_UPGRADE)
     effective_from = Column(Date)
@@ -73,8 +78,6 @@ class PricingTier(db.Model, PkMixin, TimestampMixin):
     seat_usage_method = Column(Enum(SeatUsageMethod), nullable=False,
                                default=SeatUsageMethod.MAXIMUM_DURING_BILLING_PERIOD)
     pricing_version = Column(Integer, nullable=False, default=1)
-    max_private_offices = Column(Integer, nullable=True)    # "manager cabins"
-    max_rooms = Column(Integer, nullable=True)               # conference rooms
 
     def __repr__(self) -> str:
         return f"<PricingTier {self.key}>"
@@ -83,16 +86,22 @@ class PricingTier(db.Model, PkMixin, TimestampMixin):
         if self.monthly_price is None:
             return None
         discount = Decimal(self.annual_discount or 0)
-        return self.monthly_price * (Decimal(12) - discount / Decimal(100))
+        return (self.monthly_price * 12 * (Decimal(100) - discount) / Decimal(100)).quantize(Decimal("0.01"))
 
 
 class PlatformModule(db.Model, PkMixin, TimestampMixin):
+    """One row of the feature catalog (see services/catalog.py for the kinds)."""
     __tablename__ = "platform_modules"
 
     code = Column(String(50), unique=True, nullable=False, index=True)
     name = Column(String(120), nullable=False)
-    monthly_price = Column(Numeric(10, 2), nullable=False, default=0)
-    kind = Column(String(20), nullable=False, default="module")
+    description = Column(String(300))
+    monthly_price = Column(Numeric(10, 2), nullable=False, default=0)  # add-on price per unit per month
+    unit_price = Column(Numeric(10, 2), nullable=True)                 # pay-per-use price
+    unit_label = Column(String(40))
+    kind = Column(String(20), nullable=False, default="feature")
+    availability = Column(String(12), nullable=False, default="available")  # available / coming_soon / hidden
+    sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
 
     tiers = relationship("PricingTier", secondary=tier_modules, backref="module_catalog")
@@ -109,6 +118,12 @@ class OperatorSubscription(db.Model, PkMixin, TimestampMixin):
     operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"), nullable=False,
                        unique=True, index=True)
     tier_id = Column(Integer, ForeignKey("pricing_tiers.id", ondelete="SET NULL"), nullable=True)
+    status = Column(String(12), nullable=False, default="trial")
+    current_period_start = Column(Date)
+    current_period_end = Column(Date)
+    scheduled_tier_id = Column(Integer, ForeignKey("pricing_tiers.id", ondelete="SET NULL"))
+    scheduled_billing_cycle = Column(String(10))
+    scheduled_terms = Column(JSON)
     billing_cycle = Column(String(10), nullable=False, default="monthly")
     negotiated_base_price = Column(Numeric(10, 2), nullable=True)
     additional_free_seats = Column(Integer, nullable=False, default=0)
@@ -128,11 +143,33 @@ class OperatorSubscription(db.Model, PkMixin, TimestampMixin):
     tier = relationship("PricingTier", foreign_keys=[tier_id])
 
 
+class OperatorAddon(db.Model, PkMixin, TimestampMixin):
+    __tablename__ = "operator_addons"
+    __table_args__ = (db.UniqueConstraint("operator_id", "module_id", name="uq_operator_addon"),)
+
+    operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"), nullable=False, index=True)
+    module_id = Column(Integer, ForeignKey("platform_modules.id", ondelete="RESTRICT"), nullable=False)
+    quantity = Column(Integer, nullable=False, default=1)
+    monthly_price = Column(Numeric(10, 2), nullable=False, default=0)
+    active = Column(Boolean, nullable=False, default=False)
+    paid_through = Column(Date)
+    cancel_at_period_end = Column(Boolean, nullable=False, default=False)
+    renewal_quantity = Column(Integer)  # units kept from the next renewal; null = unchanged
+    module = relationship("PlatformModule")
+
+    @property
+    def renewing_quantity(self) -> int:
+        if self.cancel_at_period_end:
+            return 0
+        return self.quantity if self.renewal_quantity is None else self.renewal_quantity
+
+
 class OperatorUsageSnapshot(db.Model, PkMixin, TimestampMixin):
     __tablename__ = "operator_usage_snapshots"
 
     operator_id = Column(Integer, ForeignKey("operators.id", ondelete="CASCADE"), nullable=False, index=True)
     recorded_on = Column(Date, nullable=False, index=True)
     active_contracted_seats = Column(Integer, nullable=False, default=0)
+    active_locations = Column(Integer, nullable=False, default=0)
 
     operator = relationship("Operator", foreign_keys=[operator_id])

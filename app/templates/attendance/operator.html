@@ -11,7 +11,7 @@
   <div class="actions">
     <a class="btn btn-brand" href="{{ url_for('admin.attendance_scan') }}"><i class="bi bi-qr-code-scan"></i> Scan member QR</a>
     <a class="btn btn-soft" href="{{ url_for('admin.attendance_qr') }}"><i class="bi bi-qr-code"></i> Location QR codes</a>
-    <a class="btn btn-soft" href="{{ url_for('admin.attendance_export', **request.args) }}"><i class="bi bi-download"></i> Export</a>
+    <a class="btn btn-soft" href="{{ url_for('admin.attendance_export', **request.args) }}"><i class="bi bi-download"></i> {{ 'Export' if has_feature('attendance_export') else 'Upgrade to export' }}</a>
   </div>
 </div>
 
@@ -58,7 +58,7 @@
   </div>
   <div class="col-lg-5">
     <div class="h-card h-100"><div class="h-card-body">
-      <h5 class="mb-1">Check-ins, last 14 days</h5>
+      <h5 class="mb-1">Check-ins, last {{ stats.series | length }} days</h5>
       <div class="faint small mb-3">Busiest day: {{ peak }} check-in{{ 's' if peak != 1 }}</div>
       <div class="d-flex align-items-end gap-1" style="height:120px">
         {% for d, n in stats.series %}

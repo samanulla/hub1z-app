@@ -2,6 +2,9 @@
 import os
 os.environ.setdefault("FLASK_ENV", "testing")
 
+import re
+from decimal import Decimal
+
 from app import create_app
 from app.extensions import db
 from app.models import (
@@ -35,7 +38,7 @@ def test_owner_can_create_and_edit_tier():
     app = _app()
     _seed_owner(app)
     with app.app_context():
-        module = PlatformModule(code="analytics", name="Analytics", monthly_price=0, is_active=True)
+        module = PlatformModule(code="payroll", name="Payroll", kind="feature", monthly_price=0, is_active=True)
         db.session.add(module)
         db.session.commit()
         module_id = module.id
@@ -43,30 +46,40 @@ def test_owner_can_create_and_edit_tier():
     _login(c, "platform@hub1z.com", "OwnerPass123!")
 
     r = c.post("/platform/tiers/new", data={
-        "key": "starter", "name": "Starter", "monthly_price": "4999",
-        "annual_price": "49990", "status": "active", "max_locations": "1",
-        "included_active_contracted_seats": "50", "additional_seat_rate": "50",
-        "additional_location_rate": "1000", "annual_discount": "10", "trial_period_days": "14",
+        "key": "starter", "name": "Starter", "monthly_price": "4999", "status": "active",
+        "max_locations": "1", "included_active_contracted_seats": "50", "additional_seat_rate": "50",
+        "additional_location_rate": "1000", "annual_discount": "10", "max_staff_users": "3",
+        "max_open_leads": "100", "storage_mb": "500", "is_public": "y",
         "seat_overage_policy": "allow_and_charge", "location_overage_policy": "require_plan_upgrade",
-            "effective_from": "2026-01-01", "module_ids": [module_id],
-            "seat_usage_method": "maximum_during_billing_period",
+        "effective_from": "2026-01-01", "feature_ids": [module_id],
+        "seat_usage_method": "maximum_during_billing_period",
     }, follow_redirects=False)
     assert r.status_code == 302
     with app.app_context():
         tier = PricingTier.query.filter_by(key="starter").first()
         assert tier is not None
         assert tier.included_active_contracted_seats == 50
-        assert tier.status == TierStatus.ACTIVE
+        assert tier.max_staff_users == 3 and tier.max_open_leads == 100 and tier.storage_mb == 500
+        assert tier.is_public and tier.status == TierStatus.ACTIVE
+        assert [m.code for m in tier.module_catalog] == ["payroll"]
+        assert tier.annual_price == Decimal("53989.20")  # 12 months less 10%
         tid = tier.id
 
+    html = c.get(f"/platform/tiers/{tid}/edit").data.decode()
+    for field_name, expected in (("status", "active"), ("seat_overage_policy", "allow_and_charge"),
+                                 ("location_overage_policy", "require_plan_upgrade"),
+                                 ("seat_usage_method", "maximum_during_billing_period")):
+        options = re.search(rf'<select[^>]*id="{field_name}"[^>]*>(.*?)</select>', html, re.S).group(1)
+        assert re.search(rf'<option(?=[^>]*value="{expected}")(?=[^>]*selected)[^>]*>', options)
+
     r = c.post(f"/platform/tiers/{tid}/edit", data={
-        "key": "renamed-should-be-ignored", "name": "Starter Plus", "monthly_price": "5999",
-        "annual_price": "59990", "status": "active", "max_locations": "1",
-        "included_active_contracted_seats": "60", "additional_seat_rate": "50",
-        "additional_location_rate": "1000", "annual_discount": "10", "trial_period_days": "14",
+        "key": "renamed-should-be-ignored", "name": "Starter Plus", "monthly_price": "5999", "status": "active",
+        "max_locations": "1", "included_active_contracted_seats": "60", "additional_seat_rate": "50",
+        "additional_location_rate": "1000", "annual_discount": "10",
+        "max_staff_users": "", "max_open_leads": "", "storage_mb": "",
         "seat_overage_policy": "allow_and_charge", "location_overage_policy": "require_plan_upgrade",
-            "effective_from": "2026-01-01", "module_ids": [module_id],
-            "seat_usage_method": "maximum_during_billing_period",
+        "effective_from": "2026-01-01",
+        "seat_usage_method": "maximum_during_billing_period",
     }, follow_redirects=False)
     assert r.status_code == 302
     with app.app_context():
@@ -74,9 +87,43 @@ def test_owner_can_create_and_edit_tier():
         assert tier.name == "Starter Plus"
         assert tier.included_active_contracted_seats == 60
         assert tier.key == "starter"  # immutable once created
+        assert tier.module_catalog == []  # unticked features are removed
+        assert tier.max_staff_users is None  # blank means unlimited
 
 
-def test_manager_cannot_manage_tiers_even_with_billing_permission():
+def test_contact_sales_tier_needs_no_price_to_activate():
+    app = _app()
+    _seed_owner(app)
+    c = app.test_client()
+    _login(c, "platform@hub1z.com", "OwnerPass123!")
+    r = c.post("/platform/tiers/new", data={
+        "key": "enterprise", "name": "Enterprise", "status": "active", "contact_sales": "y", "all_features": "y",
+        "max_locations": "2", "max_staff_users": "5", "storage_mb": "500",
+        "seat_overage_policy": "require_plan_upgrade", "location_overage_policy": "require_plan_upgrade",
+        "seat_usage_method": "maximum_during_billing_period",
+    }, follow_redirects=False)
+    assert r.status_code == 302
+    with app.app_context():
+        tier = PricingTier.query.filter_by(key="enterprise").one()
+        assert tier.max_locations is None and tier.max_staff_users is None and tier.storage_mb is None
+        tier_id = tier.id
+    html = c.get(f"/platform/tiers/{tier_id}/edit").data.decode()
+    assert "Included in every plan" in html and "Bookings" in html
+    assert re.search(r'<div[^>]*id="feature-choices"[^>]*hidden', html)
+    assert re.search(r'<ul[^>]*id="all-feature-list"', html)
+    # A normal tier still needs its price and limits before it can go live.
+    r = c.post("/platform/tiers/new", data={
+        "key": "growth", "name": "Growth", "status": "active",
+        "seat_overage_policy": "require_plan_upgrade", "location_overage_policy": "require_plan_upgrade",
+        "seat_usage_method": "maximum_during_billing_period",
+    })
+    assert r.status_code == 200 and b"Monthly price is required" in r.data
+    with app.app_context():
+        assert PricingTier.query.filter_by(key="enterprise").one().contact_sales is True
+        assert PricingTier.query.filter_by(key="growth").first() is None
+
+
+def test_manager_cannot_manage_tiers_without_the_pricing_permission():
     app = _app()
     _seed_owner(app)
     with app.app_context():
@@ -87,18 +134,75 @@ def test_manager_cannot_manage_tiers_even_with_billing_permission():
 
     c = app.test_client()
     _login(c, "mgr@hub1z.com", "MgrPass123!")
-    assert c.get("/platform/tiers").status_code == 403
-    assert c.get("/platform/tiers/new").status_code == 403
+    for path in ("/platform/tiers", "/platform/tiers/new", "/platform/catalog", "/platform/payment-details",
+                 "/platform/documents"):
+        assert c.get(path).status_code == 403, path
 
 
-def _seed_operator_with_tier(app, max_seats=1, max_locations=1, max_rooms=1, max_private_offices=1):
+def test_owner_can_grant_a_manager_pricing_and_payment_setup():
+    app = _app()
+    _seed_owner(app)
+    with app.app_context():
+        mgr = User(email="mgr@hub1z.com", full_name="Mgr", role=UserRole.PLATFORM_MANAGER, is_active=True)
+        mgr.set_password("MgrPass123!")
+        mgr.set_platform_permissions(["pricing", "payment_setup"])
+        db.session.add(mgr); db.session.commit()
+
+    c = app.test_client()
+    _login(c, "mgr@hub1z.com", "MgrPass123!")
+    assert c.get("/platform/tiers").status_code == 200
+    assert c.get("/platform/catalog").status_code == 200
+    assert c.get("/platform/payment-details").status_code == 200
+    # Granting one permission never opens the others, or the owner-only team page.
+    assert c.get("/platform/finance").status_code == 403
+    assert c.get("/platform/team").status_code == 403
+
+
+def test_catalog_items_that_are_not_built_cannot_be_made_available():
+    app = _app()
+    _seed_owner(app)
+    c = app.test_client()
+    _login(c, "platform@hub1z.com", "OwnerPass123!")
+    assert c.get("/platform/catalog").status_code == 200  # first visit seeds the catalog
+    with app.app_context():
+        modules = {m.code: m.id for m in PlatformModule.query.all()}
+        assert PlatformModule.query.filter_by(kind="feature").count() == 10
+        assert PlatformModule.query.filter_by(code="api_webhooks").one().availability == "coming_soon"
+
+    base = {"name": "API & Webhooks", "monthly_price": "0", "is_active": "y", "sort_order": "10"}
+    r = c.post(f"/platform/catalog/{modules['api_webhooks']}/edit", data={**base, "availability": "available"})
+    assert r.status_code == 200 and b"isn&#39;t built yet" in r.data
+    r = c.post(f"/platform/catalog/{modules['extra_storage']}/edit", data={
+        **base, "name": "Extra Storage", "availability": "available", "monthly_price": "299",
+        "unit_label": "per 5 GB"})
+    assert r.status_code == 302
+    with app.app_context():
+        assert PlatformModule.query.filter_by(code="api_webhooks").one().availability == "coming_soon"
+        assert PlatformModule.query.filter_by(code="extra_storage").one().monthly_price == Decimal("299")
+
+
+def test_new_manager_form_leaves_sensitive_permissions_off():
+    app = _app()
+    _seed_owner(app)
+    c = app.test_client()
+    _login(c, "platform@hub1z.com", "OwnerPass123!")
+    page = c.get("/platform/team/new").data.decode()
+
+    def tag(key):
+        return re.search(rf'<input[^>]*name="perm_{key}"[^>]*>', page).group(0)
+
+    for key in ("pricing", "payment_setup", "operator_suspension", "documents"):
+        assert "checked" not in tag(key), key
+    assert "checked" in tag("reports")
+
+
+def _seed_operator_with_tier(app, max_locations=1):
     with app.app_context():
         t = Operator(slug="smallco", name="Small Co", primary_domain="smallco.hub1z.com",
                    status=OperatorStatus.ACTIVE, plan_tier="starter")
         db.session.add(t); db.session.flush()
         db.session.add(PricingTier(key="starter", name="Starter", monthly_price=4999, is_active=True,
-                                   max_locations=max_locations, max_seats=max_seats,
-                                   max_private_offices=max_private_offices, max_rooms=max_rooms))
+                                   max_locations=max_locations))
         admin = User(operator_id=t.id, email="admin@smallco.com", full_name="Admin",
                     role=UserRole.SUPER_ADMIN, is_active=True)
         admin.set_password("AdminPass123!")
@@ -113,7 +217,7 @@ def _seed_operator_with_tier(app, max_seats=1, max_locations=1, max_rooms=1, max
 
 def test_physical_seat_creation_is_not_a_saas_tier_cap():
     app = _app()
-    loc_id, fl_id = _seed_operator_with_tier(app, max_seats=1)
+    loc_id, fl_id = _seed_operator_with_tier(app)
     c = app.test_client()
     _login(c, "admin@smallco.com", "AdminPass123!")
 
@@ -133,7 +237,7 @@ def test_physical_seat_creation_is_not_a_saas_tier_cap():
 
 def test_private_offices_are_operational_inventory_not_saas_caps():
     app = _app()
-    loc_id, fl_id = _seed_operator_with_tier(app, max_seats=1, max_private_offices=1)
+    loc_id, fl_id = _seed_operator_with_tier(app)
     c = app.test_client()
     _login(c, "admin@smallco.com", "AdminPass123!")
 
@@ -152,7 +256,7 @@ def test_private_offices_are_operational_inventory_not_saas_caps():
 
 def test_rooms_are_not_capped_but_locations_are_enforced():
     app = _app()
-    loc_id, fl_id = _seed_operator_with_tier(app, max_rooms=0, max_locations=1)
+    loc_id, fl_id = _seed_operator_with_tier(app, max_locations=1)
     c = app.test_client()
     _login(c, "admin@smallco.com", "AdminPass123!")
 

@@ -2,9 +2,9 @@
 from .operator import Operator, OperatorScoped, OperatorStatus
 from .pricing_tier import (
     PricingTier, TierStatus, OveragePolicy, SeatUsageMethod, PlatformModule, OperatorSubscription,
-    OperatorUsageSnapshot,
+    OperatorUsageSnapshot, OperatorAddon,
 )
-from .user import User, UserRole, PLATFORM_FEATURES, PLATFORM_FEATURE_KEYS
+from .user import User, UserRole, PLATFORM_FEATURES, PLATFORM_FEATURE_KEYS, SENSITIVE_PLATFORM_FEATURES
 from .company import Company, CompanyStatus, CompanyDocument
 from .location import Location, Floor, Amenity
 from .space import Seat, SeatType, ConferenceRoom, RoomAmenity
@@ -26,7 +26,7 @@ from .expense import Expense, ExpenseCategory, ExpenseStatus
 from .finance import CreditNote, CreditNoteStatus, Refund, RefundStatus
 from .platform_billing import (
     PlatformInvoice, PlatformInvoiceStatus,
-    PlatformCreditNote, PlatformRefund, PlatformExpense, PlatformProfile, PlatformPaymentReport,
+    PlatformCreditNote, PlatformRefund, PlatformExpense, PlatformProfile, PlatformPaymentReport, PlatformPayment,
 )
 from .email_template import EmailTemplate, EmailKind
 from .settings import SystemSettings
@@ -55,7 +55,7 @@ from .community import (
 )
 
 __all__ = [
-    "User", "UserRole", "PLATFORM_FEATURES", "PLATFORM_FEATURE_KEYS",
+    "User", "UserRole", "PLATFORM_FEATURES", "PLATFORM_FEATURE_KEYS", "SENSITIVE_PLATFORM_FEATURES",
     "Company", "CompanyStatus", "CompanyDocument",
     "Location", "Floor", "Amenity",
     "Seat", "SeatType", "ConferenceRoom", "RoomAmenity",

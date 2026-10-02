@@ -28,7 +28,8 @@ def _seed_operator_at_cap(app, max_seats, existing_people=0):
         t = Operator(slug="tiny", name="Tiny Co", primary_domain="tiny.hub1z.com",
                   status=OperatorStatus.ACTIVE, plan_tier="starter")
         db.session.add(t); db.session.flush()
-        db.session.add(PricingTier(key="starter", name="Starter", is_active=True, max_seats=max_seats))
+        db.session.add(PricingTier(key="starter", name="Starter", is_active=True,
+                                   included_active_contracted_seats=max_seats))
         admin = User(operator_id=t.id, email="admin@tiny.com", full_name="Admin",
                     role=UserRole.SUPER_ADMIN, is_active=True)
         admin.set_password("AdminPass123!")
@@ -102,7 +103,8 @@ def test_company_admin_employee_add_not_blocked_by_seat_cap():
         t = Operator(slug="tiny", name="Tiny Co", primary_domain="tiny.hub1z.com",
                   status=OperatorStatus.ACTIVE, plan_tier="starter")
         db.session.add(t); db.session.flush()
-        db.session.add(PricingTier(key="starter", name="Starter", is_active=True, max_seats=1))
+        db.session.add(PricingTier(key="starter", name="Starter", is_active=True,
+                                   included_active_contracted_seats=1))
         company = Company(operator_id=t.id, name="Acme", billing_email="b@acme.example",
                           status=CompanyStatus.ACTIVE, max_employees=99)  # company's own cap is generous
         db.session.add(company); db.session.flush()

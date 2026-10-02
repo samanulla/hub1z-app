@@ -2,7 +2,7 @@
 {% block title %}{{ app_name }} · Run your coworking business{% endblock %}
 
 {% block content %}
-{% set trial_days = config.OPERATOR_TRIAL_DAYS %}
+{% set trial_days = trial_period_days() %}
 
 <!-- ============ HERO ============ -->
 <section class="s-hero">
@@ -223,24 +223,24 @@
     <div class="s-head">
       <span class="s-eyebrow">Pricing</span>
       <h2>Grow into it.</h2>
-      <p>Every plan includes the full platform. Tiers set how much space you can run, and you can upgrade any time.</p>
+      <p>Start with a free trial. Plans are priced by the size of the space you run, and you can upgrade any time.</p>
     </div>
-    {% set blurbs = {'starter': 'A space finding its feet.', 'growth': 'An established single site.', 'scale': 'A larger or multi-floor site.', 'enterprise': '500+ members or multi-city.'} %}
     <div class="s-prices">
-      {% for t in tiers %}
-      <div class="s-price {{ 'pop' if t.key == 'growth' }}">
-        {% if t.key == 'growth' %}<span class="badge">Most popular</span>{% endif %}
-        <h3>{{ t.name }}</h3>
-        <p class="desc">{{ blurbs.get(t.key, 'A flexible plan for growing operators.') }}</p>
-        <div class="amt">{% if t.monthly_price is not none %}{{ t.monthly_price | inr }}<small> /month</small>{% else %}Custom{% endif %}</div>
+      {% for plan in plans %}
+      <div class="s-price {{ 'pop' if plan.popular }}">
+        {% if plan.popular %}<span class="badge">Most popular</span>{% endif %}
+        <h3>{{ plan.tier.name }}</h3>
+        {% if plan.description %}<p class="desc">{{ plan.description }}</p>{% endif %}
+        <div class="amt">{% if plan.price is not none %}{{ plan.price | inr }}<small> /month</small>{% else %}Custom{% endif %}</div>
         <ul class="s-list">
-          <li><i class="bi bi-check2"></i>{{ t.max_locations if t.max_locations is not none else "Custom" }} location(s)</li>
-          <li><i class="bi bi-check2"></i>{{ t.included_active_contracted_seats if t.included_active_contracted_seats is not none else "Custom" }} active contracted seats</li>
-          <li><i class="bi bi-check2"></i>Custom operational inventory</li>
-          {% set included_modules = t.module_catalog | selectattr('kind', 'equalto', 'module') | list %}
-          <li><i class="bi bi-check2"></i>{% if included_modules %}{{ included_modules | map(attribute='name') | join(', ') }}{% else %}Custom features, integrations and support{% endif %}</li>
+          {% for line in plan.limits %}<li><i class="bi bi-check2"></i>{{ line }}</li>{% endfor %}
+          {% if plan.all_features %}<li><i class="bi bi-check2"></i>Every feature included</li>{% endif %}
         </ul>
-        <a class="s-btn {{ 'primary' if t.key == 'growth' else 'ghost' }} block" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
+        {% if plan.custom %}
+        <a class="s-btn ghost block" href="mailto:contact@hub1z.com?subject=Hub1z%20{{ plan.tier.name | urlencode }}%20plan">Contact sales</a>
+        {% else %}
+        <a class="s-btn {{ 'primary' if plan.popular else 'ghost' }} block" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
+        {% endif %}
       </div>
       {% else %}
       <p style="grid-column:1/-1; text-align:center; color:var(--s-ink-2)">Pricing is being prepared. <a href="{{ url_for('auth.register_operator') }}" style="color:var(--s-brand); font-weight:600">Start a free trial</a> in the meantime.</p>

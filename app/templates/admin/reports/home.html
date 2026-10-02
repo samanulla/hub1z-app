@@ -38,6 +38,7 @@
       <div class="card-body">
         <i class="bi bi-people-fill fs-2"></i>
         <h5 class="mt-2">People</h5>
+        {% if not has_feature('advanced_reports') %}<span class="badge text-bg-warning">Upgrade</span>{% endif %}
         <p class="text-muted small mb-0">Staff, members, companies, new signups.</p>
       </div>
     </a>
@@ -47,6 +48,7 @@
       <div class="card-body">
         <i class="bi bi-grid-3x3-gap fs-2"></i>
         <h5 class="mt-2">Capacity heatmap</h5>
+        {% if not has_feature('advanced_reports') %}<span class="badge text-bg-warning">Upgrade</span>{% endif %}
         <p class="text-muted small mb-0">Booking density by day-of-week and hour.</p>
       </div>
     </a>

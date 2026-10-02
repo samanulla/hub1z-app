@@ -12,7 +12,7 @@
     </div>
     <div class="s-toggle" role="group" aria-label="Billing period">
       <a class="{{ 'on' if billing == 'monthly' }}" href="{{ url_for('public_pricing', billing='monthly') }}">Monthly</a>
-      <a class="{{ 'on' if billing == 'annual' }}" href="{{ url_for('public_pricing', billing='annual') }}">Annual: save 2 months</a>
+      <a class="{{ 'on' if billing == 'annual' }}" href="{{ url_for('public_pricing', billing='annual') }}">Annual{% if best_discount %}: save up to {{ '%g' | format(best_discount) }}%{% endif %}</a>
     </div>
   </div>
 </section>
@@ -24,7 +24,7 @@
       <div class="s-price {{ 'pop' if plan.popular }}">
         {% if plan.popular %}<span class="badge">Most popular</span>{% endif %}
         <h3>{{ plan.tier.name }}</h3>
-        <p class="desc">{{ plan.description }}</p>
+        {% if plan.description %}<p class="desc">{{ plan.description }}</p>{% endif %}
         {% if plan.price is not none %}
           <div class="amt">{{ plan.price | inr }}<small> /month</small></div>
         {% else %}
@@ -32,20 +32,50 @@
         {% endif %}
         <div class="sub">{% if billing == 'annual' and plan.annual is not none %}{{ plan.annual | inr }} billed annually{% endif %}</div>
         <ul class="s-list">
-          <li><i class="bi bi-people"></i>{% if plan.tier.max_seats is not none %}Up to {{ plan.tier.max_seats }} members{% else %}For multi-city operators{% endif %}</li>
+          {% for line in plan.limits %}<li><i class="bi bi-people"></i>{{ line }}</li>{% endfor %}
+          {% if plan.all_features %}
+          <li><i class="bi bi-check2"></i>Every feature included</li>
+          {% else %}
           {% for feature in plan.features %}<li><i class="bi bi-check2"></i>{{ feature }}</li>{% endfor %}
+          {% endif %}
         </ul>
+        {% if plan.custom %}
+        <a class="s-btn ghost block" href="mailto:contact@hub1z.com?subject=Hub1z%20{{ plan.tier.name | urlencode }}%20plan">Contact sales</a>
+        {% else %}
         <a class="s-btn {{ 'primary' if plan.popular else 'ghost' }} block" href="{{ url_for('auth.register_operator') }}">Start free trial</a>
+        {% endif %}
       </div>
       {% else %}
       <p style="grid-column:1/-1; text-align:center; color:var(--s-ink-2)">Pricing is being prepared. Start a free trial to explore the platform.</p>
       {% endfor %}
     </div>
 
-    <div class="s-grid2" style="margin-top:40px; gap:28px">
-      <p style="color:var(--s-ink-2); font-size:15px">Every operator plan includes the core Hub1z workspace: locations, bookings, memberships, reporting, operator roles and a branded member experience.</p>
-      <p style="color:var(--s-ink-3); font-size:15px">Prices are for comparison. Final plan and currency are confirmed during onboarding. No card required.</p>
+    {% if catalog %}
+    <div class="s-grid2" style="margin-top:48px; gap:28px">
+      <div>
+        <h3 style="font-size:20px">Included in every plan</h3>
+        <ul class="s-list">
+          {% for name in catalog.always %}<li><i class="bi bi-check2"></i>{{ name }}</li>{% endfor %}
+        </ul>
+      </div>
+      <div>
+        {% if catalog.addons %}
+        <h3 style="font-size:20px">Add-ons</h3>
+        <p style="color:var(--s-ink-3); font-size:14px">Available on any plan.</p>
+        <ul class="s-list">
+          {% for item in catalog.addons %}<li><i class="bi bi-plus-circle"></i>{{ item.name }} <span style="color:var(--s-ink-3)">&middot; {{ item.price }}</span></li>{% endfor %}
+        </ul>
+        {% endif %}
+        {% if catalog.usage %}
+        <h3 style="font-size:20px; margin-top:24px">Pay as you go</h3>
+        <ul class="s-list">
+          {% for item in catalog.usage %}<li><i class="bi bi-receipt"></i>{{ item.name }} <span style="color:var(--s-ink-3)">&middot; {{ item.price }}</span></li>{% endfor %}
+        </ul>
+        {% endif %}
+      </div>
     </div>
+    {% endif %}
+    <p style="margin-top:32px; color:var(--s-ink-3); font-size:15px">Prices exclude GST. Every plan starts with a free trial; no card required.</p>
   </div>
 </section>
 {% endblock %}

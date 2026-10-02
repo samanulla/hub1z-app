@@ -24,8 +24,10 @@ def vpa_of(*candidates) -> str | None:
 def upi_uri(vpa: str | None, payee: str, amount, note: str) -> str | None:
     if not vpa:
         return None
-    params = [("pa", vpa), ("pn", (payee or "")[:50]), ("am", f"{Decimal(amount or 0):.2f}"), ("cu", "INR"),
-              ("tn", (note or "")[:80])]
+    params = [("pa", vpa), ("pn", (payee or "")[:50])]
+    if amount is not None:
+        params.append(("am", f"{Decimal(amount):.2f}"))
+    params.extend([("cu", "INR"), ("tn", (note or "")[:80])])
     return "upi://pay?" + "&".join(f"{k}={quote(str(v), safe='@.')}" for k, v in params)
 
 

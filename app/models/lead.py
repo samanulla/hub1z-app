@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, ForeignKey, Text, Date, DateTime, Numeric
+from sqlalchemy import Column, String, Integer, ForeignKey, Text, Date, DateTime, Numeric, Boolean
 from sqlalchemy.orm import relationship
 
 from ..extensions import db
@@ -23,6 +23,7 @@ class Lead(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     seats = Column(Integer)
     expected_value = Column(Numeric(12, 2), nullable=False, default=0)  # rupees per month
     source = Column(String(40))
+    is_website_enquiry = Column(Boolean, nullable=False, default=False)
     stage = Column(String(20), nullable=False, default="new", index=True)
     temperature = Column(String(10), nullable=False, default="warm")
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)

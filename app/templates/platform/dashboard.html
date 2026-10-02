@@ -24,6 +24,25 @@
   </div>
 </div>
 
+{% if waiting_total %}
+<div class="h-card mb-3" data-payment-notice>
+  <div class="h-card-head">
+    <div><h5>Payments to confirm</h5><div class="sub">{{ waiting_total }} operator payment{{ '' if waiting_total == 1 else 's' }} waiting for approval</div></div>
+    <a class="btn btn-brand btn-sm" href="{{ url_for('platform.finance_dashboard') }}#payment-reports">Review payments</a>
+  </div>
+  <div class="h-card-body">
+    {% for r in waiting %}
+    <div class="h-list-item">
+      <span class="h-avatar av-{{ loop.index % 6 + 1 }}">{{ r.operator.name | initials }}</span>
+      <div class="grow"><div class="t">{{ r.operator.name }} · {{ r.amount | inr }}</div>
+        <div class="s">Invoice {{ r.invoice.number }} · paid {{ r.paid_on | date }}{% if r.reference %} · ref {{ r.reference }}{% endif %}</div></div>
+      <span class="h-chip sm tint-warn">Awaiting approval</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <div class="row g-3 mb-3">
   <div class="col-12 col-sm-6 col-xl-3">
     <div class="h-card h-kpi">

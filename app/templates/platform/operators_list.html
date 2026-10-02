@@ -4,10 +4,12 @@
 {% block content %}
 <div class="d-flex justify-content-between mb-3">
   <h3>Operators</h3>
+  {% if current_user.has_platform_permission('operators') %}
   <div class="d-flex gap-2">
     <a class="btn btn-outline-dark" href="{{ url_for('platform.operator_invite') }}">+ Invite operator</a>
     <a class="btn btn-dark" href="{{ url_for('platform.operator_new') }}">+ Provision operator</a>
   </div>
+  {% endif %}
 </div>
 
 <table class="table bg-white shadow-sm">
@@ -47,6 +49,7 @@
         {% else %}<span class="badge bg-secondary">{{ t.status.value }}</span>{% endif %}
       </td>
       <td class="text-end">
+        {% if current_user.has_platform_permission('operators') %}
         <a class="btn btn-sm btn-outline-dark" href="{{ url_for('platform.operator_edit', operator_id=t.id) }}">Edit</a>
 
         {% if t.status.value == 'trial' %}
@@ -65,8 +68,9 @@
           <button class="btn btn-sm btn-outline-warning">Hold</button>
         </form>
         {% endif %}
+        {% endif %}
 
-        {% if current_user.is_platform_owner %}
+        {% if current_user.has_platform_permission('operator_suspension') %}
           {% if t.status.value == 'suspended' %}
           <form method="post" action="{{ url_for('platform.operator_activate', operator_id=t.id) }}" class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

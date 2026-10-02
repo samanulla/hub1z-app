@@ -1,26 +1,45 @@
 {% extends "base.html" %}
+{% from "_macros.html" import field %}
 {% block title %}Pricing tiers{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between mb-3">
+<div class="d-flex flex-wrap justify-content-between gap-3 mb-3">
   <div>
     <h3 class="mb-1">Pricing tiers</h3>
-    <div class="text-muted small">Owner-only. Defines Hub1 subscription pricing, contracted-seat overages,
-      locations, features and operator trial terms.</div>
   </div>
-  <a class="btn btn-dark" href="{{ url_for('platform.tier_new') }}">+ New tier</a>
+  <div class="d-flex gap-2 align-items-start">
+    <a class="btn btn-outline-dark" href="{{ url_for('platform.catalog_list') }}">Feature catalog</a>
+    <a class="btn btn-dark" href="{{ url_for('platform.tier_new') }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> New tier</a>
+  </div>
 </div>
 
+<div class="card mb-4"><div class="card-body">
+  <h6>Plan settings</h6>
+  <form method="post" action="{{ url_for('platform.tier_settings') }}" novalidate>
+    {{ settings_form.hidden_tag() }}
+    <div class="row align-items-end">
+      <div class="col-md-2">{{ field(settings_form.trial_days) }}</div>
+      <div class="col-md-3">{{ field(settings_form.trial_tier_key) }}</div>
+      <div class="col-md-3">{{ field(settings_form.renewal_notice_days) }}</div>
+      <div class="col-md-4">{{ field(settings_form.pricing_page_public) }}</div>
+    </div>
+    <button class="btn btn-dark btn-sm">Save plan settings</button>
+  </form>
+</div></div>
+
+<div class="table-responsive">
 <table class="table bg-white shadow-sm">
   <thead>
     <tr>
       <th>Tier</th>
       <th>Monthly price</th>
       <th>Annual price</th>
-      <th>Included locations</th>
-      <th>Included active seats</th>
-      <th>Additional seat rate</th>
-      <th>Additional location rate</th>
+      <th>Locations</th>
+      <th>Included seats</th>
+      <th>Staff</th>
+      <th>Open leads</th>
+      <th>Storage</th>
+      <th>Public</th>
       <th>Status</th>
       <th></th>
     </tr>
@@ -28,13 +47,17 @@
   <tbody>
     {% for t in tiers %}
     <tr>
-      <td><strong>{{ t.name }}</strong> <code class="text-muted">{{ t.key }}</code></td>
-      <td>{{ "₹%.0f"|format(t.monthly_price) if t.monthly_price is not none else "Custom" }}</td>
-      <td>{{ "₹%.0f"|format(t.annual_price) if t.annual_price is not none else "Custom" }}</td>
-      <td>{{ t.max_locations if t.max_locations is not none else "Custom" }}</td>
-      <td>{{ t.included_active_contracted_seats if t.included_active_contracted_seats is not none else "Custom" }}</td>
-      <td>{{ t.additional_seat_rate | money }}</td>
-      <td>{{ t.additional_location_rate | money }}</td>
+      <td><strong>{{ t.name }}</strong> <code class="text-muted">{{ t.key }}</code>
+        {% if t.all_features %}<span class="badge bg-dark">All features</span>{% endif %}
+        {% if t.is_highlighted %}<span class="badge bg-warning text-dark">Popular</span>{% endif %}</td>
+      <td>{{ t.monthly_price | inr if t.monthly_price is not none else ("Contact sales" if t.contact_sales else "Not set") }}</td>
+      <td>{{ t.annual_price | inr if t.annual_price is not none else ("Contact sales" if t.contact_sales else "Not set") }}</td>
+      <td>{{ t.max_locations if t.max_locations is not none else "Unlimited" }}</td>
+      <td>{{ t.included_active_contracted_seats if t.included_active_contracted_seats is not none else "Unlimited" }}</td>
+      <td>{{ t.max_staff_users if t.max_staff_users is not none else "Unlimited" }}</td>
+      <td>{{ t.max_open_leads if t.max_open_leads is not none else "Unlimited" }}</td>
+      <td>{{ (t.storage_mb ~ " MB") if t.storage_mb is not none else "Unlimited" }}</td>
+      <td>{% if t.is_public %}<span class="badge bg-success">Shown</span>{% else %}<span class="badge bg-light text-dark">Hidden</span>{% endif %}</td>
       <td>
         <span class="badge bg-secondary">{{ t.status.value }}</span>
       </td>
@@ -43,8 +66,9 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="9" class="text-center text-muted py-4">No tiers yet.</td></tr>
+    <tr><td colspan="11" class="text-center text-muted py-4">No tiers yet.</td></tr>
     {% endfor %}
   </tbody>
 </table>
+</div>
 {% endblock %}

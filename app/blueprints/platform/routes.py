@@ -3,21 +3,20 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, abort
+from flask_login import current_user
 
 from ...extensions import db
 from ...models import (
     Operator, OperatorStatus, User, UserRole, Company, Location,
     PricingPlan, PlanType, BillingCycle, EmailTemplate, EmailKind,
-    AuditLog, Invoice, PricingTier,
+    AuditLog, Invoice, PricingTier, PlatformPaymentReport,
 )
 from ...services import audit_service
 from ...services import credit_service
 from ...services import mail_service
 from ...services.locale_data import CURRENCY_SYMBOLS
-from ...utils.decorators import (
-    platform_staff_required, platform_permission_required, platform_owner_required,
-)
+from ...utils.decorators import platform_staff_required, platform_permission_required
 from .forms import OperatorForm, NewOperatorForm
 
 
@@ -70,12 +69,21 @@ def _seed_operator_defaults(operator: Operator) -> None:
 @platform_staff_required
 def dashboard():
     from ...services import platform_dashboard
-    return render_template("platform/dashboard.html", dash=platform_dashboard.build())
+    waiting, waiting_total = [], 0
+    if current_user.has_platform_permission("billing"):
+        pending = PlatformPaymentReport.query.filter_by(status="pending")
+        waiting_total = pending.count()
+        waiting = pending.order_by(PlatformPaymentReport.created_at).limit(5).all()
+    return render_template("platform/dashboard.html", dash=platform_dashboard.build(),
+                           waiting=waiting, waiting_total=waiting_total)
 
 
 @platform_bp.route("/operators")
-@platform_permission_required("operators")
+@platform_staff_required
 def operators_list():
+    if not any(current_user.has_platform_permission(permission)
+               for permission in ("operators", "operator_suspension")):
+        abort(403)
     operators = (Operator.query
                .execution_options(skip_operator_filter=True)
                .order_by(Operator.name).all())
@@ -92,6 +100,9 @@ def operators_list():
 @platform_permission_required("operators")
 def operator_new():
     form = NewOperatorForm()
+    if (form.is_submitted() and form.status.data == OperatorStatus.SUSPENDED.value
+            and not current_user.has_platform_permission("operator_suspension")):
+        abort(403)
     form.plan_tier.choices = [(t.key, t.name) for t in
                               PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all()]
     if form.validate_on_submit():
@@ -145,6 +156,10 @@ def operator_edit(operator_id: int):
     t = (Operator.query.execution_options(skip_operator_filter=True)
                      .filter_by(id=operator_id).first_or_404())
     form = OperatorForm(obj=t)
+    if (form.is_submitted() and form.status.data != t.status.value
+            and OperatorStatus.SUSPENDED.value in (form.status.data, t.status.value)
+            and not current_user.has_platform_permission("operator_suspension")):
+        abort(403)
     tiers = PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all()
     choices = [(pt.key, pt.name) for pt in tiers]
     if t.plan_tier and t.plan_tier not in {k for k, _ in choices}:
@@ -239,9 +254,9 @@ def operator_release_hold(operator_id: int):
 
 
 @platform_bp.route("/operators/<int:operator_id>/suspend", methods=["POST"])
-@platform_owner_required
+@platform_permission_required("operator_suspension")
 def operator_suspend(operator_id: int):
-    """Hard stop (deactivation) — Platform Super Admin only, not delegable."""
+    """Hard stop (deactivation): the Owner, or a Manager granted Suspend & reactivate."""
     t = (Operator.query.execution_options(skip_operator_filter=True)
                      .filter_by(id=operator_id).first_or_404())
     t.status = OperatorStatus.SUSPENDED
@@ -252,10 +267,10 @@ def operator_suspend(operator_id: int):
 
 
 @platform_bp.route("/operators/<int:operator_id>/activate", methods=["POST"])
-@platform_owner_required
+@platform_permission_required("operator_suspension")
 def operator_activate(operator_id: int):
-    """Reactivating out of a hard Suspend — Platform Super Admin only, to match
-    Suspend being Owner-exclusive. (Reactivating from Hold is operator_release_hold.)"""
+    """Reactivating out of a hard Suspend, gated like Suspend itself.
+    (Reactivating from Hold is operator_release_hold.)"""
     t = (Operator.query.execution_options(skip_operator_filter=True)
                      .filter_by(id=operator_id).first_or_404())
     t.status = OperatorStatus.ACTIVE

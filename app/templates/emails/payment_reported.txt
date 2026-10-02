@@ -1,0 +1,12 @@
+{{ reporter_operator.name }} has reported a payment to Hub1z. It needs your approval.
+
+Invoice: {{ invoice.number }}{% for line in invoice.lines or [] %}
+  - {{ line.description }}{% endfor %}
+Invoice total: {{ invoice.amount | inr }}
+Amount reported: {{ report.amount | inr }}
+Paid on: {{ report.paid_on | date }}
+Reference: {{ report.reference or '-' }}
+Notes: {{ report.notes or '-' }}
+Reported by: {{ reporter.full_name }} <{{ reporter.email }}>
+
+Confirm or reject it: {{ portal_url }}{{ url_for('platform.finance_dashboard') }}#payment-reports

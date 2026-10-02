@@ -31,15 +31,19 @@ def active_contracted_seats(operator_id: int) -> int:
     return max(contracted, assigned)
 
 
-def record_usage_snapshot(operator_id: int) -> int:
+def record_usage_snapshot(operator_id: int, on: date | None = None) -> int:
+    on = on or date.today()
     seats = active_contracted_seats(operator_id)
-    snapshot = OperatorUsageSnapshot.query.filter_by(operator_id=operator_id, recorded_on=date.today()).first()
+    locations = Location.query.filter_by(operator_id=operator_id).count()
+    snapshot = OperatorUsageSnapshot.query.filter_by(operator_id=operator_id, recorded_on=on).first()
     if snapshot is None:
-        snapshot = OperatorUsageSnapshot(operator_id=operator_id, recorded_on=date.today(), active_contracted_seats=seats)
+        snapshot = OperatorUsageSnapshot(operator_id=operator_id, recorded_on=on, active_contracted_seats=seats,
+                         active_locations=locations)
         from ..extensions import db
         db.session.add(snapshot)
     else:
         snapshot.active_contracted_seats = max(snapshot.active_contracted_seats, seats)
+        snapshot.active_locations = max(snapshot.active_locations, locations)
     return seats
 
 

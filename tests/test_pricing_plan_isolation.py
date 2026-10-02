@@ -17,7 +17,7 @@ from app import create_app
 from app.extensions import db
 from app.models import (
     BillingCycle, BillingUnit, Company, CompanyStatus, LocationScope,
-    OperatorSubscription, PlanScope, PlanStatus, PlanType, PricingPlan,
+    OperatorSubscription, PlanScope, PlanStatus, PlanType, PlatformInvoice, PricingPlan,
     PricingTier, SubscriptionChangeRequest, Operator, OperatorStatus, TierStatus,
     User, UserRole,
 )
@@ -150,11 +150,12 @@ def test_enterprise_tier_without_negotiated_price_does_not_crash_billing():
         "implementation_charge": "0", "tax_rate": "0",
     }, headers={"Host": "hub1z.com"}, follow_redirects=False)
     assert save.status_code == 302
+    assert save.headers["Location"].endswith(f"/platform/billing/{operator_id}/subscription")
 
     with app.app_context():
-        subscription = OperatorSubscription.query.filter_by(operator_id=operator_id).one()
-        assert subscription.pricing_snapshot is not None
-        assert '"monthly_price": null' in subscription.pricing_snapshot
+        # An unpriced Enterprise contract cannot be invoiced, so nothing is stored or activated.
+        assert OperatorSubscription.query.filter_by(operator_id=operator_id).count() == 0
+        assert PlatformInvoice.query.filter_by(operator_id=operator_id).count() == 0
 
     billing_page = client.get("/platform/billing", headers={"Host": "hub1z.com"})
     assert billing_page.status_code == 200

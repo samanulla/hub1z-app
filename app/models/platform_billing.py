@@ -9,7 +9,8 @@ operator, not just the ambient request operator.
 from __future__ import annotations
 
 import enum
-from sqlalchemy import Column, Integer, ForeignKey, Enum, Date, DateTime, Numeric, String, Text
+from decimal import Decimal
+from sqlalchemy import Boolean, Column, Integer, ForeignKey, Enum, Date, DateTime, Numeric, String, Text, JSON
 from sqlalchemy.orm import relationship
 
 from ..extensions import db
@@ -35,10 +36,37 @@ class PlatformInvoice(db.Model, PkMixin, TimestampMixin):
     currency = Column(String(3), default="INR", nullable=False)
     status = Column(Enum(PlatformInvoiceStatus), default=PlatformInvoiceStatus.ISSUED, nullable=False, index=True)
     notes = Column(Text)
+    kind = Column(String(12), nullable=False, default="manual")
+    idempotency_key = Column(String(160), unique=True)
+    subtotal = Column(Numeric(10, 2), nullable=False, default=0)
+    cgst = Column(Numeric(10, 2), nullable=False, default=0)
+    sgst = Column(Numeric(10, 2), nullable=False, default=0)
+    igst = Column(Numeric(10, 2), nullable=False, default=0)
+    tax_rate = Column(Numeric(5, 2), nullable=False, default=0)
+    gst_state = Column(String(2))
+    sac_code = Column(String(10))
+    lines = Column(JSON, nullable=False, default=list)
+    activation = Column(JSON)
+    paid_at = Column(DateTime)
 
     operator = relationship("Operator")
     credit_notes = relationship("PlatformCreditNote", back_populates="invoice")
     refunds = relationship("PlatformRefund", back_populates="invoice")
+    payments = relationship("PlatformPayment", back_populates="invoice")
+
+
+class PlatformPayment(db.Model, PkMixin, TimestampMixin):
+    __tablename__ = "platform_payments"
+
+    invoice_id = Column(Integer, ForeignKey("platform_invoices.id", ondelete="CASCADE"), nullable=False, index=True)
+    report_id = Column(Integer, ForeignKey("platform_payment_reports.id", ondelete="SET NULL"), unique=True)
+    amount = Column(Numeric(10, 2), nullable=False)
+    method = Column(String(16), nullable=False)
+    reference = Column(String(120))
+    request_key = Column(String(64), unique=True)
+    recorded_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    paid_on = Column(Date, nullable=False)
+    invoice = relationship("PlatformInvoice", back_populates="payments")
 
 
 class PlatformCreditNote(db.Model, PkMixin, TimestampMixin):
@@ -95,6 +123,19 @@ class PlatformProfile(db.Model, PkMixin, TimestampMixin):
     bank_details = Column(String(500))
     payment_instructions = Column(String(500))
 
+    # Tax and invoicing for Hub1z's own invoices.
+    gst_state = Column(String(2))
+    default_gst_rate = Column(Numeric(5, 2), nullable=False, default=Decimal("18"))
+    sac_code = Column(String(10))
+    invoice_prefix = Column(String(10), nullable=False, default="H1Z")
+    payment_terms_days = Column(Integer, nullable=False, default=7)
+
+    # Plans, trial and the public pricing page.
+    trial_days = Column(Integer)  # null = the OPERATOR_TRIAL_DAYS config default
+    trial_tier_key = Column(String(30), nullable=False, default="growth")
+    renewal_notice_days = Column(Integer, nullable=False, default=7)
+    pricing_page_public = Column(Boolean, nullable=False, default=False)
+
     @classmethod
     def get(cls) -> "PlatformProfile":
         row = cls.query.order_by(cls.id).first()
@@ -103,6 +144,11 @@ class PlatformProfile(db.Model, PkMixin, TimestampMixin):
             db.session.add(row)
             db.session.flush()
         return row
+
+    @classmethod
+    def peek(cls) -> "PlatformProfile | None":
+        """Read-only lookup for public pages: never creates the row."""
+        return cls.query.order_by(cls.id).first()
 
 
 class PlatformPaymentReport(db.Model, PkMixin, TimestampMixin):

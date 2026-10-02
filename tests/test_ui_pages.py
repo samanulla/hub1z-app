@@ -37,7 +37,8 @@ def test_platform_dashboard_numbers():
         ])
         db.session.commit()
         d = platform_dashboard.build()
-        assert d["operators_total"] == 3 and d["active"] == 2 and d["trials"] == 1 and d["trials_ending_7"] == 1
+        # Seeded operators start on the configurable trial, so only Newco ends within seven days.
+        assert d["operators_total"] == 3 and d["active"] == 0 and d["trials"] == 3 and d["trials_ending_7"] == 1
         assert d["collected_this_month"] == Decimal("100000") and d["billed_this_month"] == Decimal("100000")
         assert d["chart"]["billed"][-2:] == [50000.0, 100000.0] and d["chart"]["collected"][-2:] == [0.0, 100000.0]
         assert len(d["chart"]["labels"]) == 12

@@ -9,7 +9,7 @@
     <div class="muted mt-1">{{ 'Workspace operators who want to run their space on hub1z' if scope == 'platform' else 'Enquiries from people and companies who want to join your space' }}</div>
   </div>
   <div class="actions">
-    <a class="btn btn-soft" href="{{ url_for(bp ~ '.leads_export') }}"><i class="bi bi-download"></i> Export</a>
+    <a class="btn btn-soft" href="{{ url_for(bp ~ '.leads_export') }}"><i class="bi bi-download"></i> {{ 'Export' if scope == 'platform' or has_feature('lead_export') else 'Upgrade to export' }}</a>
     <a class="btn btn-brand" href="{{ url_for(bp ~ '.lead_new') }}"><i class="bi bi-plus-lg"></i> Add lead</a>
   </div>
 </div>

@@ -8,32 +8,74 @@
 <div class="card"><div class="card-body">
 <form method="post" novalidate>
   {{ form.hidden_tag() }}
+  <h6>Plan</h6>
   <div class="row">
-    <div class="col-md-4">{{ field(form.key) }}</div>
+    <div class="col-md-3">{{ field(form.key) }}</div>
     <div class="col-md-4">{{ field(form.name) }}</div>
-    <div class="col-md-2">{{ field(form.monthly_price) }}</div>
-    <div class="col-md-2"><label class="form-label">Annual price</label><input id="annual-price" class="form-control" readonly></div>
-  </div>
-  <div class="row">
-    <div class="col-md-3">{{ field(form.annual_discount) }}</div>
     <div class="col-md-3">{{ field(form.status) }}</div>
-    <div class="col-md-3">{{ field(form.trial_period_days) }}</div>
+    <div class="col-md-2">{{ field(form.sort_order) }}</div>
   </div>
-  <div class="card mb-3"><div class="card-body py-2"><strong>Annual pricing preview</strong><div id="annual-preview" class="small text-muted"></div></div></div>
+  {{ field(form.description) }}
+  <div class="row">
+    <div class="col-md-3">{{ field(form.is_public) }}</div>
+    <div class="col-md-3">{{ field(form.is_highlighted) }}</div>
+    <div class="col-md-3">{{ field(form.contact_sales) }}</div>
+    <div class="col-md-3">{{ field(form.all_features) }}</div>
+  </div>
 
   <hr>
-  <h6>Included use and overages</h6>
+  <h6>Price</h6>
   <div class="row">
-    <div class="col-md-3">{{ field(form.max_locations) }}</div>
-    <div class="col-md-3">{{ field(form.included_active_contracted_seats) }}</div>
+    <div class="col-md-4">{{ field(form.monthly_price) }}</div>
+    <div class="col-md-4">{{ field(form.annual_discount) }}</div>
+    <div class="col-md-4"><label class="form-label">Annual price</label><input id="annual-price" class="form-control" readonly></div>
+  </div>
+  <div class="mb-3 py-2"><strong>Annual pricing preview</strong><div id="annual-preview" class="small text-muted"></div></div>
+
+  <hr>
+  <h6>Limits and overages</h6>
+  <div class="row">
+    <div class="col-md-4">{{ field(form.max_locations) }}</div>
+    <div class="col-md-4">{{ field(form.included_active_contracted_seats) }}</div>
+    <div class="col-md-4">{{ field(form.max_staff_users) }}</div>
+  </div>
+  <div class="row">
+    <div class="col-md-4">{{ field(form.max_open_leads) }}</div>
+    <div class="col-md-4">{{ field(form.storage_mb) }}</div>
+  </div>
+  <div class="row">
     <div class="col-md-3">{{ field(form.additional_seat_rate) }}</div>
     <div class="col-md-3">{{ field(form.additional_location_rate) }}</div>
+    <div class="col-md-3">{{ field(form.seat_overage_policy) }}</div>
+    <div class="col-md-3">{{ field(form.location_overage_policy) }}</div>
   </div>
-  <div class="row"><div class="col-md-6">{{ field(form.seat_overage_policy) }}</div><div class="col-md-6">{{ field(form.location_overage_policy) }}</div></div>
-  <div class="row"><div class="col-md-6">{{ field(form.effective_from) }}</div><div class="col-md-6">{{ field(form.effective_to) }}</div></div>
-  {{ field(form.feature_ids) }}
-  {{ field(form.module_ids) }}
+  <div class="row">
+    <div class="col-md-4">{{ field(form.seat_usage_method) }}</div>
+    <div class="col-md-4">{{ field(form.effective_from) }}</div>
+    <div class="col-md-4">{{ field(form.effective_to) }}</div>
+  </div>
   <p class="form-text">Additional seat rate is charged per active contracted seat per month. Additional location rate is charged per location per month. A rate of zero follows its overage policy; it never grants unlimited usage.</p>
+
+  <hr>
+  <h6>Included in every plan</h6>
+  <ul class="row list-unstyled mb-3">
+    {% for m in always_features %}<li class="col-md-4 mb-2"><i class="bi bi-check2 text-success" aria-hidden="true"></i> {{ m.name }}</li>{% endfor %}
+  </ul>
+  <h6>Plan features</h6>
+  <ul id="all-feature-list" class="row list-unstyled mb-3" {% if not form.all_features.data %}hidden{% endif %}>
+    {% for m in features %}<li class="col-md-4 mb-2"><i class="bi bi-check2 text-success" aria-hidden="true"></i> {{ m.name }}</li>{% endfor %}
+  </ul>
+  <div id="feature-choices" class="row mb-3" {% if form.all_features.data %}hidden{% endif %}>
+    {% for m in features %}
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" name="feature_ids" id="feature-{{ m.id }}" value="{{ m.id }}" {% if m.id in (form.feature_ids.data or []) %}checked{% endif %}>
+        <label class="form-check-label" for="feature-{{ m.id }}">{{ m.name }}</label>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% for e in form.feature_ids.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
 
   <button class="btn btn-dark">Save</button>
   <a class="btn btn-link" href="{{ url_for('platform.tiers_list') }}">Cancel</a>
@@ -66,6 +108,12 @@
     monthly.addEventListener('input', refreshAnnual); discount.addEventListener('input', refreshAnnual); refreshAnnual();
     wirePolicy('seat_overage_policy', 'additional_seat_rate');
     wirePolicy('location_overage_policy', 'additional_location_rate');
+    const allFeatures = document.getElementById('all_features');
+    const refreshFeatures = () => {
+      document.getElementById('all-feature-list').hidden = !allFeatures.checked;
+      document.getElementById('feature-choices').hidden = allFeatures.checked;
+    };
+    allFeatures.addEventListener('change', refreshFeatures); refreshFeatures();
   })();
 </script>
 {% endblock %}

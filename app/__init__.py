@@ -31,6 +31,8 @@ def create_app(config_override: dict | None = None) -> Flask:
     _register_root_routes(app)
     register_formatting(app)
     operator_resolver.install(app)
+    from .services import entitlements
+    entitlements.install(app)
 
     return app
 
@@ -102,11 +104,14 @@ def _register_error_handlers(app: Flask) -> None:
 
 def _register_context(app: Flask) -> None:
     from .services.nav import nav_badges
+    from .services.pricing_page import trial_days
     app.jinja_env.globals["nav_badges"] = nav_badges
+    app.jinja_env.globals["trial_period_days"] = trial_days
 
     @app.context_processor
     def inject_globals():
         from flask import g, has_request_context
+        from .services.entitlements import billing_banner, has_feature
         base = app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
         portal_url = f"https://{base}"
         if has_request_context() and (app.debug or app.testing):
@@ -117,10 +122,41 @@ def _register_context(app: Flask) -> None:
             "app_name": app.config.get("APP_NAME", "hub1z"),
             "operator": getattr(g, "operator", None),
             "portal_url": portal_url,
+            "billing_banner": billing_banner(getattr(g, "operator", None), current_user),
+            "has_feature": lambda code: has_feature(getattr(g, "operator", None), code),
         }
 
 
 def _register_root_routes(app: Flask) -> None:
+    @app.route("/enquire", methods=["POST"])
+    @limiter.limit("5 per minute", methods=["POST"])
+    def website_enquiry():
+        from flask import flash
+        from .blueprints.lead_routes import WebsiteEnquiryForm
+        from .models import Lead, User, UserRole
+        from .services import mail_service
+        if getattr(g, "operator", None) is None:
+            abort(404)
+        form = WebsiteEnquiryForm()
+        if not form.validate_on_submit():
+            flash("Enter your name and a valid email address.", "warning")
+            return redirect(url_for("index") + "#enquiry")
+        lead = Lead(operator_id=g.operator_id, name=form.name.data.strip(), email=form.email.data.strip(),
+                    phone=(form.phone.data or "").strip() or None, interest=(form.interest.data or "").strip() or None,
+                    source="Website", is_website_enquiry=True, stage="new")
+        db.session.add(lead)
+        db.session.commit()
+        staff = User.query.filter(User.operator_id == g.operator_id, User.is_active.is_(True),
+                                  User.role.in_((UserRole.SUPER_ADMIN, UserRole.MANAGER))).all()
+        for person in staff:
+            try:
+                mail_service.send(f"New enquiry for {g.operator.name}", person.email, "lead_enquiry",
+                                  lead=lead, operator=g.operator)
+            except Exception:
+                app.logger.exception("Lead enquiry email failed")
+        flash("Your enquiry has been received.", "success")
+        return redirect(url_for("index") + "#enquiry")
+
     def operator_public_data():
         from datetime import datetime, timedelta
         from .models import (Location, PricingPlan, PlanScope, SeatBooking, RoomBooking,
@@ -177,9 +213,8 @@ def _register_root_routes(app: Flask) -> None:
             return render_template("public/landing.html", **operator_public_data())
         # No operator resolved (the platform's own apex domain) — a coworking
         # business's own site, not the SaaS platform's marketing page.
-        from .models import PricingTier
-        tiers = PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all()
-        return render_template("public/platform_landing.html", tiers=tiers)
+        from .services.pricing_page import public_plans
+        return render_template("public/platform_landing.html", plans=public_plans())
 
     @app.route("/features")
     def public_features():
@@ -236,40 +271,14 @@ def _register_root_routes(app: Flask) -> None:
 
     @app.route("/pricing")
     def public_pricing():
-        from .models import PricingTier
-        currency = "INR"
+        from .services.pricing_page import public_plans, public_catalog
         billing = request.args.get("billing", "monthly")
         if billing not in {"monthly", "annual"}:
             billing = "monthly"
-        symbol, rate = "₹", 1.0
-        descriptions = {
-            "starter": "A space finding its feet.",
-            "growth": "An established single site.",
-            "scale": "A larger or multi-floor site.",
-            "enterprise": "500+ members or multi-city.",
-        }
-        feature_sets = {
-            "starter": ["1 location", "Bookings, resources and floor plans", "Invoicing and credit notes", "Member portal"],
-            "growth": ["Bookings, resources and floor plans", "Recurring billing and credit notes", "Manual payment details", "CRM-ready member portal", "Email support"],
-            "scale": ["Multi-location operations", "Recurring billing and reports", "Operator roles and audit log", "Member portal and community", "Priority support"],
-            "enterprise": ["Multiple locations", "Advanced access and audit controls", "API-ready operations", "White-label member experience", "Multi-entity billing"],
-        }
-        plans = []
-        for tier in PricingTier.query.filter_by(is_active=True).order_by(PricingTier.id).all():
-            monthly = float(tier.monthly_price) * rate if tier.monthly_price is not None else None
-            annual = monthly * 10 if monthly is not None else None
-            plans.append({
-                "tier": tier, "monthly": monthly, "annual": annual,
-                "price": annual / 12 if billing == "annual" and annual is not None else monthly,
-                "description": descriptions.get(tier.key, "A flexible plan for growing operators."),
-                "features": feature_sets.get(tier.key, [
-                    f"{tier.max_locations if tier.max_locations is not None else 'Custom'} locations",
-                    "Bookings, memberships and billing", "Operator reports and member portal",
-                ]),
-                "popular": tier.key == "growth",
-            })
-        return render_template("public/pricing.html", plans=plans,
-                               currency=currency, currency_symbol=symbol, billing=billing)
+        plans = public_plans(billing)
+        best_discount = max((p["discount"] for p in plans if p["discount"]), default=None)
+        return render_template("public/pricing.html", plans=plans, billing=billing,
+                               catalog=public_catalog() if plans else None, best_discount=best_discount)
 
     @app.route("/legal")
     def public_legal_imprint():

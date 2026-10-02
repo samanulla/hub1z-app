@@ -1,13 +1,24 @@
 """PDF documents: invoices, receipts, credit notes and the Platform's own billing papers."""
 from __future__ import annotations
 
+from base64 import b64encode
 from decimal import Decimal, ROUND_HALF_UP
+from functools import lru_cache
 from io import BytesIO
+from pathlib import Path
 
 from flask import abort, render_template, request, send_file
 from xhtml2pdf import pisa
 
 from .formatting import _group_indian, _to_decimal
+
+LOGO_PATH = Path(__file__).resolve().parents[1] / "static" / "img" / "brand" / "png" / "hub1z-logo-small.png"
+
+
+@lru_cache(maxsize=1)
+def hub1z_logo() -> str:
+    """The Hub1z logo as a data URI, so the PDF renderer needs no file or network access."""
+    return "data:image/png;base64," + b64encode(LOGO_PATH.read_bytes()).decode()
 
 
 def rs(value) -> str:
@@ -122,17 +133,25 @@ def address_letter_response(sub):
 
 
 def platform_invoice_context(inv) -> dict:
+    rows = [("Period", f"{inv.period_start:%d %b %Y} to {inv.period_end:%d %b %Y}")]
+    rows.extend((line["description"], rs(line["amount"])) for line in (inv.lines or []))
+    if inv.kind != "manual":
+        rows.extend([("Subtotal", rs(inv.subtotal)), ("CGST", rs(inv.cgst)), ("SGST", rs(inv.sgst)),
+                     ("IGST", rs(inv.igst)), ("SAC", inv.sac_code or "-")])
+    from .operator_billing import balance, payment_total
+    if inv.payments:
+        rows.extend([("Amount received", rs(payment_total(inv))), ("Balance due", rs(balance(inv)))])
     return dict(
-        issuer=_hub1z_issuer(), title="Invoice for your Hub1z subscription",
+        issuer=_hub1z_issuer(), logo=hub1z_logo(), title="Invoice for your Hub1z subscription",
         meta=[("Invoice no.", inv.number), ("Due", inv.due_date.strftime("%d %b %Y")), ("Status", inv.status.value.title())],
         party_label="Billed to", party=[inv.operator.company_legal_name or inv.operator.name] if inv.operator else [],
-        rows=[("Period", f"{inv.period_start:%d %b %Y} to {inv.period_end:%d %b %Y}")],
-        amount_label="Amount due", amount=rs(inv.amount), note=inv.notes or "")
+        rows=rows,
+        amount_label="Invoice total", amount=rs(inv.amount), note=inv.notes or "")
 
 
 def platform_credit_note_context(note) -> dict:
     return dict(
-        issuer=_hub1z_issuer(), title="Credit note",
+        issuer=_hub1z_issuer(), logo=hub1z_logo(), title="Credit note",
         meta=[("Credit note no.", note.number), ("Date", (note.issued_at or note.created_at).strftime("%d %b %Y"))],
         party_label="Issued to", party=[note.operator.company_legal_name or note.operator.name] if note.operator else [],
         rows=[("Against invoice", note.invoice.number if note.invoice else "-"), ("Reason", note.reason)],
@@ -141,7 +160,7 @@ def platform_credit_note_context(note) -> dict:
 
 def platform_refund_context(refund) -> dict:
     return dict(
-        issuer=_hub1z_issuer(), title="Refund advice",
+        issuer=_hub1z_issuer(), logo=hub1z_logo(), title="Refund advice",
         meta=[("Reference", refund.number), ("Date", (refund.processed_at or refund.created_at).strftime("%d %b %Y"))],
         party_label="Refunded to", party=[refund.operator.company_legal_name or refund.operator.name] if refund.operator else [],
         rows=[("Against invoice", refund.invoice.number if refund.invoice else "-"), ("Reason", refund.reason)],

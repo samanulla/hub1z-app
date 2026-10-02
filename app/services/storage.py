@@ -189,6 +189,22 @@ class StorageService:
     # -- public API --
     def upload(self, namespace: str, filename: str, stream: BinaryIO,
                content_type: str | None = None, scope: str = "operator") -> StoredObject:
+        if scope == "operator":
+            from flask import g, has_request_context
+            from ..models import Operator
+            from .entitlements import storage_limit_mb, storage_used
+            from .operator_quotas import QuotaExceeded
+            parts = namespace.split("/")
+            operator_id = int(parts[1]) if len(parts) > 1 and parts[0] == "operators" and parts[1].isdigit() else None
+            if operator_id is None and has_request_context():
+                operator_id = getattr(g, "operator_id", None)
+            if operator_id:
+                operator = Operator.query.execution_options(skip_operator_filter=True).filter_by(id=operator_id).with_for_update().one()
+                data = stream.read()
+                limit = storage_limit_mb(operator)
+                if limit is not None and storage_used(operator_id) + len(data) > limit * 1024 * 1024:
+                    raise QuotaExceeded("Your document storage allowance is full. Purchase Extra Storage or upgrade.")
+                stream = io.BytesIO(data)
         key = self.make_key(namespace, filename)
         backend = self._backends.get(scope) or self.backend
         return backend.put(key, stream, content_type)

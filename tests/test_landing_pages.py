@@ -10,10 +10,12 @@ os.environ.setdefault("FLASK_ENV", "testing")
 
 from app import create_app
 from app.extensions import db
-from app.models import Operator, OperatorStatus, PricingTier, PricingPlan, PlanType, BillingCycle, Location
+from app.models import (
+    Operator, OperatorStatus, PricingTier, PlatformProfile, TierStatus, PricingPlan, PlanType, BillingCycle, Location,
+)
 
 
-def _app():
+def _app(pricing_public=True):
     app = create_app({"SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
                       "WTF_CSRF_ENABLED": False,
                       "MAIL_SUPPRESS_SEND": True,
@@ -22,8 +24,19 @@ def _app():
     with app.app_context():
         db.create_all()
         db.session.add(PricingTier(key="starter", name="Starter", monthly_price=4999, is_active=True,
-                                   max_locations=1, max_seats=30, max_private_offices=3, max_rooms=2))
-        db.session.add(PricingTier(key="enterprise", name="Enterprise", monthly_price=None, is_active=True))
+                                   status=TierStatus.ACTIVE, is_public=True, max_locations=1,
+                                   max_staff_users=3, max_open_leads=100, storage_mb=500,
+                                   description="Get running quickly.", sort_order=10))
+        db.session.add(PricingTier(key="enterprise", name="Enterprise", monthly_price=None, is_active=True,
+                                   status=TierStatus.ACTIVE, is_public=True, contact_sales=True,
+                                   all_features=True, sort_order=30))
+        db.session.add(PricingTier(key="draft", name="Secret Draft", monthly_price=1, is_active=False,
+                                   status=TierStatus.DRAFT, is_public=True, sort_order=40))
+        db.session.add(PricingTier(key="internal", name="Internal Plan", monthly_price=2, is_active=True,
+                                   status=TierStatus.ACTIVE, is_public=False, sort_order=50))
+        profile = PlatformProfile()
+        profile.pricing_page_public = pricing_public
+        db.session.add(profile)
         db.session.commit()
     return app
 
@@ -37,6 +50,36 @@ def test_apex_shows_platform_pitch_with_live_pricing_tiers():
     assert b"Starter" in r.data and b"Enterprise" in r.data
     assert b"4,999" in r.data  # Indian-grouped currency via the money filter
     assert b"Custom" in r.data  # Enterprise has no monthly_price
+    assert b"Secret Draft" not in r.data and b"Internal Plan" not in r.data
+    assert b"14-day free trial" in r.data  # trial length comes from settings, not a blank
+
+
+def test_pricing_page_lists_limits_and_hides_unpublished_tiers():
+    app = _app()
+    r = app.test_client().get("/pricing", headers={"Host": "localhost"})
+    page = r.data.decode()
+    assert r.status_code == 200
+    assert "Up to 100 open leads" in page and "500 MB document storage" in page
+    assert "Contact sales" in page and "Every feature included" in page
+    assert "Secret Draft" not in page and "Internal Plan" not in page
+
+
+def test_pricing_is_hidden_until_platform_admin_switches_it_on():
+    app = _app(pricing_public=False)
+    c = app.test_client()
+    for path in ("/", "/pricing"):
+        page = c.get(path, headers={"Host": "localhost"}).data.decode()
+        assert "Pricing is being prepared" in page
+        assert "4,999" not in page
+
+
+def test_trial_length_follows_platform_settings():
+    app = _app()
+    with app.app_context():
+        PlatformProfile.get().trial_days = 21
+        db.session.commit()
+    page = app.test_client().get("/", headers={"Host": "localhost"}).data.decode()
+    assert "21-day free trial" in page
 
 
 def test_apex_start_trial_cta_points_to_register_operator_not_pick_workspace():

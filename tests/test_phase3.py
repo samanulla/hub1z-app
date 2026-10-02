@@ -21,7 +21,7 @@ def _app():
     with app.app_context():
         db.create_all()
         t = Operator(slug="coworkhub", name="CoWorkHub",
-                   primary_domain="coworkhub.io", status=OperatorStatus.ACTIVE)
+                   primary_domain="coworkhub.io", status=OperatorStatus.TRIAL)  # trial plan includes the audit export and heatmap
         db.session.add(t); db.session.commit()
     return app
 

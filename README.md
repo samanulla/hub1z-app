@@ -20,9 +20,9 @@ in any region.
 | **Subscriptions** | Pricing plans (Hot Desk, Dedicated Desk, Private Office, All-Access, Custom), monthly billing cycles, prorated changes, meeting-room credits |
 | **Bookings** | Real-time seat booking, conference room booking with conflict detection, recurring bookings, check-in/check-out, cancellation policy |
 | **Admin console** | Manage locations, floors, seats, rooms, pricing plans, companies, invoices, documents, occupancy analytics |
-| **Platform operator lifecycle** | Invite an operator or self-serve free trial (both land `TRIAL`) → Approve (`ACTIVE`), or provision directly (skips straight to `ACTIVE`); Hold/release (reversible, delegable to a Platform Manager) vs. Suspend/Reactivate (hard stop, Platform Super Admin only); trial login blocked once its deadline passes |
+| **Platform operator lifecycle** | Configurable Growth trial, continued access after expiry, operator-staff billing notice, and paid activation only after confirmed payment. Hold/release under the operators grant; Suspend/Reactivate under the separate operator_suspension grant. Payments never remove a suspension. |
 | **Operator team** | Operator Super Admin invites Manager (operator-wide) or Location Manager (scoped to one of the operator's locations) — the only way to create these logins; never delegable to an existing Manager |
-| **Pricing tiers** | Owner-managed tiers (Starter/Growth/Enterprise seeded) with resource caps — max locations/seats/private offices/conference rooms, **and people** ("seats = people, always": total employees + individuals + company admins is capped at `max_seats` too) — enforced on every creation path, not just seats |
+| **Pricing tiers** | Configurable Starter/Growth/Enterprise prices, annual discounts, contracted seats, locations, staff, open-manual-lead and storage allowances. Paid feature/add-on enforcement, Owner-only plan selection and payment-confirmed activation. Active contracted seats drive billing, not member headcount or physical inventory. |
 | **Back office** | Staff members, salary structures, monthly payroll runs, expense management (categories, receipts, approvals), credit notes, refunds, editable email templates |
 | **Reports** | Occupancy (booking volume, top rooms, per-location inventory), Financials (revenue vs expenses trend, AR aging, invoice status), Subscriptions (MRR/ARR, plan mix, top customers), People (staff by department, new members, headcount) |
 | **Localisation** | Configurable currency (defaults ₹ INR + Indian grouping), timezone (defaults Asia/Kolkata), date/datetime formats (defaults `%d-%b-%Y`), tax label + rate (defaults GST 18%), business identity (GSTIN, PAN, invoice prefix) — all editable by super admin |
@@ -34,6 +34,47 @@ in any region.
 | **Notifications** | Booking confirmations & reminders (email hooks; extend with SES/SendGrid) |
 | **Public SaaS website** | Platform features and pricing pages, regional operator signup defaults, and operator microsites for spaces, memberships, live availability, and manual UPI/bank payment instructions |
 | **APIs** | REST endpoints for mobile/kiosk clients (JWT stub) |
+
+### Pricing rollout: stages 1-3
+
+Apply `flask db upgrade` through revision `e2f7a9c4b106` (Docker Compose does this on start), then configure `/platform/tiers` and `/platform/catalog`.
+New tiers are drafts without prices. Public pricing is off until explicitly enabled;
+only active, public, effective tiers are shown, with Scale excluded. Annual pricing
+uses 12 monthly payments less the configured percentage discount.
+
+Platform Managers need separate `pricing`, `payment_setup`, `operator_suspension`
+and `documents` grants. Team management remains Owner-only. Hub1z tax and invoice
+defaults are configured at `/platform/payment-details`. Saving a UPI ID generates
+a downloadable QR; no image upload is required. Invoice QRs include the outstanding
+balance, but scanning never confirms payment automatically.
+
+Unpaid existing operators receive a fresh configurable trial (default 14 days).
+Expiry does not block login or remove trial features. The billing banner is shown
+only to operator staff and stays dismissed until their next login. Companies and
+members neither see this banner nor choose/pay Hub1z plans.
+
+Operator Owners select plans and add-ons at `/admin/hub1z-billing/plans`. A request
+issues a GST invoice due on receipt; features activate only after full payment.
+Hub1z Finance can record UPI, GPay, bank, cash or other payments, or accept a reported
+payment. Partial payments reduce the balance without activating the requested plan.
+When an operator reports a payment, staff with the `billing` grant see a "Payments to
+confirm" card on the platform dashboard, a notice on every platform page and a Finance
+badge, and `PLATFORM_SUPPORT_EMAIL` receives an email.
+Upgrades charge the remaining-day difference and keep the renewal date. Downgrades
+and cycle changes apply at renewal, subject to current usage fitting the new limits.
+
+Run `flask run-scheduled-jobs` daily for advance renewal invoices and monthly seat/location
+overage invoices in arrears, including on annual plans. Unpaid renewals produce notices,
+not automatic suspension. Paid prices/features are snapshotted; catalog edits do not
+silently rewrite existing contracts.
+
+Virtual Office/NOC, White Label and Extra Storage (5 GB per unit) are separately paid
+add-ons, including on Enterprise. At renewal an Owner can cancel any add-on or reduce its
+units; an unpaid renewal invoice is repriced immediately, and a change is refused once
+the next renewal is paid or part-paid. Unbuilt services remain Coming Soon. Staff accounts,
+open manual leads, storage and configured seat/location policies are enforced;
+website enquiries are always saved and excluded from the manual lead allowance.
+Legacy Scale contracts and rollback columns are preserved.
 
 ## Tech stack
 
@@ -119,8 +160,11 @@ docker compose exec web flask --app wsgi.py seed-personas
 
 | Role | Sign in at | Login | Lands on |
 |---|---|---|---|
-| Platform owner (hub1z) | <http://localhost:8000/auth/login> | `admin@hub1z.com` / `ChangeMe123!` | `/platform/` |
+| Platform owner (hub1z) | <http://localhost:8000/auth/login> | `PLATFORM_OWNER_EMAIL` / `PLATFORM_OWNER_PASSWORD` (defaults `platform@hub1z.com` / `ChangeMe123!`) | `/platform/` |
+| Platform manager | <http://localhost:8000/auth/login> | `manager@hub1z.com` / `DemoPass123!` | `/platform/` |
 | Operator owner | <http://demo.localhost:8000/auth/login> | `owner@demospace.com` / `DemoPass123!` | `/admin/` |
+| Operator manager | <http://demo.localhost:8000/auth/login> | `manager@demospace.com` / `DemoPass123!` | `/admin/` |
+| Location manager | <http://demo.localhost:8000/auth/login> | `location@demospace.com` / `DemoPass123!` | `/admin/` |
 | Company admin (company signed up with the operator) | <http://demo.localhost:8000/auth/login> | `admin@acmeco.com` / `DemoPass123!` | `/company/` |
 | Employee (added by the company admin) | <http://demo.localhost:8000/auth/login> | `employee@acmeco.com` / `DemoPass123!` | `/me/` |
 | Individual (added by the operator) | <http://demo.localhost:8000/auth/login> | `individual@demospace.com` / `DemoPass123!` | `/me/` |
@@ -175,10 +219,10 @@ companies, members, and operator staff from that workspace.
 
 A business can try hub1z itself, free, at `/auth/register/operator` — no
 platform staff involved. It lands as a `TRIAL` operator with a
-`OPERATOR_TRIAL_DAYS`-day clock (default 14; env-configurable); login is
-blocked once that clock runs out until a Platform Super Admin/Manager
-**Approves** it. Staff can otherwise provision an operator directly (goes live
-as `ACTIVE` immediately) at `/platform/operators/new` or from the CLI:
+trial clock configured at `/platform/tiers` (default 14 days on Growth). Login
+and trial features continue after expiry while payment is pending. Staff can
+also provision an operator at `/platform/operators/new` or from the CLI;
+approval does not replace payment-confirmed plan activation:
 
 ```powershell
 flask --app wsgi.py create-operator `
@@ -207,10 +251,13 @@ These env vars control app startup (see `.env.example` for the full list):
 | `DEPLOY_MODE` | `shared` | `shared` = one deployment serves many operators (Host-based routing). `dedicated` = one operator per deployment. |
 | `OPERATOR_ID` | *(unset)* | Only used when `DEPLOY_MODE=dedicated` — pins this deployment to a specific operator row. |
 | `PLATFORM_BASE_DOMAIN` | `hub1z.com` | The platform's own apex domain. Operator subdomains are `<slug>.<this>`; reserved so no operator slug can collide with it. |
-| `OPERATOR_TRIAL_DAYS` | `14` | How long a self-serve operator trial (`/auth/register/operator`) lasts before login is blocked pending platform Approval. |
+| `OPERATOR_TRIAL_DAYS` | `14` | Legacy trial-duration fallback; current trial duration and tier are configured at `/platform/tiers`. Expiry does not block login. |
 | `STORAGE_BACKEND` | `local` | `local` \| `s3` \| `azure_blob` for document uploads. |
 | `TIMEZONE` | `Asia/Kolkata` | Fallback timezone if the operator's setting is missing. |
 | `MAIL_*` | *(unset)* | SMTP config for outgoing email. |
+| `MAIL_REDIRECT_TO` | `admin@hub1z.com` | Every email to an address outside `MAIL_REDIRECT_KEEP_DOMAINS` is delivered here instead, with the intended recipient in the subject and an `X-Original-To` header. This protects SES approval from bounces; set it empty to deliver normally. Password-reset and invite links reach this inbox only, not the real user. |
+| `MAIL_REDIRECT_KEEP_DOMAINS` | `hub1z.com` | Comma-separated recipient domains that are always delivered as addressed (for example `support@hub1z.com`). |
+| `PLATFORM_SUPPORT_EMAIL` | `support@hub1z.com` | Receives a notice whenever an operator reports a payment to Hub1z, plus support tickets for operators without their own support address. |
 
 Additional Platform Owner accounts can be created without running `seed-demo`:
 

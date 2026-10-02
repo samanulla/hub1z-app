@@ -10,11 +10,12 @@
     <h1>Hub1z invoices</h1>
     <div class="muted mt-1">What {{ operator.name }} pays Hub1z for the platform. Pay by UPI in one scan, then report it for Hub1z to confirm.</div>
   </div>
+  <a class="btn btn-brand" href="{{ url_for('admin.hub1z_plans') }}"><i class="bi bi-grid"></i> Plans &amp; add-ons</a>
 </div>
 
 <div class="row g-3 mb-4">
   <div class="col-6 col-xl-4"><div class="h-card h-kpi"><span class="chip-ico tint-brand"><i class="bi bi-wallet2"></i></span>
-    <div><div class="label">To pay</div><div class="value">{{ (unpaid | sum(attribute='amount')) | inr }}</div><div class="delta up"><span>{{ unpaid | length }} open invoice{{ 's' if unpaid | length != 1 }}</span></div></div></div></div>
+    <div><div class="label">To pay</div><div class="value">{{ to_pay | inr }}</div><div class="delta up"><span>{{ unpaid | length }} open invoice{{ 's' if unpaid | length != 1 }}</span></div></div></div></div>
   <div class="col-6 col-xl-4"><div class="h-card h-kpi"><span class="chip-ico tint-warn"><i class="bi bi-hourglass-split"></i></span>
     <div><div class="label">Awaiting Hub1z confirmation</div><div class="value">{{ pending_for | length }}</div></div></div></div>
   <div class="col-12 col-xl-4"><div class="h-card h-kpi"><span class="chip-ico tint-info"><i class="bi bi-credit-card"></i></span>
@@ -32,17 +33,22 @@
         <td><b>{{ i.number }}</b></td>
         <td class="muted">{{ i.period_start | date }} to {{ i.period_end | date }}</td>
         <td class="{{ 'text-danger fw-semibold' if open and i.due_date < today }}">{{ i.due_date | date }}</td>
-        <td class="r"><b>{{ i.amount | inr }}</b></td>
+        <td class="r"><b>{{ i.amount | inr }}</b>{% if open and balances[i.id] < i.amount %}<div class="muted small">{{ balances[i.id] | inr }} outstanding</div>{% endif %}</td>
         <td><span class="h-chip sm {{ {'paid': 'tint-success', 'overdue': 'tint-danger', 'void': 'tint-neutral'}.get(i.status.value, 'tint-info') }}">{{ i.status.value | title }}</span>
           {% if i.id in pending_for %}<span class="h-chip sm tint-warn ms-1">Payment reported</span>{% endif %}</td>
         <td class="r text-nowrap">
           <a class="btn btn-soft btn-sm" target="_blank" rel="noopener" href="{{ url_for('admin.hub1z_invoice_pdf', invoice_id=i.id) }}"><i class="bi bi-file-earmark-pdf"></i> View PDF</a>
           {% if open %}<button class="btn btn-brand btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#pay-{{ i.id }}"><i class="bi bi-qr-code"></i> Pay</button>{% endif %}
+          {% if open and i.kind in ('plan', 'upgrade', 'addon') and not i.payments %}
+          <form class="d-inline" method="post" action="{{ url_for('admin.hub1z_invoice_cancel', invoice_id=i.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-soft btn-sm" title="Cancel unpaid invoice"><i class="bi bi-x-circle"></i> Cancel</button>
+          </form>{% endif %}
         </td>
       </tr>
       {% if open %}
       <tr class="collapse" id="pay-{{ i.id }}"><td colspan="6" class="h-pay-cell">
-        {{ pay_panel(pay, i.amount, url_for('admin.hub1z_invoice_upi_png', invoice_id=i.id), upi_links.get(i.id), payment_form,
+        {{ pay_panel(pay, balances[i.id], url_for('admin.hub1z_invoice_upi_png', invoice_id=i.id), upi_links.get(i.id), payment_form,
                      url_for('admin.hub1z_payment_report', invoice_id=i.id), i.number) }}
       </td></tr>
       {% endif %}

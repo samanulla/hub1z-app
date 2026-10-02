@@ -84,6 +84,20 @@
     </header>
 
     <main class="h-content">
+      {% if current_user.is_authenticated and current_user.is_platform_staff and request.endpoint not in ('platform.dashboard', 'platform.finance_dashboard') and nav_badges().get('finance') %}
+      <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="status" data-payment-notice>
+        <span class="flex-grow-1"><i class="bi bi-bell-fill"></i> {{ nav_badges().get('finance') }} operator payment{{ '' if nav_badges().get('finance') == 1 else 's' }} waiting for approval.</span>
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('platform.finance_dashboard') }}#payment-reports">Review payments</a>
+      </div>{% endif %}
+      {% if billing_banner %}
+      <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="status" data-billing-banner>
+        <span class="flex-grow-1">{{ billing_banner.message }}</span>
+        {% if billing_banner.owner %}<a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.hub1z_plans') }}"><i class="bi bi-grid"></i> Plans &amp; billing</a>{% endif %}
+        <form method="post" action="{{ url_for('admin.hub1z_banner_dismiss') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="next" value="{{ request.path }}">
+          <button class="btn-close" type="submit" title="Dismiss until next login" aria-label="Dismiss billing notice"></button>
+        </form>
+      </div>{% endif %}
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for cat, msg in messages %}
           <div class="alert alert-{{ 'danger' if cat == 'danger' else cat }} alert-dismissible fade show" role="alert">

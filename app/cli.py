@@ -62,13 +62,16 @@ def run_scheduled_jobs_cmd(month: str | None) -> None:
     invoices = run_monthly_billing(target_month)
     credits = credit_service.run_all_cycles()
     no_shows = release_no_shows()
+    from .services.operator_billing import run_jobs as run_operator_billing
+    operator_invoices = run_operator_billing()
     from .services.alerts import run_alert_emails
     reminders = run_alert_emails()
     click.echo(f"Created {bookings} recurring booking(s); generated {len(invoices)} invoice(s); "
                f"agreements: {agreements['ended']} ended, {agreements['proposed']} rate revision(s) proposed; "
                f"credits: {credits['granted']} granted, {credits['expired']} expired; "
                f"{no_shows['released']} no-show(s) released; "
-               f"alerts: {reminders['digests']} digest(s), {reminders['customer']} customer reminder(s).")
+               f"alerts: {reminders['digests']} digest(s), {reminders['customer']} customer reminder(s); "
+               f"{operator_invoices} Hub1z renewal invoice(s).")
 
 
 @click.command("create-admin")
@@ -258,12 +261,15 @@ def seed_personas_cmd(password: str) -> None:
     port = urlparse(current_app.config["APP_BASE_URL"]).port
     suffix = f":{port}" if port else ""
 
-    def ensure_user(email, name, role, operator=None, company=None, password=None):
+    def ensure_user(email, name, role, operator=None, company=None, password=None, location=None, permissions=None):
         if User.query.filter_by(email=email).first():
             return
         u = User(operator_id=operator.id if operator else None, email=email, full_name=name, role=role,
-                 company_id=company.id if company else None, is_active=True, email_verified=True)
+                 company_id=company.id if company else None, is_active=True, email_verified=True,
+                 managed_location_id=location.id if location else None)
         u.set_password(password or persona_password)
+        if permissions is not None:
+            u.set_platform_permissions(permissions)
         db.session.add(u)
 
     def ensure_operator(slug, name):
@@ -273,6 +279,8 @@ def seed_personas_cmd(password: str) -> None:
         op = Operator(slug=slug, name=name, primary_domain=f"{slug}.{base}", status=OperatorStatus.ACTIVE)
         db.session.add(op)
         db.session.flush()
+        from .services.operator_billing import start_trial
+        start_trial(op)
         loc = Location(operator_id=op.id, name=f"{name} HQ", code="HQ", address_line1="1 Demo Street",
                        city="Bengaluru", country="IN", timezone="Asia/Kolkata")
         db.session.add(loc)
@@ -294,6 +302,8 @@ def seed_personas_cmd(password: str) -> None:
 
     po_email, po_password = current_app.config["PLATFORM_OWNER_EMAIL"], current_app.config["PLATFORM_OWNER_PASSWORD"]
     ensure_user(po_email, "Platform Owner", UserRole.PLATFORM_OWNER, password=po_password)
+    ensure_user("manager@hub1z.com", "Platform Manager", UserRole.PLATFORM_MANAGER,
+                permissions=["billing", "pricing", "payment_setup", "operators", "reports", "leads"])
 
     demo = ensure_operator("demo", "Demo Space")
     acme = Company.query.filter_by(operator_id=demo.id, name="Acme Co").first()
@@ -303,6 +313,9 @@ def seed_personas_cmd(password: str) -> None:
         db.session.add(acme)
         db.session.flush()
     ensure_user("owner@demospace.com", "Demo Owner", UserRole.SUPER_ADMIN, demo)
+    ensure_user("manager@demospace.com", "Demo Manager", UserRole.MANAGER, demo)
+    ensure_user("location@demospace.com", "Location Manager", UserRole.LOCATION_MANAGER, demo,
+                location=Location.query.filter_by(operator_id=demo.id).first())
     ensure_user("admin@acmeco.com", "Acme Admin", UserRole.COMPANY_ADMIN, demo, acme)
     ensure_user("employee@acmeco.com", "Acme Employee", UserRole.EMPLOYEE, demo, acme)
     ensure_user("individual@demospace.com", "Ivy Individual", UserRole.INDIVIDUAL, demo)
@@ -326,7 +339,10 @@ def seed_personas_cmd(password: str) -> None:
 
     rows = [
         ("Platform owner", f"{base}", po_email, po_password),
+        ("Platform manager", f"{base}", "manager@hub1z.com", persona_password),
         ("Operator owner", f"demo.{base}", "owner@demospace.com", persona_password),
+        ("Operator manager", f"demo.{base}", "manager@demospace.com", persona_password),
+        ("Location manager", f"demo.{base}", "location@demospace.com", persona_password),
         ("Company admin", f"demo.{base}", "admin@acmeco.com", persona_password),
         ("Employee (by company)", f"demo.{base}", "employee@acmeco.com", persona_password),
         ("Individual", f"demo.{base}", "individual@demospace.com", persona_password),

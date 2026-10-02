@@ -50,6 +50,10 @@ class BaseConfig:
     MAIL_PASSWORD = os.getenv("MAIL_PASSWORD") or None
     MAIL_DEFAULT_SENDER = os.getenv("MAIL_DEFAULT_SENDER", "no-reply@hub1z.com")
     MAIL_SUPPRESS_SEND = _bool("MAIL_SUPPRESS_SEND", False)
+    # Every email outside MAIL_REDIRECT_KEEP_DOMAINS goes to this one inbox (original recipient is tagged in the
+    # subject) so bounces from real addresses cannot hurt SES approval. Set it empty to deliver normally.
+    MAIL_REDIRECT_TO = os.getenv("MAIL_REDIRECT_TO", "admin@hub1z.com")
+    MAIL_REDIRECT_KEEP_DOMAINS = os.getenv("MAIL_REDIRECT_KEEP_DOMAINS", "hub1z.com")
     # Optional: AWS Secrets Manager secret name/ARN holding {"username","password"}.
     # When set, overrides MAIL_USERNAME/MAIL_PASSWORD above at app startup via the
     # EC2 instance's IAM role — no static AWS keys or plaintext SMTP password on disk.

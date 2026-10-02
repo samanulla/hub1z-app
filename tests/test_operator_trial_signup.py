@@ -1,5 +1,5 @@
 """Self-serve operator sign-up: lands as a time-boxed TRIAL, no platform staff
-involved to get started; login is blocked once the trial deadline passes."""
+involved to get started; login and trial features continue after the deadline."""
 import os
 from datetime import datetime, timedelta
 
@@ -28,7 +28,7 @@ def test_self_serve_signup_creates_trial_operator_and_logs_in():
     r = c.post("/auth/register/operator", data={
         "business_name": "Trial Biz", "slug": "trialbiz",
         "admin_full_name": "Tara Admin", "admin_email": "tara@trialbiz.com",
-        "password": "TaraPass123!", "confirm": "TaraPass123!",
+        "password": "TaraPass123!", "confirm": "TaraPass123!", "country_code": "IN",
     }, follow_redirects=False)
     assert r.status_code == 302
     assert r.headers["Location"].endswith("/admin/")
@@ -57,12 +57,12 @@ def test_duplicate_slug_and_email_rejected():
     r = c.post("/auth/register/operator", data={
         "business_name": "Dup", "slug": "taken",
         "admin_full_name": "X", "admin_email": "x@dup.com",
-        "password": "XPass1234!", "confirm": "XPass1234!",
+        "password": "XPass1234!", "confirm": "XPass1234!", "country_code": "IN",
     }, follow_redirects=True)
     assert b"already taken" in r.data
 
 
-def test_login_blocked_once_trial_expired():
+def test_login_continues_after_trial_expires():
     app = _app()
     with app.app_context():
         t = Operator(slug="expired", name="Expired Co", primary_domain="expired.hub1z.com",
@@ -76,8 +76,8 @@ def test_login_blocked_once_trial_expired():
     c = app.test_client()
     r = c.post("/auth/login", data={"email": "admin@expired.com", "password": "AdminPass123!"},
               follow_redirects=True)
-    assert b"trial ended" in r.data
-    assert b"Sign out" not in r.data  # never got logged in
+    assert b"trial ended" not in r.data
+    assert b"Sign out" in r.data  # expiry keeps access until a plan is paid
 
 
 def test_login_allowed_while_trial_still_active():

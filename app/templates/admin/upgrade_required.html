@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Plan upgrade{% endblock %}
+{% block content %}
+<h1 class="h4">{{ feature }}</h1>
+<div class="alert alert-warning">Not included in your current plan.</div>
+{% if current_user.is_super_admin %}<a class="btn btn-brand" href="{{ url_for('admin.hub1z_plans') }}"><i class="bi bi-arrow-up-circle"></i> Upgrade plan</a>{% else %}<p class="muted">Contact your workspace Owner.</p>{% endif %}
+{% endblock %}

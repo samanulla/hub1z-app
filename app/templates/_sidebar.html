@@ -1,7 +1,7 @@
 {# Left menu for signed-in users. One menu per role: platform staff, operator team, company admin, member. #}
 {% macro group(label) %}<div class="h-nav-label">{{ label }}</div>{% endmacro %}
-{% macro link(text, icon, href, active=false, badge=none) %}
-<a class="h-nav-link {{ 'active' if active }}" href="{{ href }}"><i class="bi {{ icon }}"></i>{{ text }}{% if badge %}<span class="h-nav-badge">{{ badge }}</span>{% endif %}</a>
+{% macro link(text, icon, href, active=false, badge=none, feature=none) %}
+<a class="h-nav-link {{ 'active' if active }}" href="{{ href }}"><i class="bi {{ icon }}"></i>{{ text }}{% if feature and not has_feature(feature) %}<span class="h-nav-badge">Upgrade</span>{% elif badge %}<span class="h-nav-badge">{{ badge }}</span>{% endif %}</a>
 {% endmacro %}
 {% set ep = request.endpoint or '' %}
 {% set badges = nav_badges() %}
@@ -40,17 +40,25 @@
     {{ link('Leads', 'bi-funnel-fill', url_for('platform.leads'), ep.startswith('platform.lead')) }}
   {% endif %}
   {{ link('Attendance', 'bi-person-check-fill', url_for('platform.attendance'), ep.startswith('platform.attendance')) }}
-  {% if current_user.has_platform_permission('operators') %}
+  {% if current_user.has_platform_permission('operators') or current_user.has_platform_permission('operator_suspension') %}
     {{ group('Operators') }}
     {{ link('Operators', 'bi-buildings-fill', url_for('platform.operators_list'), ep.startswith('platform.operator') and 'invite' not in ep) }}
+    {% if current_user.has_platform_permission('operators') %}
     {{ link('Invite operator', 'bi-person-plus-fill', url_for('platform.operator_invite'), ep == 'platform.operator_invite') }}
+    {% endif %}
   {% endif %}
   {% if current_user.has_platform_permission('billing') %}
     {{ group('Billing') }}
     {{ link('Operator billing', 'bi-receipt', url_for('platform.billing'), ep.startswith('platform.billing')) }}
     {{ link('Finance', 'bi-graph-up', url_for('platform.finance_dashboard'), ep.startswith('platform.finance'), badges.get('finance')) }}
-    {% if current_user.is_platform_owner %}
+  {% endif %}
+  {% if current_user.has_platform_permission('pricing') or current_user.has_platform_permission('payment_setup') %}
+    {{ group('Pricing & setup') }}
+    {% if current_user.has_platform_permission('pricing') %}
       {{ link('Pricing tiers', 'bi-layers-fill', url_for('platform.tiers_list'), ep.startswith('platform.tier')) }}
+      {{ link('Feature catalog', 'bi-puzzle-fill', url_for('platform.catalog_list'), ep.startswith('platform.catalog')) }}
+    {% endif %}
+    {% if current_user.has_platform_permission('payment_setup') %}
       {{ link('Payment details', 'bi-qr-code', url_for('platform.payment_details'), ep == 'platform.payment_details') }}
     {% endif %}
   {% endif %}
@@ -58,10 +66,13 @@
     {{ group('Reports') }}
     {{ link('Reports', 'bi-bar-chart-fill', url_for('platform.reports'), ep == 'platform.reports') }}
   {% endif %}
+  {% if current_user.has_platform_permission('documents') %}
+    {{ group('Platform') }}
+    {{ link('Documents', 'bi-folder-fill', url_for('platform.platform_documents'), ep == 'platform.platform_documents') }}
+  {% endif %}
   {% if current_user.is_platform_owner %}
     {{ group('Owner only') }}
     {{ link('Platform team', 'bi-people-fill', url_for('platform.team_list'), ep.startswith('platform.team') or ep.startswith('platform.manager')) }}
-    {{ link('Documents', 'bi-folder-fill', url_for('platform.platform_documents'), ep == 'platform.platform_documents') }}
   {% endif %}
 
 {% elif current_user.is_admin %}
@@ -84,7 +95,7 @@
     {{ link('Invites', 'bi-envelope-paper-fill', url_for('admin.invites_list'), ep.startswith('admin.invite') or ep in ('admin.invites_list','admin.accept_member_invite','admin.accept_company_invite','admin.accept_team_invite')) }}
   {% endif %}
   {{ link('Staff', 'bi-person-badge-fill', url_for('admin.staff_list'), ep.startswith('admin.staff') or ep == 'admin.salary_new') }}
-  {{ link('Payroll', 'bi-wallet2', url_for('admin.payroll_list'), ep.startswith('admin.payroll')) }}
+  {{ link('Payroll', 'bi-wallet2', url_for('admin.payroll_list'), ep.startswith('admin.payroll'), feature='payroll') }}
   {{ link('Attendance', 'bi-person-check-fill', url_for('admin.attendance'), ep.startswith('admin.attendance')) }}
   {{ group('Billing & finance') }}
   {{ link('Invoices', 'bi-receipt', url_for('admin.invoices_list'), ep.startswith('admin.invoice') or ep in ('admin.payment_new','admin.payment_submission_review','admin.billing_run')) }}
@@ -94,8 +105,8 @@
   {% endif %}
   {{ link('Credit notes', 'bi-file-earmark-minus-fill', url_for('admin.credit_notes'), ep.startswith('admin.credit_note')) }}
   {{ link('Refunds', 'bi-arrow-counterclockwise', url_for('admin.refunds'), ep.startswith('admin.refund')) }}
-  {{ link('Expenses', 'bi-journal-text', url_for('admin.expenses_list'), ep.startswith('admin.expense') and 'categor' not in ep) }}
-  {{ link('Expense categories', 'bi-tags', url_for('admin.expense_categories'), 'expense_categor' in ep) }}
+  {{ link('Expenses', 'bi-journal-text', url_for('admin.expenses_list'), ep.startswith('admin.expense') and 'categor' not in ep, feature='expenses') }}
+  {{ link('Expense categories', 'bi-tags', url_for('admin.expense_categories'), 'expense_categor' in ep, feature='expenses') }}
   {{ group('Reports & communications') }}
   {{ link('Reports', 'bi-bar-chart-fill', url_for('admin.reports_home'), ep.startswith('admin.report')) }}
   {{ link('Email templates', 'bi-envelope-fill', url_for('admin.email_templates'), ep.startswith('admin.email_template')) }}

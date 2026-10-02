@@ -204,6 +204,20 @@
 </section>
 
 <!-- ============ FOOTER ============ -->
+<section class="section" id="enquiry">
+  <div class="container-x" style="max-width:760px">
+    <h2>Enquire about a workspace</h2>
+    {% for category, message in get_flashed_messages(with_categories=true) %}<div class="alert alert-{{ category }}">{{ message }}</div>{% endfor %}
+    <form method="post" action="{{ url_for('website_enquiry') }}" class="row g-3 mt-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="col-md-6"><label class="form-label" for="enquiry-name">Name</label><input class="form-control" id="enquiry-name" name="name" maxlength="160" required></div>
+      <div class="col-md-6"><label class="form-label" for="enquiry-email">Email</label><input class="form-control" id="enquiry-email" name="email" type="email" maxlength="255" required></div>
+      <div class="col-md-6"><label class="form-label" for="enquiry-phone">Phone</label><input class="form-control" id="enquiry-phone" name="phone" type="tel" maxlength="40"></div>
+      <div class="col-md-6"><label class="form-label" for="enquiry-interest">Requirement</label><input class="form-control" id="enquiry-interest" name="interest" maxlength="200"></div>
+      <div class="col-12"><button class="btn-ink" type="submit">Send enquiry</button></div>
+    </form>
+  </div>
+</section>
 <footer class="editorial">
   <div class="container-x">
     <div class="row g-4" style="margin-bottom: 3rem;">

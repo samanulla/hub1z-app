@@ -33,6 +33,13 @@ class LeadForm(FlaskForm):
     notes = TextAreaField("Notes", validators=[Optional(), Length(max=4000)])
 
 
+class WebsiteEnquiryForm(FlaskForm):
+    name = StringField("Name", validators=[DataRequired(), Length(max=160)])
+    email = StringField("Email", validators=[DataRequired(), Email(), Length(max=255)])
+    phone = StringField("Phone", validators=[Optional(), Length(max=40)])
+    interest = StringField("Requirement", validators=[Optional(), Length(max=200)])
+
+
 def _prepare(form: LeadForm, scope: str) -> LeadForm:
     form.source.choices = [("", "Not set")] + [(s, s) for s in svc.SOURCES[scope]]
     form.stage.choices = [(k, label) for k, label, _ in svc.stages(scope)]

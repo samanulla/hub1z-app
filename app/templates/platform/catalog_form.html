@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Edit {{ module.name }}{% endblock %}
+
+{% block content %}
+<h3>Edit {{ module.name }} <code class="text-muted fs-6">{{ module.code }}</code></h3>
+{% if not built %}<p class="text-muted small">This isn't built yet, so it can only be Coming soon or Hidden.</p>{% endif %}
+
+<div class="card"><div class="card-body">
+<form method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="row">
+    <div class="col-md-6">{{ field(form.name) }}</div>
+    <div class="col-md-6">{{ field(form.description) }}</div>
+  </div>
+  <div class="row">
+    <div class="col-md-3">{{ field(form.availability) }}</div>
+    <div class="col-md-3">{{ field(form.sort_order) }}</div>
+    <div class="col-md-3">{{ field(form.is_active) }}</div>
+  </div>
+  {% if module.kind == 'addon' %}
+  <div class="row">
+    <div class="col-md-4">{{ field(form.monthly_price) }}</div>
+    <div class="col-md-4">{{ field(form.unit_label) }}</div>
+  </div>
+  {% elif module.kind == 'usage' %}
+  <div class="row">
+    <div class="col-md-4">{{ field(form.unit_price) }}</div>
+    <div class="col-md-4">{{ field(form.unit_label) }}</div>
+  </div>
+  {% endif %}
+  <button class="btn btn-dark">Save</button>
+  <a class="btn btn-link" href="{{ url_for('platform.catalog_list') }}">Cancel</a>
+</form>
+</div></div>
+{% endblock %}

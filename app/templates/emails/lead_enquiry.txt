@@ -1,0 +1,8 @@
+New website enquiry for {{ operator.name }}
+
+Name: {{ lead.name }}
+Email: {{ lead.email }}
+Phone: {{ lead.phone or '-' }}
+Requirement: {{ lead.interest or '-' }}
+
+Open the Leads page in your workspace to follow up.

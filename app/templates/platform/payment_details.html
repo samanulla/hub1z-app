@@ -32,14 +32,27 @@
         </div>
         {{ field(form.bank_details) }}
         {{ field(form.payment_instructions) }}
+        <h5 class="mb-3 mt-2">Tax and invoicing</h5>
+        <div class="row">
+          <div class="col-md-4">{{ field(form.gst_state) }}</div>
+          <div class="col-md-2">{{ field(form.default_gst_rate) }}</div>
+          <div class="col-md-2">{{ field(form.sac_code) }}</div>
+          <div class="col-md-2">{{ field(form.invoice_prefix) }}</div>
+          <div class="col-md-2">{{ field(form.payment_terms_days) }}</div>
+        </div>
         <button class="btn btn-brand">Save payment details</button>
       </form>
     </div></div>
   </div>
   <div class="col-xl-4">
     <div class="h-card mb-3"><div class="h-card-body">
-      <h5><i class="bi bi-qr-code me-2" style="color:var(--h-brand)"></i>UPI, today</h5>
-      <p class="muted small mb-0">Operators scan a QR with the invoice amount filled in, pay from any UPI app, and report the payment. You confirm it on the Finance page.</p>
+      <h5><i class="bi bi-qr-code me-2" style="color:var(--h-brand)"></i>UPI QR</h5>
+      {% if qr_available %}
+      <img src="{{ url_for('platform.payment_details_qr') }}" alt="Hub1z UPI payment QR" width="240" height="240" class="img-fluid d-block mx-auto mb-2">
+      <a class="btn btn-outline-dark btn-sm" href="{{ url_for('platform.payment_details_qr') }}" download="hub1z-upi.png"><i class="bi bi-download" aria-hidden="true"></i> Download QR</a>
+      {% else %}
+      <p class="muted small mb-0">UPI ID not configured.</p>
+      {% endif %}
     </div></div>
     <div class="h-card"><div class="h-card-body">
       <h5><i class="bi bi-credit-card me-2" style="color:var(--h-brand)"></i>Razorpay <span class="h-chip sm tint-info ms-1">Coming soon</span></h5>

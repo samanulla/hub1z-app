@@ -7,13 +7,13 @@ from flask_login import current_user
 from ...extensions import db
 from ...models import Document, DocumentKind
 from ...services.storage import storage_service
-from ...utils.decorators import platform_owner_required
+from ...utils.decorators import platform_permission_required
 from ..admin.forms import DocumentUploadForm
 
 
 def register_document_routes(bp):
     @bp.route("/documents", methods=["GET", "POST"])
-    @platform_owner_required
+    @platform_permission_required("documents")
     def platform_documents():
         form = DocumentUploadForm()
         if form.validate_on_submit():

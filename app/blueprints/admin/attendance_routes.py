@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 
 from flask import (Response, abort, flash, g, jsonify, redirect, render_template, request, url_for)
 from flask_login import current_user
@@ -13,6 +13,7 @@ from ...models import AttendanceRecord, Location, User, UserRole
 from ...models.attendance import METHOD_MANUAL, METHOD_QR_RECEPTION
 from ...services import attendance as att
 from ...services.attendance import CheckinError, OPERATOR
+from ...services.entitlements import has_feature
 from ...utils.decorators import admin_required, manager_or_super_required
 from ..checkin import locations_for
 
@@ -68,12 +69,17 @@ def register_attendance_routes(bp):
         end = _parse_day(request.args.get("to"), start)
         if end < start:
             start, end = end, start
+        if not has_feature(g.operator, "attendance_reports"):
+            start = max(start, today - timedelta(days=6))
+            end = max(start, min(end, today))
         location_id = request.args.get("location", type=int)
         q = (request.args.get("q") or "").strip()
         who = request.args.get("who", "all")
         rows = filtered(start, end, location_id, q, who).limit(500).all()
         allowed = [l.id for l in visible_locations()]
         stats = att.summary(OPERATOR, tz, location_ids=allowed if current_user.role == UserRole.LOCATION_MANAGER else None)
+        if not has_feature(g.operator, "attendance_reports"):
+            stats["series"] = stats["series"][-7:]
         people = (User.query.filter(User.operator_id == g.operator_id, User.is_active.is_(True),
                                     User.role.in_(STAFF_ROLES + MEMBER_ROLES))
                   .order_by(User.full_name).limit(500).all())

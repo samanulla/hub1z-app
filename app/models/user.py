@@ -31,12 +31,18 @@ class UserRole(str, enum.Enum):
 # Manager. (key, label, description) — Platform Owners implicitly have all of
 # them; a Manager only has what's in their `platform_permissions`.
 PLATFORM_FEATURES: list[tuple[str, str, str]] = [
-    ("operators", "Operators", "Provision, edit, suspend/activate coworking businesses"),
-    ("billing", "Billing & accounting", "Operator plan tiers and custom-domain access/surcharge"),
+    ("operators", "Operators", "Provision, edit and invite coworking businesses; release holds"),
+    ("operator_suspension", "Suspend & reactivate operators", "Hard-stop an operator, or bring it back from suspension"),
+    ("billing", "Billing & accounting", "Operator subscriptions, Hub1z invoices, payment confirmation and plan activation"),
+    ("pricing", "Pricing & tiers", "Plan tiers, feature catalog, add-ons, trial terms and the public pricing page"),
+    ("payment_setup", "Payment & tax setup", "Hub1z payment details, GSTIN, GST rate and invoice terms"),
     ("reports", "Reports", "Cross-operator analytics"),
     ("leads", "Leads", "Track and follow up prospective operators"),
+    ("documents", "Platform documents", "Upload and view Hub1z's own documents"),
 ]
 PLATFORM_FEATURE_KEYS = {key for key, _, _ in PLATFORM_FEATURES}
+# Off by default when creating a Platform Manager: money, pricing and hard-stop powers.
+SENSITIVE_PLATFORM_FEATURES = {"operator_suspension", "pricing", "payment_setup", "documents"}
 
 
 class User(db.Model, PkMixin, TimestampMixin, UserMixin, OperatorScoped):

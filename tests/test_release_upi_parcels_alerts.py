@@ -250,6 +250,18 @@ def test_virtual_office_client_downloads_the_address_letter():
     app, _ = _seeded_app()
     sub_id, street = _virtual_office(app)
     company_admin = _client(app, DEMO, "admin@acmeco.com")
+    assert _get(company_admin, DEMO, f"/company/subscriptions/{sub_id}/address-letter.pdf").status_code == 403
+    with app.app_context():
+        from app.models import OperatorAddon, PlatformModule
+        from app.services.catalog import ensure_catalog
+        ensure_catalog()
+        module = PlatformModule.query.filter_by(code="virtual_office").one()
+        for host in (DEMO, OTHER):
+            operator = Operator.query.filter_by(primary_domain=host).one()
+            db.session.add(OperatorAddon(operator_id=operator.id, module_id=module.id, quantity=1,
+                                         monthly_price=Decimal("300"), active=True,
+                                         paid_through=date.today() + timedelta(days=30)))
+        db.session.commit()
     dash = _get(company_admin, DEMO, "/company/").data.decode()
     assert "Virtual office" in dash and f"/company/subscriptions/{sub_id}/address-letter.pdf" in dash
     pdf = _get(company_admin, DEMO, f"/company/subscriptions/{sub_id}/address-letter.pdf")
@@ -267,7 +279,7 @@ def test_virtual_office_client_downloads_the_address_letter():
 
 # --------------------------------------------------------------- alerts --
 
-def test_alerts_list_renewals_and_overdue_and_email_each_item_once():
+def test_alerts_list_renewals_and_overdue_and_email_each_item_once(monkeypatch):
     app, _ = _seeded_app()
     with app.app_context():
         acme = Company.query.execution_options(skip_operator_filter=True).filter_by(name="Acme Co").one()
@@ -282,7 +294,12 @@ def test_alerts_list_renewals_and_overdue_and_email_each_item_once():
     company_admin = _client(app, DEMO, "admin@acmeco.com")
     assert "Renewal due in 20 days" in _get(company_admin, DEMO, "/company/").data.decode()
 
+    enabled = False
+    monkeypatch.setattr("app.services.entitlements.has_feature", lambda operator, code: enabled)
     with app.app_context():
+        locked = alerts.run_alert_emails()
+        assert locked["digests"] == 0 and locked["customer"] >= 1
+        enabled = True
         first = alerts.run_alert_emails()
         sent = AlertNotice.query.execution_options(skip_operator_filter=True).count()
         assert first["digests"] >= 1 and first["customer"] >= 1 and sent >= 2

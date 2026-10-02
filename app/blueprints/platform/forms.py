@@ -7,9 +7,11 @@ from wtforms.validators import (DataRequired, Length, Optional, Email,
                                 NumberRange, Regexp)
 
 from ...models import (
-    OperatorStatus, PLATFORM_FEATURES, PlatformInvoiceStatus, TierStatus,
+    OperatorStatus, PLATFORM_FEATURES, SENSITIVE_PLATFORM_FEATURES, PlatformInvoiceStatus, TierStatus,
     OveragePolicy, SeatUsageMethod,
 )
+from ...services.catalog import AVAILABILITY_CHOICES, can_be_available
+from ...services.gst import INDIAN_STATES
 from ...services.locale_data import (
     CURRENCY_CHOICES, COUNTRY_CHOICES, LOCALE_CHOICES, TIMEZONE_CHOICES,
     BANK_ACCOUNT_TYPE_CHOICES,
@@ -37,6 +39,7 @@ class OperatorForm(FlaskForm):
     # tiers are Owner-configurable, not a fixed list.
     plan_tier = SelectField("Plan tier", validators=[DataRequired()])
     status = SelectField("Status", choices=[(s.value, s.value.title()) for s in OperatorStatus],
+                         coerce=lambda value: OperatorStatus(value).value,
                          validators=[DataRequired()])
 
     primary_domain = StringField("Primary domain", validators=[Optional(), Length(max=255)],
@@ -107,7 +110,7 @@ class PlatformManagerForm(FlaskForm):
 
 for _key, _label, _desc in PLATFORM_FEATURES:
     setattr(PlatformManagerForm, f"perm_{_key}",
-            BooleanField(f"{_label} — {_desc}", default=True))
+            BooleanField(f"{_label} — {_desc}", default=_key not in SENSITIVE_PLATFORM_FEATURES))
 
 
 class InviteOperatorForm(FlaskForm):
@@ -136,28 +139,49 @@ class PricingTierForm(FlaskForm):
         description="Stable identifier stored on operators — don't change this after operators are on it.",
     )
     name = StringField("Tier name", validators=[DataRequired(), Length(max=80)])
+    description = StringField("Short description", validators=[Optional(), Length(max=200)],
+                              description="One line shown under the plan name on the pricing page.")
+    sort_order = IntegerField("Display order", default=0, validators=[NumberRange(min=0)])
+    status = SelectField("Status", choices=[(s.value, s.value.title()) for s in TierStatus],
+                         coerce=lambda value: TierStatus(value).value, validators=[DataRequired()])
+    is_public = BooleanField("Show on the public pricing page")
+    is_highlighted = BooleanField("Highlight as \"Most popular\"")
+    contact_sales = BooleanField("Contact sales (custom pricing, no self-serve price)")
+    all_features = BooleanField("Includes every feature and has no limits")
+
     monthly_price = DecimalField("Monthly price (₹)", validators=[Optional(), NumberRange(min=0)],
-                                 description="Leave blank for negotiated Enterprise pricing.")
-    annual_discount = DecimalField("Annual discount", default=0, validators=[NumberRange(min=0)])
+                                 description="Leave blank for a contact-sales tier.")
+    annual_discount = DecimalField("Annual discount (%)", default=0, validators=[NumberRange(min=0, max=100)])
     max_locations = IntegerField("Included locations", validators=[Optional(), NumberRange(min=0)])
     included_active_contracted_seats = IntegerField("Included active contracted seats", validators=[Optional(), NumberRange(min=0)])
+    max_staff_users = IntegerField("Staff logins", validators=[Optional(), NumberRange(min=1)],
+                                   description="Owner, managers and location managers. Blank = unlimited.")
+    max_open_leads = IntegerField("Open leads", validators=[Optional(), NumberRange(min=1)],
+                                  description="Leads added by hand. Website enquiries are always saved. Blank = unlimited.")
+    storage_mb = IntegerField("Document storage (MB)", validators=[Optional(), NumberRange(min=1)],
+                              description="Blank = unlimited.")
     additional_seat_rate = DecimalField("Additional seat rate", default=0, validators=[NumberRange(min=0)])
     additional_location_rate = DecimalField("Additional location rate", default=0, validators=[NumberRange(min=0)])
     feature_ids = SelectMultipleField("Included features", coerce=int, validators=[Optional()])
-    module_ids = SelectMultipleField("Included modules", coerce=int, validators=[Optional()])
-    seat_overage_policy = SelectField("Seat overage policy", choices=[(p.value, p.value.replace("_", " ").title()) for p in OveragePolicy])
-    location_overage_policy = SelectField("Location overage policy", choices=[(p.value, p.value.replace("_", " ").title()) for p in OveragePolicy])
+    seat_overage_policy = SelectField("Seat overage policy", coerce=lambda value: OveragePolicy(value).value,
+                                    choices=[(p.value, p.value.replace("_", " ").title()) for p in OveragePolicy])
+    location_overage_policy = SelectField("Location overage policy", coerce=lambda value: OveragePolicy(value).value,
+                                        choices=[(p.value, p.value.replace("_", " ").title()) for p in OveragePolicy])
     effective_from = DateField("Effective from", validators=[Optional()])
     effective_to = DateField("Effective to", validators=[Optional()])
-    seat_usage_method = SelectField("Seat usage calculation", choices=[
+    seat_usage_method = SelectField("Seat usage calculation", coerce=lambda value: SeatUsageMethod(value).value, choices=[
         (m.value, m.value.replace("_", " ").title()) for m in SeatUsageMethod
     ])
-    trial_period_days = IntegerField("Trial period (days)", default=0, validators=[NumberRange(min=0)])
-    status = SelectField("Status", choices=[(s.value, s.value.title()) for s in TierStatus], validators=[DataRequired()])
     submit = SubmitField("Save tier")
 
     def validate(self, extra_validators=None):
         valid = super().validate(extra_validators=extra_validators)
+        if self.all_features.data:
+            for limit in (self.max_locations, self.included_active_contracted_seats, self.max_staff_users,
+                          self.max_open_leads, self.storage_mb):
+                limit.data = None
+            self.seat_overage_policy.data = OveragePolicy.REQUIRE_PLAN_UPGRADE.value
+            self.location_overage_policy.data = OveragePolicy.REQUIRE_PLAN_UPGRADE.value
         for policy, rate in ((self.seat_overage_policy, self.additional_seat_rate),
                              (self.location_overage_policy, self.additional_location_rate)):
             if policy.data == OveragePolicy.ALLOW_AND_CHARGE.value and (rate.data is None or rate.data <= 0):
@@ -166,17 +190,49 @@ class PricingTierForm(FlaskForm):
             elif policy.data in (OveragePolicy.BLOCK_ADDITIONAL_USAGE.value,
                                  OveragePolicy.REQUIRE_PLAN_UPGRADE.value):
                 rate.data = 0
-        if self.status.data == TierStatus.ACTIVE.value:
-            for field, message in ((self.monthly_price, "Monthly price is required for an active tier."),
-                                   (self.max_locations, "Included locations are required for an active tier."),
-                                   (self.included_active_contracted_seats, "Included active contracted seats are required for an active tier."),
-                                   (self.effective_from, "Effective From is required for an active tier.")):
+        if self.status.data == TierStatus.ACTIVE.value and not self.contact_sales.data:
+            required = [(self.monthly_price, "Monthly price is required for an active tier."),
+                        (self.effective_from, "Effective From is required for an active tier.")]
+            if not self.all_features.data:
+                required.extend([(self.max_locations, "Included locations are required for an active tier."),
+                                 (self.included_active_contracted_seats,
+                                  "Included active contracted seats are required for an active tier.")])
+            for field, message in required:
                 if field.data is None:
                     field.errors.append(message)
                     valid = False
-            if not self.module_ids.data:
-                self.module_ids.errors.append("Configure at least one included module before activating a tier.")
-                valid = False
+        return valid
+
+
+class PlanSettingsForm(FlaskForm):
+    """Platform-wide plan settings: the operator trial and the public pricing page switch."""
+    trial_days = IntegerField("Trial length (days)", validators=[DataRequired(), NumberRange(min=1, max=90)])
+    trial_tier_key = SelectField("Trial gives the features of", validators=[DataRequired()])
+    renewal_notice_days = IntegerField("Issue renewal invoices this many days early",
+                                       validators=[NumberRange(min=0, max=60)])
+    pricing_page_public = BooleanField("Show pricing on the public website")
+    submit = SubmitField("Save plan settings")
+
+
+class CatalogEntryForm(FlaskForm):
+    """Edit one feature, add-on or pay-per-use item. The code and kind are fixed by the app."""
+    name = StringField("Name", validators=[DataRequired(), Length(max=120)])
+    description = StringField("Description", validators=[Optional(), Length(max=300)])
+    availability = SelectField("Availability", choices=AVAILABILITY_CHOICES)
+    monthly_price = DecimalField("Price per month (₹)", default=0, validators=[NumberRange(min=0)])
+    unit_price = DecimalField("Price per use (₹)", validators=[Optional(), NumberRange(min=0)])
+    unit_label = StringField("Unit label", validators=[Optional(), Length(max=40)],
+                             description="For example per 5 GB, or per verification.")
+    sort_order = IntegerField("Display order", default=0, validators=[NumberRange(min=0)])
+    is_active = BooleanField("Active")
+    submit = SubmitField("Save")
+    code = ""
+
+    def validate(self, extra_validators=None):
+        valid = super().validate(extra_validators=extra_validators)
+        if self.availability.data == "available" and not can_be_available(self.code):
+            self.availability.errors.append("This isn't built yet, so it can only be Coming soon or Hidden.")
+            valid = False
         return valid
 
 
@@ -270,4 +326,11 @@ class PlatformProfileForm(FlaskForm):
     bank_details = TextAreaField("Bank transfer details", validators=[Optional(), Length(max=500)],
                                  description="Account name, number, IFSC and branch.")
     payment_instructions = TextAreaField("Payment note", validators=[Optional(), Length(max=500)])
+    gst_state = SelectField("Hub1z GST state", choices=[("", "Not set")] + INDIAN_STATES, validators=[Optional()],
+                            description="Decides CGST + SGST (same state as the operator) or IGST.")
+    default_gst_rate = DecimalField("GST rate (%)", default=18, validators=[Optional(), NumberRange(min=0, max=100)])
+    sac_code = StringField("SAC code", validators=[Optional(), Length(max=10), Regexp(r"^\d*$", message="Digits only")])
+    invoice_prefix = StringField("Invoice prefix", default="H1Z",
+                                 validators=[Optional(), Length(max=10), Regexp(r"^[A-Za-z0-9-]*$", message="Letters, digits and hyphens only")])
+    payment_terms_days = IntegerField("Payment due after (days)", default=7, validators=[Optional(), NumberRange(min=0, max=90)])
     submit = SubmitField("Save payment details")

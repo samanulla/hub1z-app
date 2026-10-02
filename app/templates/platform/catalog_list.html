@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Feature catalog{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between gap-3 mb-3">
+  <div>
+    <h3 class="mb-1">Feature catalog</h3>
+  </div>
+  <a class="btn btn-outline-dark align-self-start" href="{{ url_for('platform.tiers_list') }}">Pricing tiers</a>
+</div>
+
+{% for label, modules in groups %}
+{% if modules %}
+<h6 class="mt-4">{{ label }}</h6>
+<div class="table-responsive">
+<table class="table bg-white shadow-sm">
+  <thead><tr><th>Name</th><th>Price</th><th>Availability</th><th>Active</th><th></th></tr></thead>
+  <tbody>
+    {% for m in modules %}
+    <tr>
+      <td><strong>{{ m.name }}</strong> <code class="text-muted">{{ m.code }}</code>
+        {% if m.description %}<div class="small text-muted">{{ m.description }}</div>{% endif %}</td>
+      <td>
+        {% if m.kind == 'addon' %}{{ m.monthly_price | inr }}/month{{ (' ' ~ m.unit_label) if m.unit_label }}
+        {% elif m.kind == 'usage' %}{{ (m.unit_price | inr ~ ' ' ~ (m.unit_label or 'per use')) if m.unit_price else 'Not set' }}
+        {% else %}<span class="text-muted">Included</span>{% endif %}
+      </td>
+      <td>
+        <span class="badge {{ 'bg-success' if m.availability == 'available' else ('bg-warning text-dark' if m.availability == 'coming_soon' else 'bg-secondary') }}">{{ m.availability.replace('_', ' ') }}</span>
+        {% if not is_built(m.code) %}<span class="small text-muted ms-1">not built yet</span>{% endif %}
+      </td>
+      <td>{{ 'Yes' if m.is_active else 'No' }}</td>
+      <td class="text-end"><a class="btn btn-sm btn-outline-dark" href="{{ url_for('platform.catalog_edit', module_id=m.id) }}">Edit</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}

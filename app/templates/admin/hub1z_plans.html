@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Hub1z plans{% endblock %}
+{% block content %}
+<div class="h-page-head flex-wrap gap-2">
+  <div><h1>Plans &amp; add-ons</h1>
+    <div class="muted">{{ subscription.tier.name if subscription and subscription.status == 'active' and subscription.tier else 'Trial access' }}{% if subscription and subscription.current_period_end %} · Paid through {{ subscription.current_period_end | date }}{% endif %}</div>
+    {% if subscription and subscription.scheduled_tier_id %}<div class="text-warning">A plan change is scheduled for the next renewal.</div>{% endif %}
+  </div>
+  <a class="btn btn-soft" href="{{ url_for('admin.hub1z_billing') }}"><i class="bi bi-receipt"></i> Invoices</a>
+</div>
+<section class="mb-4">
+  <h2 class="h5">Plans</h2>
+  <div class="row g-3">
+  {% for tier in tiers %}<div class="col-12 col-lg-4">
+    <div class="h-card h-100"><div class="h-card-body d-flex flex-column h-100">
+      <h3 class="h5">{{ tier.name }}</h3>
+      <p class="muted">{{ tier.description or '' }}</p>
+      <div class="mb-3">{% if tier.monthly_price is not none %}<b>{{ tier.monthly_price | inr }}</b> / month{% else %}Custom contract{% endif %}</div>
+      <ul class="small mb-3">{% for line in limits(tier) %}<li>{{ line }}</li>{% endfor %}{% for name in features(tier) %}<li>{{ name }}</li>{% endfor %}</ul>
+      <form method="post" class="mt-auto">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="tier_id" value="{{ tier.id }}">
+        <label class="form-label small" for="cycle-{{ tier.id }}">Billing cycle</label>
+        <select class="form-select mb-2" id="cycle-{{ tier.id }}" name="cycle">
+          <option value="monthly">Monthly</option><option value="annual">Annual{% if tier.monthly_price is not none %} · {{ tier.calculate_annual_price() | inr }}{% endif %}</option>
+        </select>
+        <button class="btn btn-brand w-100"{% if tier.contact_sales and (not subscription or subscription.negotiated_base_price is none) %} disabled{% endif %}><i class="bi bi-check2-circle"></i> Select plan</button>
+      </form>
+    </div></div>
+  </div>{% else %}<p class="muted">No plans are available yet.</p>{% endfor %}
+  </div>
+</section>
+<section>
+  <h2 class="h5">Add-ons</h2>
+  <div class="table-responsive"><table class="h-table">
+    <thead><tr><th>Add-on</th><th>Monthly price</th><th>Quantity</th><th></th></tr></thead>
+    <tbody>{% for module in addons %}<tr><td><b>{{ module.name }}</b><div class="muted small">{{ module.unit_label or '' }}</div></td>
+      <td>{{ module.monthly_price | inr }}</td><td><input form="addon-{{ module.id }}" name="quantity" aria-label="{{ module.name }} quantity" class="form-control" style="width:80px" type="number" min="1" max="100" value="1"></td>
+      <td><form id="addon-{{ module.id }}" method="post" action="{{ url_for('admin.hub1z_addon_purchase', module_id=module.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-soft btn-sm"{% if not subscription or subscription.status != 'active' or module.monthly_price <= 0 %} disabled{% endif %}><i class="bi bi-plus-circle"></i> Add</button>
+      </form></td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% for addon in purchased %}<div class="border-bottom py-3">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <span><b>{{ addon.module.name }}</b> × {{ addon.quantity }} · Paid through {{ addon.paid_through | date }}</span>
+      {% if addon.cancel_at_period_end %}<span class="text-warning small">Ends at renewal</span>
+      {% elif addon.renewal_quantity is not none %}<span class="text-warning small">Reduces to {{ addon.renewal_quantity }} at renewal</span>{% endif %}
+    </div>
+    <form method="post" action="{{ url_for('admin.hub1z_addon_renewal', addon_id=addon.id) }}" class="d-flex flex-wrap align-items-center gap-2 mt-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if addon.quantity > 1 %}
+      <label class="small muted" for="renew-{{ addon.id }}">Units at renewal</label>
+      <input id="renew-{{ addon.id }}" name="quantity" class="form-control" style="width:80px" type="number" min="0" max="{{ addon.quantity }}" value="{{ addon.renewing_quantity }}">
+      <button class="btn btn-soft btn-sm"><i class="bi bi-check2"></i> Update renewal</button>
+      {% endif %}
+      {% if addon.renewing_quantity != 0 %}<button class="btn btn-soft btn-sm" name="change" value="cancel" formnovalidate><i class="bi bi-x-circle"></i> Cancel at renewal</button>{% endif %}
+      {% if addon.cancel_at_period_end or addon.renewal_quantity is not none %}<button class="btn btn-soft btn-sm" name="change" value="keep" formnovalidate><i class="bi bi-arrow-counterclockwise"></i> Keep as is</button>{% endif %}
+    </form>
+  </div>{% endfor %}
+</section>
+{% endblock %}

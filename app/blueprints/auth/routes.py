@@ -6,10 +6,11 @@ from urllib.parse import urlparse
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, g, abort
 from flask_login import login_user, logout_user, login_required, current_user
+from flask import session as billing_session
 
 from ...extensions import db, limiter
 from ...models import User, UserRole, Company, CompanyStatus, Operator, OperatorStatus
-from ...services import mail_service, tier_limits
+from ...services import mail_service, tier_limits, pricing_page
 from .forms import (
     LoginForm, RegisterIndividualForm, RegisterCompanyForm, RegisterOperatorForm,
     ForgotPasswordForm, ResetPasswordForm, ChangePasswordForm, OperatorPickerForm,
@@ -75,12 +76,9 @@ def login():
         resolved_operator_id = getattr(g, "operator_id", None)
         if user and user.operator_id != resolved_operator_id:
             user = None
-        if user and user.check_password(form.password.data) and user.is_active:
-            if user.operator_id and user.operator and user.operator.is_trial_expired:
-                flash(f"This workspace's trial ended on "
-                     f"{user.operator.trial_ends_at.strftime('%d-%b-%Y')}. "
-                     f"Contact {current_app.config['APP_NAME']} to continue.", "warning")
-                return render_template("auth/login.html", form=form)
+        credentials_valid = user and user.check_password(form.password.data) and user.is_active
+        if credentials_valid:
+            billing_session.pop("billing_banner_dismissed", None)
             next_url = _safe_next(request.args.get("next"))
             if user.two_factor_enabled:
                 from flask import session as flask_session
@@ -97,6 +95,7 @@ def login():
 @auth_bp.route("/logout")
 @login_required
 def logout():
+    billing_session.pop("billing_banner_dismissed", None)
     logout_user()
     flash("You have been signed out.", "info")
     return redirect(url_for("auth.login"))
@@ -212,7 +211,7 @@ def register_operator():
             return render_template("auth/register_operator.html", form=form)
 
         base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
-        trial_days = current_app.config.get("OPERATOR_TRIAL_DAYS", 14)
+        trial_days = pricing_page.trial_days()
         regional_defaults = {
             "IN": ("INR", "₹", "en_IN", "Asia/Kolkata"),
         }

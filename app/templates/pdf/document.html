@@ -15,6 +15,7 @@
 </style>
 </head>
 <body>
+  {% if logo %}<img src="{{ logo }}" width="130" height="40" alt="Hub1z"><br><br>{% endif %}
   <h1>{{ issuer[0] if issuer else '' }}</h1>
   {% for line in issuer[1:] %}<div class="muted">{{ line }}</div>{% endfor %}
   <div style="margin-top:10px; font-size: 14pt;">{{ title }}</div>

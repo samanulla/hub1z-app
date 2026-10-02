@@ -158,31 +158,45 @@ def run_alert_emails(today: date | None = None) -> dict:
     sent_digests = sent_customer = 0
     operators = Operator.query.filter(Operator.status.in_([OperatorStatus.ACTIVE, OperatorStatus.TRIAL])).all()
     for op in operators:
+        from .entitlements import has_feature
+        digests_enabled = has_feature(op, "alert_digests")
+        reminders_enabled = has_feature(op, "payment_reminders")
         already = _sent(op.id)
         items = subscription_items(op.id, today, links=False) + overdue_items(op.id, today, links=False)
-        new = [i for i in items if i["key"] not in already]
-        if not new:
+        pending = [item for item in items if item["key"] not in already]
+        new = [item for item in pending if f"digest:{item['key']}" not in already]
+        if not pending:
             continue
         site = f"https://{op.primary_domain}" if op.primary_domain else ""
         team = User.query.filter(User.operator_id == op.id, User.role.in_([UserRole.SUPER_ADMIN, UserRole.MANAGER]),
                                  User.is_active.is_(True)).all()
-        for member in team:
+        for member in team if digests_enabled and new else []:
             _send(f"{len(new)} thing{'s' if len(new) != 1 else ''} to act on at {op.name}", member.email,
                   "operator_alerts", operator=op, items=new, site=site)
-        sent_digests += bool(team)
-        for item in new:
+        if team and digests_enabled and new:
+            sent_digests += 1
+            for item in new:
+                db.session.add(AlertNotice(operator_id=op.id, key=f"digest:{item['key']}", sent_at=datetime.utcnow()))
+        for item in pending:
+            key = f"customer:{item['key']}"
+            if key in already:
+                continue
+            delivered = 0
             if item["kind"] == "renewal":
                 for email in _customer_emails(sub=item["sub"]):
                     _send(f"Your {op.name} agreement ends on {item['date']:%d %b %Y}", email, "agreement_reminder",
                           operator=op, sub=item["sub"], end=item["date"], site=site)
                     sent_customer += 1
-            elif item["kind"] == "overdue":
+                    delivered += 1
+            elif item["kind"] == "overdue" and reminders_enabled:
                 inv = item["invoice"]
                 path = "/company/invoices" if inv.company_id else "/me/invoices"
                 for email in _customer_emails(invoice=inv):
                     _send(f"Payment reminder: invoice {inv.number} from {op.name}", email, "payment_reminder",
                           operator=op, invoice=inv, link=f"{site}{path}")
                     sent_customer += 1
-            db.session.add(AlertNotice(operator_id=op.id, key=item["key"], sent_at=datetime.utcnow()))
+                    delivered += 1
+            if delivered:
+                db.session.add(AlertNotice(operator_id=op.id, key=key, sent_at=datetime.utcnow()))
         db.session.commit()
     return {"digests": sent_digests, "customer": sent_customer}
