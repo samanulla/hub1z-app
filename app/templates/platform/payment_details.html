@@ -51,7 +51,7 @@
       <img src="{{ url_for('platform.payment_details_qr') }}" alt="Hub1z UPI payment QR" width="240" height="240" class="img-fluid d-block mx-auto mb-2">
       <a class="btn btn-outline-dark btn-sm" href="{{ url_for('platform.payment_details_qr') }}" download="hub1z-upi.png"><i class="bi bi-download" aria-hidden="true"></i> Download QR</a>
       {% else %}
-      <p class="muted small mb-0">UPI ID not configured.</p>
+      <p class="muted small mb-0">UPI ID not configured. Enter your UPI ID in the form and save: the QR is generated automatically (no upload needed) and invoices get their own QR with the amount filled in.</p>
       {% endif %}
     </div></div>
     <div class="h-card"><div class="h-card-body">

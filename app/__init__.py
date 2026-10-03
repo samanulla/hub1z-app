@@ -462,4 +462,21 @@ def _register_root_routes(app: Flask) -> None:
             flask_abort(404)
         if not current_user.is_authenticated:
             flask_abort(401)
+        if not _may_download(key):
+            flask_abort(404)
         return send_from_directory(app.config["LOCAL_STORAGE_DIR"], key, as_attachment=True)
+
+    def _may_download(key: str) -> bool:
+        """Keys are operators/<id>/..., so a user may only read their own operator's files (company users: their company's)."""
+        from .models import UserRole
+        parts = key.split("/")
+        if ".." in parts:
+            return False
+        if current_user.is_platform_staff:
+            return parts[0] == "platform"
+        if len(parts) < 3 or parts[0] != "operators" or parts[1] != str(current_user.operator_id):
+            return False
+        if current_user.is_admin:
+            return True
+        return (current_user.role == UserRole.COMPANY_ADMIN and current_user.company_id is not None
+                and parts[2:4] == ["companies", str(current_user.company_id)])
