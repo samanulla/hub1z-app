@@ -32,6 +32,7 @@ class Document(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     kind = Column(Enum(DocumentKind), nullable=False, default=DocumentKind.OTHER, index=True)
     filename = Column(String(255), nullable=False)
+    tag = Column(String(255))  # free-text tag or short description, searchable
     content_type = Column(String(120))
     size_bytes = Column(BigInteger, default=0, nullable=False)
 

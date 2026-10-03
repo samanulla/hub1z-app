@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, g
 from flask_login import current_user
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from ...extensions import db
 from ...models import (
@@ -415,6 +415,7 @@ def operator_documents():
             owner_type="operator",
             owner_id=operator_id,
             filename=f.filename,
+            tag=(form.tag.data or "").strip() or None,
             content_type=f.mimetype,
             size_bytes=stored.size_bytes,
             storage_backend=stored.backend,
@@ -425,9 +426,12 @@ def operator_documents():
         db.session.commit()
         flash("Operator document uploaded.", "success")
         return redirect(url_for("admin.operator_documents"))
-    documents = (Document.query.filter_by(owner_type="operator")
-                 .order_by(Document.created_at.desc()).all())
-    return render_template("admin/documents.html", form=form, documents=documents,
+    q = (request.args.get("q") or "").strip()
+    query = Document.query.filter_by(owner_type="operator")
+    if q:
+        query = query.filter(or_(Document.filename.icontains(q, autoescape=True), Document.tag.icontains(q, autoescape=True)))
+    documents = query.order_by(Document.created_at.desc()).all()
+    return render_template("admin/documents.html", form=form, documents=documents, q=q,
                            title="Workspace documents")
 
 @admin_bp.route("/companies/<int:company_id>/documents", methods=["GET", "POST"])
@@ -450,6 +454,7 @@ def company_documents(company_id: int):
             owner_type="company",
             owner_id=c.id,
             filename=f.filename,
+            tag=(form.tag.data or "").strip() or None,
             content_type=f.mimetype,
             size_bytes=stored.size_bytes,
             storage_backend=stored.backend,
@@ -463,7 +468,10 @@ def company_documents(company_id: int):
         db.session.commit()
         flash("Document uploaded.", "success")
         return redirect(url_for("admin.company_documents", company_id=c.id))
-    return render_template("admin/companies/documents.html", company=c, form=form)
+    q = (request.args.get("q") or "").strip().lower()
+    documents = [cd.document for cd in c.documents
+                 if not q or q in cd.document.filename.lower() or q in (cd.document.tag or "").lower()]
+    return render_template("admin/companies/documents.html", company=c, form=form, documents=documents, q=q)
 
 
 # ------------------------------------------------------------- invoices --

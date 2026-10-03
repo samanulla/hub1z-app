@@ -6,8 +6,10 @@
 <div class="card mb-3"><div class="card-body"><form method="post" enctype="multipart/form-data" novalidate>
   {{ form.hidden_tag() }}
   <div class="row"><div class="col-md-4">{{ field(form.kind) }}</div><div class="col-md-6">{{ field(form.file) }}</div><div class="col-md-2 pt-4"><button class="btn btn-dark">Upload</button></div></div>
+  <div class="row"><div class="col-md-10">{{ field(form.tag) }}</div></div>
 </form></div></div>
-<div class="card"><div class="card-body p-0"><table class="table mb-0"><thead><tr><th>Filename</th><th>Kind</th><th>Size</th><th></th></tr></thead><tbody>
-{% for document in documents %}<tr><td>{{ document.filename }}</td><td>{{ document.kind.value }}</td><td>{{ (document.size_bytes / 1024) | round(1) }} KB</td><td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.document_download', doc_id=document.id) }}"><i class="bi bi-download" aria-hidden="true"></i> Download</a></td></tr>{% else %}<tr><td colspan="4" class="text-center text-muted py-4">No documents yet.</td></tr>{% endfor %}
+<form method="get" class="d-flex gap-2 mb-3"><input class="form-control" style="max-width:320px" name="q" value="{{ q }}" placeholder="Search by name or tag" aria-label="Search documents"><button class="btn btn-outline-dark">Search</button>{% if q %}<a class="btn btn-link" href="{{ url_for('admin.operator_documents') }}">Clear</a>{% endif %}</form>
+<div class="card"><div class="card-body p-0"><table class="table mb-0"><thead><tr><th>Filename</th><th>Tag / description</th><th>Kind</th><th>Size</th><th></th></tr></thead><tbody>
+{% for document in documents %}<tr><td>{{ document.filename }}</td><td>{{ document.tag or '' }}</td><td>{{ document.kind.value }}</td><td>{{ (document.size_bytes / 1024) | round(1) }} KB</td><td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.document_download', doc_id=document.id) }}"><i class="bi bi-download" aria-hidden="true"></i> Download</a></td></tr>{% else %}<tr><td colspan="5" class="text-center text-muted py-4">No documents{{ ' match your search' if q else ' yet' }}.</td></tr>{% endfor %}
 </tbody></table></div></div>
 {% endblock %}

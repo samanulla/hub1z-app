@@ -1,12 +1,17 @@
 """Download links on the document lists: scoped to the caller, local files from disk, cloud files by short-lived signed link."""
+import io
 import os
 from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
+from flask_login import login_user, logout_user
 
 os.environ.setdefault("FLASK_ENV", "testing")
 
 from app.extensions import db
 from app.models import Company, CompanyDocument, Document, DocumentKind, Operator, User, UserRole
+from app.services.operator_quotas import QuotaExceeded
 from app.services.storage import S3Backend, storage_service
 from tests.test_download_isolation import _app, _client
 from tests.test_role_paths import APEX, DEMO, OTHER, OWNER_PASSWORD
@@ -124,3 +129,57 @@ def test_s3_link_forces_a_download_with_a_safe_filename():
     backend.get_url("documents/operators/1/documents/a.pdf", 300, 'a\r\nSet-Cookie: x".pdf')
     assert captured["ttl"] == 300
     assert captured["params"]["ResponseContentDisposition"] == "attachment; filename*=UTF-8''a%0D%0ASet-Cookie%3A%20x%22.pdf"
+
+
+def _upload(client, host, path, kind, tag, name="scan.pdf"):
+    return client.post(path, data={"kind": kind, "tag": tag, "file": (io.BytesIO(b"%PDF-1.4 test"), name)},
+                       headers={"Host": host}, content_type="multipart/form-data")
+
+
+def test_documents_take_a_tag_that_is_required_for_other_and_searchable(tmp_path):
+    app = _app(tmp_path)
+    owner = _client(app, DEMO, "owner@demospace.com")
+    refused = _upload(owner, DEMO, "/admin/documents", "other", "  ")
+    assert refused.status_code == 200 and b"Add a tag or short description" in refused.data
+    with app.app_context():
+        assert Document.query.count() == 0
+
+    assert _upload(owner, DEMO, "/admin/documents", "other", "Fire safety certificate 2026", "a.pdf").status_code == 302
+    assert _upload(owner, DEMO, "/admin/documents", "kyc", "", "b.pdf").status_code == 302
+    page = owner.get("/admin/documents", headers={"Host": DEMO}).get_data(as_text=True)
+    assert "Fire safety certificate 2026" in page and "a.pdf" in page and "b.pdf" in page
+    found = owner.get("/admin/documents?q=FIRE", headers={"Host": DEMO}).get_data(as_text=True)
+    assert "a.pdf" in found and "b.pdf" not in found
+    assert "b.pdf" in owner.get("/admin/documents?q=b.pdf", headers={"Host": DEMO}).get_data(as_text=True)
+    assert "match your search" in owner.get("/admin/documents?q=%25", headers={"Host": DEMO}).get_data(as_text=True)
+
+    with app.app_context():
+        acme = Company.query.execution_options(skip_operator_filter=True).filter_by(name="Acme Co").one().id
+    assert _upload(owner, DEMO, f"/admin/companies/{acme}/documents", "other", "Signed lease addendum").status_code == 302
+    company_page = owner.get(f"/admin/companies/{acme}/documents?q=lease", headers={"Host": DEMO}).get_data(as_text=True)
+    assert "Signed lease addendum" in company_page
+    assert "Signed lease addendum" not in owner.get(f"/admin/companies/{acme}/documents?q=zzz", headers={"Host": DEMO}).get_data(as_text=True)
+
+    platform = _client(app, APEX, "admin@hub1z.com", OWNER_PASSWORD)
+    assert _upload(platform, APEX, "/platform/documents", "other", "").status_code == 200
+    assert _upload(platform, APEX, "/platform/documents", "other", "Company registration").status_code == 302
+    assert "Company registration" in platform.get("/platform/documents?q=registration", headers={"Host": APEX}).get_data(as_text=True)
+
+
+def test_only_platform_staff_can_map_a_custom_domain_without_white_label(tmp_path):
+    app = _app(tmp_path)
+    with app.test_request_context("/"):
+        everything = {"skip_operator_filter": True}
+        staff = User.query.execution_options(**everything).filter_by(email="admin@hub1z.com").one()
+        login_user(staff)
+        Operator.query.filter_by(slug="demo").one().custom_domain = "demo-space.example.com"
+        db.session.commit()
+        assert Operator.query.filter_by(slug="demo").one().custom_domain == "demo-space.example.com"
+        logout_user()
+
+        owner = User.query.execution_options(**everything).filter_by(email="owner@otherspace.com").one()
+        login_user(owner)
+        Operator.query.filter_by(slug="other").one().custom_domain = "other-space.example.com"
+        with pytest.raises(QuotaExceeded):
+            db.session.commit()
+        db.session.rollback()

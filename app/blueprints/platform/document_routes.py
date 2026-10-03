@@ -1,8 +1,9 @@
 """Platform-owned document storage."""
 from __future__ import annotations
 
-from flask import render_template, redirect, url_for, flash
+from flask import render_template, redirect, url_for, flash, request
 from flask_login import current_user
+from sqlalchemy import or_
 
 from ...extensions import db
 from ...models import Document, DocumentKind
@@ -32,6 +33,7 @@ def register_document_routes(bp):
                 owner_type="platform",
                 owner_id=current_user.id,
                 filename=f.filename,
+                tag=(form.tag.data or "").strip() or None,
                 content_type=f.mimetype,
                 size_bytes=stored.size_bytes,
                 storage_backend=stored.backend,
@@ -42,10 +44,13 @@ def register_document_routes(bp):
             db.session.commit()
             flash("Platform document uploaded.", "success")
             return redirect(url_for("platform.platform_documents"))
-        documents = (Document.query.execution_options(skip_operator_filter=True)
-                     .filter_by(owner_type="platform")
-                     .order_by(Document.created_at.desc()).all())
-        return render_template("platform/documents.html", form=form, documents=documents)
+        q = (request.args.get("q") or "").strip()
+        query = (Document.query.execution_options(skip_operator_filter=True)
+                 .filter_by(owner_type="platform"))
+        if q:
+            query = query.filter(or_(Document.filename.icontains(q, autoescape=True), Document.tag.icontains(q, autoescape=True)))
+        documents = query.order_by(Document.created_at.desc()).all()
+        return render_template("platform/documents.html", form=form, documents=documents, q=q)
 
     @bp.route("/documents/<int:doc_id>/download")
     @platform_permission_required("documents")

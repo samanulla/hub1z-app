@@ -40,7 +40,10 @@ def enforce_quotas(session, flush_context, instances):
                 session.add(OperatorSubscription(operator=obj, status="trial"))
         if isinstance(obj, Operator) and obj.id and obj.custom_domain and _before(obj, "custom_domain") != obj.custom_domain:
             from flask import has_request_context
-            if has_request_context() and not has_feature(obj, "white_label"):
+            from flask_login import current_user
+            # Platform staff map domains during onboarding; only the operator itself needs the paid add-on.
+            staff = has_request_context() and current_user.is_authenticated and current_user.is_platform_staff
+            if has_request_context() and not staff and not has_feature(obj, "white_label"):
                 raise QuotaExceeded("Purchase White Label before configuring a new custom domain.")
         operator_id = getattr(obj, "operator_id", None)
         if not operator_id:

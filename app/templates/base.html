@@ -43,7 +43,7 @@
     <header class="h-top">
       {% if authed %}
         <button class="h-burger" type="button" data-h-toggle="side" aria-label="Menu"><i class="bi bi-list"></i></button>
-        <div class="h-org">{{ operator.name if operator else app_name }}</div>
+        <div class="h-org">{{ operator.name if operator else '' }}</div>
       {% else %}
         <a class="h-brand on-light" href="{{ url_for('index') }}">
           {% if operator and operator.logo_url %}

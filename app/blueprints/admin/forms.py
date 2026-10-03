@@ -197,6 +197,16 @@ class DocumentUploadForm(FlaskForm):
     ])
     submit = SubmitField("Upload")
 
+    tag = StringField("Tag or short description", validators=[Optional(), Length(max=255)],
+                      description="Helps you find the file later. Required for type Other.")
+
+    def validate(self, extra_validators=None):
+        valid = super().validate(extra_validators)
+        if self.kind.data == "other" and not (self.tag.data or "").strip():
+            self.tag.errors = [*self.tag.errors, "Add a tag or short description for documents of type Other."]
+            return False
+        return valid
+
 
 # ============================================================
 # Staff, salary & payroll

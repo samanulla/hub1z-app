@@ -15,17 +15,19 @@
         <button class="btn btn-dark">Upload</button>
       </div>
     </div>
+    <div class="row"><div class="col-md-10">{{ field(form.tag) }}</div></div>
   </form>
 </div></div>
 
+<form method="get" class="d-flex gap-2 mb-3"><input class="form-control" style="max-width:320px" name="q" value="{{ q }}" placeholder="Search by name or tag" aria-label="Search documents"><button class="btn btn-outline-dark">Search</button>{% if q %}<a class="btn btn-link" href="{{ url_for('admin.company_documents', company_id=company.id) }}">Clear</a>{% endif %}</form>
 <div class="card"><div class="card-body p-0">
 <table class="table mb-0">
-  <thead><tr><th>Filename</th><th>Kind</th><th>Size</th><th>Uploaded</th><th></th></tr></thead>
+  <thead><tr><th>Filename</th><th>Tag / description</th><th>Kind</th><th>Size</th><th>Uploaded</th><th></th></tr></thead>
   <tbody>
-    {% for cd in company.documents %}
-      {% set d = cd.document %}
+    {% for d in documents %}
       <tr>
         <td>{{ d.filename }}</td>
+        <td>{{ d.tag or '' }}</td>
         <td>{{ d.kind.value }}</td>
         <td>{{ (d.size_bytes / 1024) | round(1) }} KB</td>
         <td>{{ d.created_at | dt }}</td>
@@ -34,7 +36,7 @@
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="5" class="text-center text-muted py-4">No documents yet.</td></tr>
+      <tr><td colspan="6" class="text-center text-muted py-4">No documents{{ ' match your search' if q else ' yet' }}.</td></tr>
     {% endfor %}
   </tbody>
 </table>
