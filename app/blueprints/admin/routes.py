@@ -10,7 +10,7 @@ from sqlalchemy import func, or_
 from ...extensions import db
 from ...models import (
     User, UserRole, Location, Floor, Seat, SeatType, ConferenceRoom,
-    Company, CompanyStatus, PricingPlan, Subscription, SubscriptionStatus,
+    Company, CompanyStatus, PricingPlan, PlanStatus, Subscription, SubscriptionStatus,
     SeatAllocation, AllocationStatus, SeatBooking, RoomBooking, BookingStatus,
     SubscriptionChangeRequest, SubscriptionRequestStatus,
     Document, DocumentKind, CompanyDocument, Invoice, DayPass, DayPassStatus, RoomCategory,
@@ -275,7 +275,7 @@ def plan_new():
         plan = PricingPlan()
         form.populate_obj(plan)
         _normalize_plan_conditions(plan, form)
-        plan.is_active = plan.status.value == "active"
+        plan.is_active = form.status.data == PlanStatus.ACTIVE.value
         db.session.add(plan)
         db.session.commit()
         flash("Plan created.", "success")
@@ -296,7 +296,7 @@ def plan_edit(plan_id: int):
     if form.validate_on_submit():
         form.populate_obj(plan)
         _normalize_plan_conditions(plan, form)
-        plan.is_active = plan.status.value == "active"
+        plan.is_active = form.status.data == PlanStatus.ACTIVE.value
         db.session.commit()
         flash("Plan updated.", "success")
         return redirect(url_for("admin.plans_list"))
