@@ -30,7 +30,7 @@
         <td>{{ (d.size_bytes / 1024) | round(1) }} KB</td>
         <td>{{ d.created_at | dt }}</td>
         <td class="text-end">
-          <span class="text-muted small">{{ d.storage_backend }}</span>
+          <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.document_download', doc_id=d.id) }}"><i class="bi bi-download" aria-hidden="true"></i> Download</a>
         </td>
       </tr>
     {% else %}

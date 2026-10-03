@@ -5,7 +5,7 @@ import os
 from datetime import date, timedelta
 from io import BytesIO
 
-from flask import render_template, redirect, url_for, flash, g, send_file, send_from_directory, current_app
+from flask import abort, render_template, redirect, url_for, flash, g, send_file, send_from_directory, current_app
 from flask_login import current_user
 
 from ...extensions import db
@@ -282,9 +282,9 @@ def register_agreement_routes(bp):
     @bp.route("/documents/<int:doc_id>/download")
     @admin_required
     def document_download(doc_id: int):
-        doc = Document.query.filter_by(id=doc_id, owner_type="subscription").first_or_404()
-        Subscription.query.get_or_404(doc.owner_id)
-        if doc.storage_backend == "local":
-            return send_from_directory(os.path.abspath(current_app.config["LOCAL_STORAGE_DIR"]), doc.storage_key,
-                                       as_attachment=True, download_name=doc.filename)
-        return redirect(storage_service.signed_url(doc.storage_key, scope="operator", bucket=doc.storage_bucket))
+        if g.operator_id is None:
+            abort(404)
+        # Platform documents have no operator, so the operator must be matched explicitly.
+        doc = Document.query.filter(Document.id == doc_id, Document.operator_id == g.operator_id).first_or_404()
+        audit_service.record("document.downloaded", "document", doc.id, {"owner_type": doc.owner_type})
+        return storage_service.download(doc)

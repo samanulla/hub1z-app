@@ -6,6 +6,7 @@ from flask_login import current_user
 
 from ...extensions import db
 from ...models import Document, DocumentKind
+from ...services import audit_service
 from ...services.storage import storage_service
 from ...utils.decorators import platform_permission_required
 from ..admin.forms import DocumentUploadForm
@@ -45,3 +46,11 @@ def register_document_routes(bp):
                      .filter_by(owner_type="platform")
                      .order_by(Document.created_at.desc()).all())
         return render_template("platform/documents.html", form=form, documents=documents)
+
+    @bp.route("/documents/<int:doc_id>/download")
+    @platform_permission_required("documents")
+    def platform_document_download(doc_id: int):
+        doc = (Document.query.execution_options(skip_operator_filter=True)
+               .filter_by(id=doc_id, owner_type="platform", operator_id=None).first_or_404())
+        audit_service.record("document.downloaded", "document", doc.id, {"owner_type": "platform"})
+        return storage_service.download(doc, scope="platform")

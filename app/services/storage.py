@@ -16,6 +16,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from typing import BinaryIO
+from urllib.parse import quote
 
 from flask import current_app
 
@@ -36,7 +37,7 @@ class _Backend(ABC):
     def put(self, key: str, fileobj: BinaryIO, content_type: str | None) -> StoredObject: ...
 
     @abstractmethod
-    def get_url(self, key: str, ttl_seconds: int | None = None) -> str: ...
+    def get_url(self, key: str, ttl_seconds: int | None = None, filename: str | None = None) -> str: ...
 
     @abstractmethod
     def delete(self, key: str) -> None: ...
@@ -62,7 +63,7 @@ class LocalBackend(_Backend):
             f.write(data)
         return StoredObject("local", key, len(data), content_type)
 
-    def get_url(self, key: str, ttl_seconds: int | None = None) -> str:
+    def get_url(self, key: str, ttl_seconds: int | None = None, filename: str | None = None) -> str:
         return f"/downloads/{key}"
 
     def delete(self, key: str) -> None:
@@ -91,12 +92,11 @@ class S3Backend(_Backend):
         self.client.put_object(Bucket=self.bucket, Key=full, Body=data, **extra)
         return StoredObject("s3", full, len(data), content_type, self.bucket)
 
-    def get_url(self, key: str, ttl_seconds: int | None = None) -> str:
-        return self.client.generate_presigned_url(
-            "get_object",
-            Params={"Bucket": self.bucket, "Key": key},
-            ExpiresIn=ttl_seconds or self.url_ttl,
-        )
+    def get_url(self, key: str, ttl_seconds: int | None = None, filename: str | None = None) -> str:
+        params = {"Bucket": self.bucket, "Key": key}
+        if filename:
+            params["ResponseContentDisposition"] = "attachment; filename*=UTF-8''" + quote(filename, safe="")
+        return self.client.generate_presigned_url("get_object", Params=params, ExpiresIn=ttl_seconds or self.url_ttl)
 
     def delete(self, key: str) -> None:
         self.client.delete_object(Bucket=self.bucket, Key=key)
@@ -128,7 +128,7 @@ class AzureBlobBackend(_Backend):
         )
         return StoredObject("azure_blob", key, len(data), content_type, self.container)
 
-    def get_url(self, key: str, ttl_seconds: int | None = None) -> str:
+    def get_url(self, key: str, ttl_seconds: int | None = None, filename: str | None = None) -> str:
         # For real deployment, generate a SAS token. Placeholder here:
         return self.container_client.get_blob_client(key).url
 
@@ -210,14 +210,25 @@ class StorageService:
         return backend.put(key, stream, content_type)
 
     def signed_url(self, key: str, ttl_seconds: int | None = None,
-                   scope: str = "operator", bucket: str | None = None) -> str:
+                   scope: str = "operator", bucket: str | None = None, filename: str | None = None) -> str:
         backend = self._backends.get(scope) or self.backend
         if bucket and isinstance(backend, S3Backend):
             backend = S3Backend(bucket=bucket,
                                 region=current_app.config["AWS_REGION"],
                                 prefix=current_app.config["AWS_S3_PREFIX"],
                                 url_ttl=current_app.config["AWS_S3_URL_TTL"])
-        return backend.get_url(key, ttl_seconds)
+        return backend.get_url(key, ttl_seconds, filename)
+
+    def download(self, doc, scope: str = "operator"):
+        """Send a stored document to the browser: local files from disk, cloud files through a 5-minute signed link.
+
+        Callers must already have checked that the user may see ``doc``."""
+        from flask import redirect, send_from_directory
+        if doc.storage_backend == "local":
+            return send_from_directory(os.path.abspath(current_app.config["LOCAL_STORAGE_DIR"]), doc.storage_key,
+                                       as_attachment=True, download_name=doc.filename)
+        return redirect(self.signed_url(doc.storage_key, ttl_seconds=300, scope=scope,
+                                        bucket=doc.storage_bucket, filename=doc.filename))
 
     def delete(self, key: str, scope: str = "operator") -> None:
         backend = self._backends.get(scope) or self.backend

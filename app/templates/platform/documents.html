@@ -8,7 +8,7 @@
   {{ form.hidden_tag() }}
   <div class="row"><div class="col-md-4">{{ field(form.kind) }}</div><div class="col-md-6">{{ field(form.file) }}</div><div class="col-md-2 pt-4"><button class="btn btn-dark">Upload</button></div></div>
 </form></div></div>
-<div class="card"><div class="card-body p-0"><table class="table mb-0"><thead><tr><th>Filename</th><th>Kind</th><th>Size</th><th>Storage</th></tr></thead><tbody>
-{% for document in documents %}<tr><td>{{ document.filename }}</td><td>{{ document.kind.value }}</td><td>{{ (document.size_bytes / 1024) | round(1) }} KB</td><td>{{ document.storage_backend }}{% if document.storage_bucket %} · {{ document.storage_bucket }}{% endif %}</td></tr>{% else %}<tr><td colspan="4" class="text-center text-muted py-4">No platform documents yet.</td></tr>{% endfor %}
+<div class="card"><div class="card-body p-0"><table class="table mb-0"><thead><tr><th>Filename</th><th>Kind</th><th>Size</th><th>Storage</th><th></th></tr></thead><tbody>
+{% for document in documents %}<tr><td>{{ document.filename }}</td><td>{{ document.kind.value }}</td><td>{{ (document.size_bytes / 1024) | round(1) }} KB</td><td>{{ document.storage_backend }}{% if document.storage_bucket %} · {{ document.storage_bucket }}{% endif %}</td><td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="{{ url_for('platform.platform_document_download', doc_id=document.id) }}"><i class="bi bi-download" aria-hidden="true"></i> Download</a></td></tr>{% else %}<tr><td colspan="5" class="text-center text-muted py-4">No platform documents yet.</td></tr>{% endfor %}
 </tbody></table></div></div>
 {% endblock %}
