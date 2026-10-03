@@ -77,10 +77,13 @@ class S3Backend(_Backend):
 
     def __init__(self, bucket: str, region: str, prefix: str, url_ttl: int) -> None:
         import boto3  # local import to keep boto3 optional at runtime
+        from botocore.config import Config
         self.bucket = bucket
         self.prefix = prefix.rstrip("/") + "/"
         self.url_ttl = url_ttl
-        self.client = boto3.client("s3", region_name=region)
+        # Without v4 + virtual-host style, links for a non-us-east-1 bucket point at the global endpoint and fail.
+        self.client = boto3.client("s3", region_name=region,
+                                   config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}))
 
     def _full_key(self, key: str) -> str:
         return f"{self.prefix}{key.lstrip('/')}"

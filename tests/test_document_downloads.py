@@ -131,6 +131,15 @@ def test_s3_link_forces_a_download_with_a_safe_filename():
     assert captured["params"]["ResponseContentDisposition"] == "attachment; filename*=UTF-8''a%0D%0ASet-Cookie%3A%20x%22.pdf"
 
 
+def test_s3_links_use_the_regional_endpoint_and_signature_v4(monkeypatch):
+    for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
+        monkeypatch.setenv(name, "test")
+    backend = S3Backend(bucket="hub1z-docs", region="ap-south-1", prefix="documents/", url_ttl=3600)
+    url = backend.get_url("documents/operators/1/a.pdf", 300, "a.pdf")
+    assert url.startswith("https://hub1z-docs.s3.ap-south-1.amazonaws.com/documents/operators/1/a.pdf?")
+    assert "X-Amz-Algorithm=AWS4-HMAC-SHA256" in url and "X-Amz-Expires=300" in url
+
+
 def _upload(client, host, path, kind, tag, name="scan.pdf"):
     return client.post(path, data={"kind": kind, "tag": tag, "file": (io.BytesIO(b"%PDF-1.4 test"), name)},
                        headers={"Host": host}, content_type="multipart/form-data")
