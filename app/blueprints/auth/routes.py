@@ -14,7 +14,7 @@ from ...services import mail_service, tier_limits, pricing_page
 from .forms import (
     LoginForm, RegisterIndividualForm, RegisterCompanyForm, RegisterOperatorForm,
     ForgotPasswordForm, ResetPasswordForm, ChangePasswordForm, OperatorPickerForm,
-    TotpVerifyForm, TotpEnableForm,
+    TotpVerifyForm, TotpEnableForm, UserProfileForm,
 )
 
 
@@ -71,12 +71,12 @@ def login():
         # are fine for ordinary data, but wrong for login. A platform-staff
         # account (operator_id is None) must only sign in on the apex; a
         # operator account must only sign in on its own subdomain.
-        user = (User.query.execution_options(skip_operator_filter=True)
-               .filter_by(email=form.email.data.lower().strip()).first())
         resolved_operator_id = getattr(g, "operator_id", None)
-        if user and user.operator_id != resolved_operator_id:
-            user = None
+        user = (User.query.execution_options(skip_operator_filter=True)
+            .filter_by(email=form.email.data.lower().strip(), operator_id=resolved_operator_id).first())
         credentials_valid = user and user.check_password(form.password.data) and user.is_active
+        if user and user.company and user.company.status in (CompanyStatus.SUSPENDED, CompanyStatus.CHURNED):
+            credentials_valid = False
         if credentials_valid:
             billing_session.pop("billing_banner_dismissed", None)
             next_url = _safe_next(request.args.get("next"))
@@ -99,6 +99,19 @@ def logout():
     logout_user()
     flash("You have been signed out.", "info")
     return redirect(url_for("auth.login"))
+
+
+@auth_bp.route("/profile", methods=["GET", "POST"])
+@login_required
+def profile():
+    form = UserProfileForm(obj=current_user)
+    if form.validate_on_submit():
+        current_user.full_name = form.full_name.data.strip()
+        current_user.phone = form.phone.data
+        db.session.commit()
+        flash("Profile updated.", "success")
+        return redirect(url_for("auth.profile"))
+    return render_template("auth/profile.html", form=form)
 
 
 @auth_bp.route("/register", methods=["GET", "POST"])

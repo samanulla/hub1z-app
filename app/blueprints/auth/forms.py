@@ -11,6 +11,12 @@ class LoginForm(FlaskForm):
     submit = SubmitField("Sign in")
 
 
+class UserProfileForm(FlaskForm):
+    full_name = StringField("Full name", validators=[DataRequired(), Length(max=150)])
+    phone = StringField("Mobile number", validators=[Optional(), Length(max=30)])
+    submit = SubmitField("Save profile")
+
+
 class RegisterIndividualForm(FlaskForm):
     full_name = StringField("Full name", validators=[DataRequired(), Length(max=150)])
     email = StringField("Email", validators=[DataRequired(), Email(), Length(max=255)])

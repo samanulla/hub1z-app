@@ -7,7 +7,7 @@
   <a class="btn btn-dark" href="{{ url_for('company.employee_new') }}">+ Add employee</a>
 </div>
 
-<table class="table bg-white shadow-sm">
+<div class="table-responsive"><table class="table bg-white shadow-sm">
   <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Active</th><th></th></tr></thead>
   <tbody>
     {% for u in people %}
@@ -18,16 +18,26 @@
       <td><span class="badge bg-secondary">{{ u.role.value }}</span></td>
       <td>{% if u.is_active %}Yes{% else %}<span class="text-danger">No</span>{% endif %}</td>
       <td class="text-end">
-        {% if u.role.value == 'employee' and u.is_active %}
+        {% if u.role.value in ('employee', 'company_admin') %}
         <a class="btn btn-sm btn-outline-dark" href="{{ url_for('company.employee_edit', user_id=u.id) }}">Edit</a>
+        {% if u.role.value == 'employee' and u.is_active %}
         <form method="post" action="{{ url_for('company.employee_deactivate', user_id=u.id) }}" class="d-inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="btn btn-sm btn-outline-danger">Deactivate</button>
         </form>
         {% endif %}
+        {% if u.role.value == 'employee' and not u.is_active %}
+        {% if u.invite_revoked %}
+        <form method="post" action="{{ url_for('company.employee_reactivate', user_id=u.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-dark">Reactivate</button></form>
+        {% else %}
+        <form method="post" action="{{ url_for('company.employee_resend', user_id=u.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-dark">Resend invite</button></form>
+        <form method="post" action="{{ url_for('company.employee_deactivate', user_id=u.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger">Revoke invite</button></form>
+        {% endif %}
+        {% endif %}
+        {% endif %}
       </td>
     </tr>
     {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% endblock %}

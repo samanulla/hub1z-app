@@ -250,9 +250,6 @@ def _normalize_plan_conditions(plan, form):
         plan.deposit_calculation = None
         plan.deposit_value = 0
         plan.deposit_refundable = False
-    if not form.tax_applicable.data:
-        plan.tax_code = None
-        plan.price_includes_tax = False
     if form.location_scope.data == "all":
         plan.locations = Location.query.order_by(Location.name).all()
     else:
@@ -274,9 +271,9 @@ def plan_new():
     if form.validate_on_submit():
         plan = PricingPlan()
         form.populate_obj(plan)
+        db.session.add(plan)
         _normalize_plan_conditions(plan, form)
         plan.is_active = form.status.data == PlanStatus.ACTIVE.value
-        db.session.add(plan)
         db.session.commit()
         flash("Plan created.", "success")
         return redirect(url_for("admin.plans_list"))
@@ -304,6 +301,40 @@ def plan_edit(plan_id: int):
 
 
 # ------------------------------------------------------------- companies --
+
+@admin_bp.route("/companies/<int:company_id>/archive", methods=["POST"])
+@manager_or_super_required
+def company_archive(company_id: int):
+    company = Company.query.get_or_404(company_id)
+    if company.status == CompanyStatus.CHURNED:
+        return redirect(url_for("admin.companies_list"))
+    company.profile_details = {**(company.profile_details or {}), "archived_access": [
+        {"id": user.id, "active": user.is_active, "revoked": user.invite_revoked} for user in company.users]}
+    company.status = CompanyStatus.CHURNED
+    for user in company.users:
+        user.is_active = False
+        user.invite_revoked = True
+    db.session.commit()
+    flash("Company archived and sign-in blocked. Contracts and billing records are retained.", "info")
+    return redirect(url_for("admin.companies_list"))
+
+@admin_bp.route("/companies/<int:company_id>/restore", methods=["POST"])
+@manager_or_super_required
+def company_restore(company_id: int):
+    company = Company.query.get_or_404(company_id)
+    if company.status != CompanyStatus.CHURNED:
+        abort(400)
+    company.status = CompanyStatus.ACTIVE
+    details = dict(company.profile_details or {})
+    previous = {row["id"]: row for row in details.pop("archived_access", [])}
+    for user in company.users:
+        if user.id in previous:
+            user.invite_revoked = previous[user.id]["revoked"]
+            user.is_active = previous[user.id]["active"]
+    company.profile_details = details
+    db.session.commit()
+    flash("Company restored. Resend any pending invitations from Invites.", "success")
+    return redirect(url_for("admin.company_detail", company_id=company.id))
 
 @admin_bp.route("/companies")
 @admin_required
@@ -336,13 +367,16 @@ def company_detail(company_id: int):
 @manager_or_super_required
 def company_edit(company_id: int):
     c = Company.query.get_or_404(company_id)
-    form = CompanyForm(obj=c)
+    form = CompanyForm(obj=c, data=c.profile_details or {})
     if form.validate_on_submit():
         form.populate_obj(c)
+        from ..profile_forms import save_details, business_address
+        save_details(c, form)
+        c.billing_address = business_address(c) or c.billing_address
         db.session.commit()
         flash("Company updated.", "success")
         return redirect(url_for("admin.company_detail", company_id=c.id))
-    return render_template("admin/companies/form.html", form=form, title="Edit company")
+    return render_template("admin/companies/form.html", form=form, title="Edit company", company=c)
 
 
 # ----------------------------------------------------------- allocations --

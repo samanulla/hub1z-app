@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+from secrets import token_urlsafe
 
 from flask import Blueprint, render_template, redirect, url_for, flash, abort, request, g, current_app
 from flask_login import current_user, login_user
@@ -13,6 +14,7 @@ from ...models import (
     User, UserRole, PricingPlan, PlanScope, Subscription, SubscriptionStatus,
     SubscriptionChangeRequest, SubscriptionRequestStatus,
     Seat, SeatType, SeatAllocation, AllocationStatus, Invoice, InvoiceStatus, PaymentSubmission,
+    CompanyDocument, Company, Location,
     PaymentSubmissionStatus, SeatBooking, RoomBooking, CompanyCreditPolicy, CreditAllocation, Parcel,
 )
 from ...utils.decorators import company_admin_required
@@ -21,10 +23,12 @@ from .forms import (
     SubscriptionRequestForm, EmployeeAllocationForm, CompanySeatAllocationForm, PaymentSubmissionForm,
     CreditRulesForm,
 )
-from ...services import mail_service, tier_limits, credit_service
+from ...services import mail_service, tier_limits, credit_service, audit_service
+from ...services.storage import storage_service
 from ..customer_billing import register_customer_billing_routes
 from ...services.alerts import customer_agreements
 from ...services.pdf_docs import address_letter_response
+from ..profile_forms import PROFILE_GROUPS, business_address, save_details
 
 INVITE_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days
 
@@ -111,13 +115,39 @@ def dashboard():
 @company_admin_required
 def profile():
     c = _own_company()
-    form = CompanyProfileForm(obj=c)
+    form = CompanyProfileForm(obj=c, data=c.profile_details or {})
     if form.validate_on_submit():
+        submitted_name = (form.name.data or c.name).strip()
+        if Company.query.filter(Company.name == submitted_name, Company.id != c.id).first():
+            form.name.errors.append("A company with this name already exists in this workspace.")
+            return render_template("company/profile.html", company=c, form=form, profile_groups=PROFILE_GROUPS,
+                                   agreements=customer_agreements(company_id=c.id))
+        form.name.data = submitted_name
         form.populate_obj(c)
+        save_details(c, form)
+        c.billing_address = business_address(c) or c.billing_address
         db.session.commit()
         flash("Company profile updated.", "success")
         return redirect(url_for("company.profile"))
-    return render_template("company/profile.html", company=c, form=form)
+    return render_template("company/profile.html", company=c, form=form, profile_groups=PROFILE_GROUPS,
+                           agreements=customer_agreements(company_id=c.id))
+
+
+@company_bp.route("/documents")
+@company_admin_required
+def documents():
+    company = _own_company()
+    links = CompanyDocument.query.filter_by(company_id=company.id).all()
+    return render_template("company/documents.html", company=company, documents=[link.document for link in links])
+
+
+@company_bp.route("/documents/<int:doc_id>/download")
+@company_admin_required
+def document_download(doc_id: int):
+    company = _own_company()
+    link = CompanyDocument.query.filter_by(company_id=company.id, document_id=doc_id).first_or_404()
+    audit_service.record("document.downloaded", "document", doc_id, {"company_id": company.id})
+    return storage_service.download(link.document)
 
 
 # --------------------------------------------------------------- employees --
@@ -137,7 +167,7 @@ def employee_new():
     form = InviteEmployeeForm()
     form.seat_allocation_id.choices = _employee_seat_choices(c)
     if form.validate_on_submit():
-        emp_count = User.query.filter_by(company_id=c.id, role=UserRole.EMPLOYEE).count()
+        emp_count = User.query.filter_by(company_id=c.id, role=UserRole.EMPLOYEE, invite_revoked=False).count()
         if emp_count >= c.max_employees:
             flash(f"Employee limit ({c.max_employees}) reached.", "warning")
             return redirect(url_for("company.employees"))
@@ -189,7 +219,8 @@ def employee_new():
 @company_admin_required
 def employee_edit(user_id: int):
     c = _own_company()
-    employee = User.query.filter_by(id=user_id, company_id=c.id, role=UserRole.EMPLOYEE).first_or_404()
+    employee = User.query.filter_by(id=user_id, company_id=c.id).filter(
+        User.role.in_([UserRole.EMPLOYEE, UserRole.COMPANY_ADMIN])).first_or_404()
     form = InviteEmployeeForm(obj=employee)
     form.seat_allocation_id.choices = _employee_seat_choices(c, employee.id)
     current_allocation = SeatAllocation.query.filter_by(
@@ -253,10 +284,57 @@ def accept_invite(token: str):
 @company_admin_required
 def employee_deactivate(user_id: int):
     c = _own_company()
-    u = User.query.filter_by(id=user_id, company_id=c.id).first_or_404()
+    u = User.query.filter_by(id=user_id, company_id=c.id, role=UserRole.EMPLOYEE).first_or_404()
     u.is_active = False
+    u.invite_revoked = True
+    for allocation in SeatAllocation.query.filter_by(company_id=c.id, user_id=u.id, status=AllocationStatus.ACTIVE).all():
+        allocation.user_id = None
     db.session.commit()
     flash(f"{u.full_name} deactivated.", "info")
+    return redirect(url_for("company.employees"))
+
+
+@company_bp.route("/employees/<int:user_id>/resend", methods=["POST"])
+@company_admin_required
+def employee_resend(user_id: int):
+    company = _own_company()
+    user = User.query.filter_by(id=user_id, company_id=company.id, role=UserRole.EMPLOYEE,
+                               is_active=False, invite_revoked=False, email_verified=False).first_or_404()
+    user.set_password(token_urlsafe(32))
+    db.session.commit()
+    token = mail_service.make_token(user.id, "employee-invite")
+    mail_service.send(subject=f"You're invited to {company.name} on Hub1z", recipient=user.email,
+                      template="employee_invite", user=user, company=company,
+                      accept_url=url_for("company.accept_invite", token=token, _external=True), ttl_days=7)
+    flash("Invitation resent. The previous link is no longer valid.", "success")
+    return redirect(url_for("company.employees"))
+
+
+@company_bp.route("/employees/<int:user_id>/reactivate", methods=["POST"])
+@company_admin_required
+def employee_reactivate(user_id: int):
+    company = _own_company()
+    user = User.query.filter_by(id=user_id, company_id=company.id, role=UserRole.EMPLOYEE,
+                               is_active=False, invite_revoked=True).first_or_404()
+    count = User.query.filter_by(company_id=company.id, role=UserRole.EMPLOYEE, invite_revoked=False).count()
+    if count >= company.max_employees:
+        flash(f"Employee limit ({company.max_employees}) reached.", "warning")
+        return redirect(url_for("company.employees"))
+    ok, message = tier_limits.check_limit(g.operator, "person")
+    if not ok:
+        flash(message, "warning")
+        return redirect(url_for("company.employees"))
+    user.invite_revoked = False
+    user.is_active = bool(user.email_verified)
+    if not user.is_active:
+        user.set_password(token_urlsafe(32))
+    db.session.commit()
+    if not user.is_active:
+        token = mail_service.make_token(user.id, "employee-invite")
+        mail_service.send(subject=f"You're invited to {company.name} on Hub1z", recipient=user.email,
+                          template="employee_invite", user=user, company=company,
+                          accept_url=url_for("company.accept_invite", token=token, _external=True), ttl_days=7)
+    flash("Employee reactivated.", "success")
     return redirect(url_for("company.employees"))
 
 

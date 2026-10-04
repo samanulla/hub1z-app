@@ -100,7 +100,7 @@ def register_subscription_routes(bp):
     @bp.route("/individuals")
     @admin_required
     def individuals_list():
-        people = (User.query.filter_by(role=UserRole.INDIVIDUAL, is_active=True).order_by(User.full_name).all())
+        people = (User.query.filter_by(role=UserRole.INDIVIDUAL).order_by(User.full_name).all())
         subs = Subscription.query.filter(Subscription.user_id.in_([p.id for p in people] or [0])).all()
         by_user: dict[int, list] = {}
         for s in subs:

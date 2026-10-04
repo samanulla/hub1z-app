@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Company documents{% endblock %}
+{% block content %}
+<h3>{{ company.name }} documents</h3>
+<div class="table-responsive"><table class="table"><thead><tr><th>Document</th><th>Tag</th><th>Type</th><th></th></tr></thead><tbody>
+{% for document in documents %}<tr><td>{{ document.filename }}</td><td>{{ document.tag or '' }}</td><td>{{ document.kind.value }}</td><td><a href="{{ url_for('company.document_download', doc_id=document.id) }}">Download</a></td></tr>
+{% else %}<tr><td colspan="4">No documents yet. Ask your workspace operator to upload PAN, GST, incorporation, address or signatory documents.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

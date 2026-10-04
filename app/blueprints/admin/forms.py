@@ -13,6 +13,8 @@ from ...models import (
 )
 from ...services.locale_data import TIMEZONE_CHOICES
 from ...services.gst import INDIAN_STATES, CHARGE_TYPES
+from ..profile_forms import BusinessDetailsForm
+from ..company.forms import CompanyProfileForm
 
 STATE_CHOICES = [("", "Not set")] + INDIAN_STATES
 LATE_FEE_CHOICES = [("none", "No late fee"), ("per_day", "Fixed amount per day late"),
@@ -69,9 +71,10 @@ class RoomForm(FlaskForm):
     code = StringField("Room code", validators=[DataRequired(), Length(max=30)])
     name = StringField("Room name", validators=[DataRequired(), Length(max=120)])
     capacity = IntegerField("Capacity", validators=[DataRequired(), NumberRange(min=1, max=500)])
-    hourly_rate = DecimalField("Hourly rate (used when no category)", default=0, validators=[NumberRange(min=0)])
+    hourly_rate = DecimalField("Hourly rate override", default=0, validators=[NumberRange(min=0)],
+                              description="Enter a room-specific cash rate, or leave 0 to use the category rate.")
     category_id = SelectField("Category", coerce=int, default=0,
-                              description="Standard, Executive... sets the credits and cash rate.")
+                              description="Sets credits per 30 minutes and the default cash rate.")
     is_active = BooleanField("Active", default=True)
     cross_location_bookable = BooleanField(
         "Allow members from other locations to book this room",
@@ -84,6 +87,13 @@ class RoomForm(FlaskForm):
 
 
 class PricingPlanForm(FlaskForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name in ("scope", "plan_type", "billing_unit", "billing_cycle", "location_scope", "status"):
+            form_field = getattr(self, field_name)
+            if form_field.raw_data is None and form_field.object_data is not None:
+                form_field.data = getattr(form_field.object_data, "value", form_field.object_data)
+
     name = StringField("Plan name", validators=[DataRequired(), Length(max=120)])
     scope = SelectField("Plan scope", choices=_enum_choices(PlanScope), validators=[DataRequired()])
     company_id = SelectField("Company-specific plan for", coerce=int, validators=[Optional()])
@@ -106,9 +116,6 @@ class PricingPlanForm(FlaskForm):
     deposit_calculation = SelectField("Deposit calculation", choices=[("fixed_amount", "Fixed Amount"), ("months_of_base_price", "Months of Base Price")], validators=[Optional()])
     deposit_value = DecimalField("Deposit value", default=0, validators=[NumberRange(min=0)])
     deposit_refundable = BooleanField("Refundable", default=True)
-    tax_applicable = BooleanField("Tax applicable", default=True)
-    tax_code = StringField("Tax code / rate", validators=[Optional(), Length(max=30)])
-    price_includes_tax = BooleanField("Price includes tax", default=False)
     currency = SelectField("Currency", choices=[("INR", "INR")], default="INR")
     effective_from = DateField("Effective from", validators=[Optional()])
     effective_until = DateField("Effective until", validators=[Optional()])
@@ -144,9 +151,6 @@ class PricingPlanForm(FlaskForm):
         if self.effective_until.data and (not self.effective_from.data or self.effective_until.data <= self.effective_from.data):
             self.effective_until.errors.append("Effective Until must be later than Effective From.")
             valid = False
-        if self.tax_applicable.data and not (self.tax_code.data or "").strip():
-            self.tax_code.errors.append("Tax Code / Rate is required when tax applies.")
-            valid = False
         if self.status.data == PlanStatus.ACTIVE.value:
             for field, message in ((self.base_price, "Base Price is required for an active plan."),
                                    (self.currency, "Currency is required for an active plan."),
@@ -157,7 +161,12 @@ class PricingPlanForm(FlaskForm):
         return valid
 
 
-class CompanyForm(FlaskForm):
+class CompanyForm(CompanyProfileForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.status.raw_data is None and self.status.object_data is not None:
+            self.status.data = getattr(self.status.object_data, "value", self.status.object_data)
+
     name = StringField("Company name", validators=[DataRequired(), Length(max=200)])
     legal_name = StringField("Legal name", validators=[Optional(), Length(max=255)])
     tax_id = StringField("GSTIN / Tax ID", validators=[Optional(), Length(max=64)])
@@ -412,7 +421,19 @@ class SystemSettingsForm(FlaskForm):
     submit = SubmitField("Save settings")
 
 
-class OperatorSettingsForm(FlaskForm):
+class OperatorSettingsForm(BusinessDetailsForm):
+    name = StringField("Workspace / brand name", validators=[Optional(), Length(max=200)])
+    company_legal_name = StringField("Legal business name", validators=[Optional(), Length(max=200)])
+    pan = StringField("PAN", validators=[Optional(), Length(max=20)])
+    gstin = StringField("GSTIN", validators=[Optional(), Length(max=20)])
+    gst_state = SelectField("State of registration (GST)", choices=STATE_CHOICES, validators=[Optional()])
+    industry = StringField("Industry", validators=[Optional(), Length(max=120)])
+    website = StringField("Website", validators=[Optional(), Length(max=255)])
+    contact_phone = StringField("Primary contact mobile", validators=[Optional(), Length(max=30)])
+    billing_email = StringField("Billing email", validators=[Optional(), Email(), Length(max=255)])
+    payment_bank_account_name = StringField("Bank account holder name", validators=[Optional(), Length(max=200)])
+    payment_bank_account_number = StringField("Account number", validators=[Optional(), Length(max=60)])
+    payment_bank_ifsc_or_routing = StringField("IFSC code", validators=[Optional(), Length(max=30)])
     tagline = StringField("Tagline", validators=[Optional(), Length(max=200)])
     logo_url = StringField("Logo URL", validators=[Optional(), Length(max=500)],
                            description="Leave blank to show your workspace name only, with no logo image.")
@@ -434,6 +455,7 @@ class InviteIndividualForm(FlaskForm):
     """Operator invites a person to join as an Individual member."""
     full_name = StringField("Full name", validators=[DataRequired(), Length(max=150)])
     email = StringField("Email", validators=[DataRequired(), Email(), Length(max=255)])
+    phone = StringField("Phone", validators=[Optional(), Length(max=30)])
     submit = SubmitField("Send invitation")
 
 

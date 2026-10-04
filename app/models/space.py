@@ -81,7 +81,9 @@ class ConferenceRoom(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     @property
     def cash_rate_per_hour(self):
-        return self.category.hourly_rate if self.category else (self.hourly_rate or 0)
+        if self.hourly_rate and self.hourly_rate > 0:
+            return self.hourly_rate
+        return self.category.hourly_rate if self.category else 0
 
 
 class RoomAmenity(db.Model, PkMixin, OperatorScoped):

@@ -6,10 +6,6 @@
 {% set ep = request.endpoint or '' %}
 {% set badges = nav_badges() %}
 
-{% macro checkin_cta() %}
-<a class="h-nav-cta {{ 'active' if ep.startswith('checkin.') }}" href="{{ url_for('checkin.pass_page') }}"><i class="bi bi-qr-code-scan"></i><span>Check-in QR</span></a>
-{% endmacro %}
-
 {% macro book_links() %}
   {{ link('Book', 'bi-calendar-plus-fill', url_for('book.index'), ep in ('book.index', 'book.location_home', 'book.seat_book', 'book.room_book')) }}
   {{ link('Calendar', 'bi-calendar3', url_for('book.calendar'), ep.startswith('book.') and ep not in ('book.index', 'book.location_home', 'book.seat_book', 'book.room_book')) }}
@@ -76,7 +72,6 @@
   {% endif %}
 
 {% elif current_user.is_admin %}
-  {{ checkin_cta() }}
   {{ group('Overview') }}
   {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('admin.dashboard'), ep == 'admin.dashboard') }}
   {{ link('Alerts', 'bi-bell-fill', url_for('admin.alerts'), ep == 'admin.alerts', badges.get('alerts')) }}
@@ -118,15 +113,14 @@
   {% endif %}
 
 {% elif current_user.is_company_admin %}
-  {{ checkin_cta() }}
   {{ group('Overview') }}
   {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('company.dashboard'), ep == 'company.dashboard') }}
-  {{ link('Company profile', 'bi-building', url_for('company.profile'), ep == 'company.profile') }}
   {{ group('People & workspace') }}
   {{ book_links() }}
   {{ link('People', 'bi-people-fill', url_for('company.employees'), ep.startswith('company.employee') or ep == 'company.accept_invite') }}
   {{ link('Seat allocations', 'bi-person-workspace', url_for('company.allocations'), ep.startswith('company.allocation')) }}
   {{ link('Team activity', 'bi-activity', url_for('company.bookings'), ep == 'company.bookings') }}
+  {{ link('Documents', 'bi-folder-fill', url_for('company.documents'), ep in ('company.documents', 'company.document_download')) }}
   {{ link('Mail & parcels', 'bi-box-seam', url_for('company.parcels'), ep == 'company.parcels', badges.get('parcels')) }}
   {{ group('Plan & billing') }}
   {{ link('Plans & subscriptions', 'bi-layers-fill', url_for('company.plans'), ep == 'company.plans') }}
@@ -136,7 +130,6 @@
   {{ community_links() }}
 
 {% else %}
-  {{ checkin_cta() }}
   {{ group('My space') }}
   {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('member.dashboard'), ep == 'member.dashboard') }}
   {{ book_links() }}

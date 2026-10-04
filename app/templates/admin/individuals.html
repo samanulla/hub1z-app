@@ -23,7 +23,9 @@
           {% else %}<span class="text-muted">None</span>{% endfor %}
         </td>
         <td class="text-end">
-          {% if not active %}
+          <a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.individual_edit', user_id=p.id) }}">Edit</a>
+          <form method="post" action="{{ url_for('admin.individual_status', user_id=p.id, action='deactivate' if p.is_active else 'reactivate') }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger">{{ 'Deactivate' if p.is_active else 'Reactivate' }}</button></form>
+          {% if not active and p.is_active %}
           <a class="btn btn-sm btn-dark" href="{{ url_for('admin.individual_subscription_new', user_id=p.id) }}">Add subscription</a>
           {% else %}
           {% for s in active %}

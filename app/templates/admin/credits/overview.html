@@ -31,6 +31,13 @@
   {% endif %}
 </div></div>
 
+<details class="mb-4">
+  <summary>Room capacity calculation</summary>
+  <table class="table"><thead><tr><th>Room</th><th>Location</th><th>30-min slots / day</th><th>Days / month</th><th>Credits / slot</th><th>Monthly credits</th></tr></thead>
+    <tbody>{% for row in capacity_rows %}<tr><td>{{ row.room }}</td><td>{{ row.location }}</td><td>{{ row.slots }}</td><td>{{ row.days }}</td><td>{{ row.per_slot }}</td><td>{{ row.credits }}</td></tr>{% endfor %}</tbody>
+  </table>
+</details>
+
 <h5>Allocations</h5>
 <table class="table bg-white shadow-sm">
   <thead><tr>

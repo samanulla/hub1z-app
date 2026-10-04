@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}My profile{% endblock %}
+{% block content %}
+<h3>My profile</h3>
+<form method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <p>{{ current_user.email }}</p>
+  {{ field(form.full_name) }}{{ field(form.phone) }}
+  <button class="btn btn-brand" type="submit">Save profile</button>
+</form>
+{% endblock %}

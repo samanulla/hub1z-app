@@ -36,7 +36,8 @@
       {% endif %}
       {% if invoice.company %}
       <strong>Bill to:</strong><br>
-      {{ invoice.company.name }}<br>
+      {{ invoice.company.legal_name or invoice.company.name }}<br>
+      {% if invoice.company.billing_address %}{{ invoice.company.billing_address }}<br>{% endif %}
       {{ invoice.company.billing_email }}{% if invoice.buyer_gstin %}<br>
       GSTIN: {{ invoice.buyer_gstin }}{% endif %}{% if invoice.buyer_pan %}<br>
       PAN: {{ invoice.buyer_pan }}{% endif %}

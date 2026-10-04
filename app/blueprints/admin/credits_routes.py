@@ -71,6 +71,7 @@ def register_credit_routes(bp):
             {"key": "reserve", "label": "Kept for new signups", "value": pool["reserve"]},
         ]
         return render_template("admin/credits/overview.html", pool=pool, segments=segments, rows=rows,
+                               capacity_rows=credit_service.capacity_breakdown(oid),
                                allocate_form=allocate_form, bonus_form=bonus_form,
                                settings=CreditSettings.for_operator(oid))
 

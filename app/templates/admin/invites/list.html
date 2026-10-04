@@ -39,6 +39,7 @@
         <td>{{ u.email }}</td>
         <td>{{ u.created_at.strftime("%d-%b-%Y") }}</td>
         <td class="text-end">
+          <form method="post" action="{{ url_for('admin.invite_resend', user_id=u.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-dark">Resend</button></form>
           <form method="post" action="{{ url_for('admin.invite_individual_revoke', user_id=u.id) }}" class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn btn-sm btn-outline-danger">Revoke</button>
@@ -64,6 +65,7 @@
         <td>{{ u.created_at.strftime("%d-%b-%Y") }}</td>
         <td class="text-end">
           {% if u.company %}
+          <form method="post" action="{{ url_for('admin.invite_resend', user_id=u.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-dark">Resend</button></form>
           <form method="post" action="{{ url_for('admin.invite_company_revoke', company_id=u.company.id) }}" class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn btn-sm btn-outline-danger">Revoke</button>
@@ -92,6 +94,7 @@
         <td>{{ u.managed_location.name if u.managed_location else "— workspace-wide —" }}</td>
         <td>{{ u.created_at.strftime("%d-%b-%Y") }}</td>
         <td class="text-end">
+          <form method="post" action="{{ url_for('admin.invite_resend', user_id=u.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-dark">Resend</button></form>
           <form method="post" action="{{ url_for('admin.invite_team_revoke', user_id=u.id) }}" class="d-inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn btn-sm btn-outline-danger">Revoke</button>

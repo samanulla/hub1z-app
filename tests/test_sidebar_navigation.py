@@ -124,6 +124,13 @@ def test_company_admin_sees_company_sidebar():
     assert b'<aside class="h-side"' in r.data
     assert b"Plans &amp; subscriptions" in r.data
     assert b"Seat allocations" in r.data
+    header = r.data.split(b'<header class="h-top">')[1].split(b'</header>')[0]
+    sidebar = r.data.split(b'<aside class="h-side"')[1].split(b'</aside>')[0]
+    assert b'Sidebar Co' in header
+    assert header.index(b'title="Calendar"') < header.index(b'title="Check-in QR"')
+    assert b'Company profile' in header
+    assert b'Company profile' not in sidebar and b'Check-in QR' not in sidebar
+    assert b'Signed in as' not in sidebar
 
 
 def test_company_and_member_pages_unaffected_by_sidebar():

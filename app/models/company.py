@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import enum
-from sqlalchemy import Column, String, Enum, Text, Integer, ForeignKey
+from sqlalchemy import Column, String, Enum, Text, Integer, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 
 from ..extensions import db
@@ -24,6 +24,7 @@ class Company(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __table_args__ = (db.UniqueConstraint("operator_id", "name", name="uq_companies_operator_name"),)
     name = Column(String(200), nullable=False, index=True)
     legal_name = Column(String(255))
+    profile_details = Column(JSON, nullable=True)
     tax_id = Column(String(64))
     pan = Column(String(20))
     gst_state = Column(String(2))      # GST state code (place of supply)

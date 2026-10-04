@@ -50,7 +50,12 @@ def _init_extensions(app: Flask) -> None:
 
     @login_manager.user_loader
     def load_user(user_id: str):
-        return db.session.get(User, int(user_id))
+        user = db.session.get(User, int(user_id))
+        if not user or not user.is_active:
+            return None
+        if user.company and user.company.status.value in ("suspended", "churned"):
+            return None
+        return user
 
 
 def _register_blueprints(app: Flask) -> None:

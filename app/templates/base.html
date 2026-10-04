@@ -18,7 +18,7 @@
 <body class="h-ui {{ '' if authed else 'h-public' }}">
 <div class="h-shell">
   {% if authed %}
-  <aside class="h-side" id="appSidebar">
+  <aside class="h-side" id="appSidebar" data-user-id="{{ current_user.id }}">
     <a class="h-brand" href="{{ url_for('index') }}">
       {% if operator and operator.logo_url %}
         <img src="{{ operator.logo_url }}" alt="{{ operator.name }}" style="height:30px;">
@@ -30,7 +30,6 @@
         <img class="h-brand-logo" src="{{ url_for('static', filename='img/brand/hub1z-logo-light.svg') }}" alt="Hub1z">
       {% endif %}
     </a>
-    <div class="h-persona"><small>Signed in as</small><b>{{ current_user.role.value.replace('_', ' ') | title }}</b></div>
     {% include "_sidebar.html" %}
     <div class="h-side-foot">
       {{ powered_by(on_dark=true) }}
@@ -43,7 +42,8 @@
     <header class="h-top">
       {% if authed %}
         <button class="h-burger" type="button" data-h-toggle="side" aria-label="Menu"><i class="bi bi-list"></i></button>
-        <div class="h-org">{{ operator.name if operator else '' }}</div>
+        {% set header_name = current_user.company.name if current_user.company else (operator.name if operator else app_name) %}
+        <div class="h-org" title="{{ header_name }}">{{ header_name }}</div>
       {% else %}
         <a class="h-brand on-light" href="{{ url_for('index') }}">
           {% if operator and operator.logo_url %}
@@ -59,6 +59,7 @@
       {% endif %}
       <div class="h-top-actions">
         {% if authed and not current_user.is_platform_staff %}
+        <a class="btn btn-brand btn-sm h-top-checkin" href="{{ url_for('book.calendar') }}" title="Calendar"><i class="bi bi-calendar3"></i><span>Calendar</span></a>
         <a class="btn btn-brand btn-sm h-top-checkin" href="{{ url_for('checkin.pass_page') }}" title="Check-in QR"><i class="bi bi-qr-code-scan"></i><span>Check-in QR</span></a>
         {% endif %}
         {% if authed %}
@@ -69,6 +70,12 @@
             <i class="bi bi-chevron-down faint" style="margin-right:8px"></i>
           </a>
           <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}"><i class="bi bi-person me-2"></i>My profile</a></li>
+            {% if current_user.is_company_admin %}
+            <li><a class="dropdown-item" href="{{ url_for('company.profile') }}"><i class="bi bi-building me-2"></i>Company profile</a></li>
+            {% elif current_user.is_super_admin and not current_user.is_platform_staff %}
+            <li><a class="dropdown-item" href="{{ url_for('admin.settings') }}"><i class="bi bi-building me-2"></i>Operator profile</a></li>
+            {% endif %}
             <li><a class="dropdown-item" href="{{ url_for('auth.change_password') }}"><i class="bi bi-key me-2"></i>Change password</a></li>
             <li><a class="dropdown-item" href="{{ url_for('auth.two_factor_status') }}"><i class="bi bi-shield-check me-2"></i>Two-factor</a></li>
             <li><a class="dropdown-item" href="#" data-install-app hidden><i class="bi bi-phone me-2"></i>Install app</a></li>

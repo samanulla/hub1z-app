@@ -4,7 +4,7 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Numeric, Enum, DateTime
+from sqlalchemy import Column, String, Integer, ForeignKey, Boolean, Numeric, Enum, DateTime, JSON
 from sqlalchemy.orm import relationship, declared_attr
 
 from ..extensions import db
@@ -38,6 +38,7 @@ class Operator(db.Model, PkMixin, TimestampMixin):
     slug = Column(String(40), unique=True, nullable=False, index=True)
     name = Column(String(200), nullable=False)
     tagline = Column(String(200))
+    profile_details = Column(JSON, nullable=True)
 
     # Branding
     logo_url = Column(String(500))                  # public URL or signed URL

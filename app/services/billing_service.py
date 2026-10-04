@@ -68,13 +68,15 @@ def next_invoice_number(operator: Operator | None = None) -> str:
 def billing_snapshot_for_operator(operator: Operator | None) -> dict:
     """The operator's address and tax identity, frozen onto each invoice."""
     location = operator.primary_location if operator else None
+    details = (operator.profile_details or {}) if operator else {}
+    address = ", ".join(details[name] for name in ("address_line1", "address_line2", "locality") if details.get(name))
     return {
         "billing_name": (operator.company_legal_name if operator else None),
-        "billing_address": location.address_line1 if location else None,
-        "billing_city": location.city if location else None,
-        "billing_state": location.state if location else None,
+        "billing_address": address or (location.address_line1 if location else None),
+        "billing_city": details.get("city") or (location.city if location else None),
+        "billing_state": details.get("state") or (location.state if location else None),
         "billing_country": location.country if location else None,
-        "billing_postal_code": location.postal_code if location else None,
+        "billing_postal_code": details.get("pin_code") or (location.postal_code if location else None),
         "seller_gstin": operator.gstin if operator else None,
         "seller_pan": operator.pan if operator else None,
         "seller_state": gst.state_of(operator.gst_state, operator.gstin) if operator else None,

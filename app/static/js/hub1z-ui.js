@@ -12,6 +12,26 @@
   }
   window.hub1zInrCompact = inrCompact;
 
+  var sidebar = $('#appSidebar');
+  if (sidebar) {
+    var scrollKey = 'hub1z.sidebar.' + sidebar.getAttribute('data-user-id');
+    try { sidebar.scrollTop = Number(sessionStorage.getItem(scrollKey)) || 0; } catch (error) {}
+    function revealActiveLink() {
+      var activeLink = $('.h-nav-link.active', sidebar);
+      if (!activeLink) return;
+      var sideBounds = sidebar.getBoundingClientRect();
+      var linkBounds = activeLink.getBoundingClientRect();
+      if (linkBounds.top < sideBounds.top + 16) sidebar.scrollTop -= sideBounds.top - linkBounds.top + 16;
+      if (linkBounds.bottom > sideBounds.bottom - 16) sidebar.scrollTop += linkBounds.bottom - sideBounds.bottom + 16;
+    }
+    revealActiveLink();
+    window.addEventListener('load', revealActiveLink);
+    if (document.fonts) document.fonts.ready.then(revealActiveLink);
+    sidebar.addEventListener('scroll', function () {
+      try { sessionStorage.setItem(scrollKey, String(sidebar.scrollTop)); } catch (error) {}
+    });
+  }
+
   // Mobile sidebar
   $$('[data-h-toggle="side"]').forEach(function (b) {
     b.addEventListener('click', function () { $('.h-side').classList.toggle('open'); });

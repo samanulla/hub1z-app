@@ -72,6 +72,19 @@ def test_pool_is_capacity_times_share_minus_reserve(world):
     # 9:00-18:00 = 18 slots x 26 days: Standard 1 credit, Executive 2 credits.
     assert s["capacity"] == 18 * 26 * 1 + 18 * 26 * 2 == 1404
     assert s["pool"] == 702 and s["reserve"] == 140 and s["allocatable"] == 562
+    rows = credit_service.capacity_breakdown(world["op"])
+    assert [row["credits"] for row in rows] == [468, 936]
+    assert sum(row["credits"] for row in rows) == s["capacity"]
+
+
+def test_room_cash_rate_override_preserves_category_credits(world):
+    room = db.session.get(ConferenceRoom, world["boardroom"])
+    assert room.cash_rate_per_hour == Decimal("700")
+    room.hourly_rate = Decimal("1000")
+    assert room.cash_rate_per_hour == Decimal("1000")
+    assert room.credits_per_slot == 2
+    room.hourly_rate = 0
+    assert room.cash_rate_per_hour == Decimal("700")
 
 
 def test_new_allocation_is_prorated_and_changes_start_next_month(world):

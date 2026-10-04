@@ -10,11 +10,26 @@
 <div class="card"><div class="card-body">
   <form method="post" novalidate>
     {{ form.hidden_tag() }}
-    <div class="row"><div class="col-md-6">{{ field(form.legal_name) }}</div><div class="col-md-6">{{ field(form.industry) }}</div></div>
-    <div class="row"><div class="col-md-6">{{ field(form.website) }}</div><div class="col-md-6">{{ field(form.contact_phone) }}</div></div>
-    {{ field(form.billing_email) }}
+    <h5>Company information <small class="text-muted">Used on invoices</small></h5>
+    <div class="row"><div class="col-md-6">{{ field(form.name) }}</div><div class="col-md-6">{{ field(form.legal_name) }}</div></div>
+    {% for title, names in profile_groups %}
+    <h5 class="mt-4">{{ title }}</h5>
+    <div class="row">{% for name in names %}<div class="col-md-6">{{ field(form[name]) }}</div>{% endfor %}</div>
+    {% if title == 'Compliance' %}<div class="row">{% for name in ['pan', 'tax_id', 'gst_state'] %}<div class="col-md-4">{{ field(form[name]) }}</div>{% endfor %}</div>{% endif %}
+    {% endfor %}
     {{ field(form.billing_address) }}
+    <details class="mb-3"><summary>Virtual office details</summary>
+    {% for name in ['authorized_signatory', 'business_activities', 'mail_handling_required', 'noc_required'] %}{{ field(form[name]) }}{% endfor %}</details>
+    <h5>Online presence</h5>
+    {{ field(form.linkedin_url) }}{{ field(form.public_description) }}
     <button class="btn btn-dark">Save profile</button>
   </form>
 </div></div>
+<h5 class="mt-4">Workspace information</h5>
+<div class="table-responsive"><table class="table"><thead><tr><th>Membership</th><th>Seats</th><th>Start</th><th>End</th><th>Location</th></tr></thead>
+<tbody>{% for agreement in company.subscriptions %}<tr><td>{{ agreement.plan.name }}</td><td>{{ agreement.quantity }}</td><td>{{ agreement.start_date | date }}</td><td>{{ agreement.end_date | date }}</td><td>{{ agreement.plan.locations | map(attribute='name') | join(', ') }}</td></tr>{% endfor %}</tbody></table></div>
+<p>Employees: {{ company.users | length }}</p>
+<h5>Contract and compliance documents</h5>
+<p><a href="{{ url_for('company.documents') }}">View documents</a></p>
+{% for link in company.documents %}<p><a href="{{ url_for('company.documents') }}">{{ link.document.filename }}</a></p>{% endfor %}
 {% endblock %}

@@ -3,10 +3,21 @@
 {% block title %}Workspace settings{% endblock %}
 
 {% block content %}
-<h3>Workspace settings</h3>
+<h3>Operator profile</h3>
 <div class="card"><div class="card-body">
   <form method="post" novalidate>
     {{ form.hidden_tag() }}
+    <h5>Business identity <small class="text-muted">Used on invoices</small></h5>
+    <div class="row"><div class="col-md-6">{{ field(form.name) }}</div><div class="col-md-6">{{ field(form.company_legal_name) }}</div></div>
+    {{ field(form.business_type) }}
+    {% for title, names in profile_groups %}
+    <h5 class="mt-4">{{ title }}</h5>
+    <div class="row">{% for name in names %}<div class="col-md-6">{{ field(form[name]) }}</div>{% endfor %}</div>
+    {% if title == 'Compliance' %}<div class="row">{% for name in ['pan', 'gstin', 'gst_state'] %}<div class="col-md-4">{{ field(form[name]) }}</div>{% endfor %}</div>{% endif %}
+    {% endfor %}
+    <h5 class="mt-4">Operations</h5>
+    <p>{{ counts.locations }} locations · {{ counts.seats }} seats · {{ counts.staff }} staff</p>
+    {{ field(form.offers_virtual_office) }}{{ field(form.offers_meeting_rooms) }}
     <h6>Branding</h6>
     <div class="row">
       <div class="col-md-6">{{ field(form.logo_url) }}</div>
@@ -14,6 +25,7 @@
       <div class="col-md-3">{{ field(form.support_email) }}</div>
     </div>
     {{ field(form.tagline) }}
+    {{ field(form.public_description) }}{{ field(form.google_maps_url) }}
 
     <hr>
     <p class="text-muted small">Choose the primary location whose address will appear on new invoices for {{ operator.name }}.</p>
@@ -29,6 +41,8 @@
       <div class="col-md-4">{{ field(form.payment_gpay) }}</div>
       <div class="col-md-4">{{ field(form.payment_bank_details) }}</div>
     </div>
+    <div class="row">{% for name in ['payment_bank_account_name', 'bank_name', 'payment_bank_account_number', 'payment_bank_ifsc_or_routing'] %}<div class="col-md-6">{{ field(form[name]) }}</div>{% endfor %}</div>
+    <p><a href="{{ url_for('admin.billing_settings') }}">GST and billing settings</a></p>
     <div class="d-flex align-items-center gap-3 p-3 mb-3 rounded-3" style="background:var(--h-surface-2, #f6f7fb);border:1px dashed var(--h-line, #e6e8f0)">
       <i class="bi bi-credit-card fs-4" style="color:var(--h-brand)"></i>
       <div class="small"><b>Online payments with Razorpay</b> <span class="h-chip sm tint-info ms-1">Coming soon</span><br>
@@ -37,4 +51,7 @@
     <button class="btn btn-dark">Save settings</button>
   </form>
 </div></div>
+<h5 class="mt-4">Contract and compliance documents</h5>
+<p><a href="{{ url_for('admin.operator_documents') }}">View documents</a></p>
+{% for document in documents %}<p><a href="{{ url_for('admin.operator_documents') }}">{{ document.filename }}</a></p>{% endfor %}
 {% endblock %}

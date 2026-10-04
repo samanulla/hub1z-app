@@ -7,9 +7,10 @@ This is separate from self-serve signup (/auth/register, /auth/register/company)
 which is initiated by the prospect instead of the operator.
 """
 from __future__ import annotations
+from secrets import token_urlsafe
 
-from flask import render_template, redirect, url_for, flash, g, current_app
-from flask_login import login_user
+from flask import render_template, redirect, url_for, flash, g, current_app, abort
+from flask_login import login_user, current_user
 
 from ...extensions import db
 from ...models import User, UserRole, Company, CompanyStatus, Location
@@ -28,14 +29,14 @@ def register_invite_routes(bp):
     @manager_or_super_required
     def invites_list():
         pending_individuals = (User.query
-                               .filter_by(role=UserRole.INDIVIDUAL, is_active=False)
+                               .filter_by(role=UserRole.INDIVIDUAL, is_active=False, invite_revoked=False, email_verified=False)
                                .order_by(User.created_at.desc()).all())
         pending_companies = (User.query
-                             .filter_by(role=UserRole.COMPANY_ADMIN, is_active=False)
+                             .filter_by(role=UserRole.COMPANY_ADMIN, is_active=False, invite_revoked=False, email_verified=False)
                              .order_by(User.created_at.desc()).all())
         pending_team = (User.query
                         .filter(User.role.in_([UserRole.MANAGER, UserRole.LOCATION_MANAGER]),
-                               User.is_active.is_(False))
+                               User.is_active.is_(False), User.invite_revoked.is_(False), User.email_verified.is_(False))
                         .order_by(User.created_at.desc()).all())
         active_team = (User.query
                        .filter(User.role.in_([UserRole.MANAGER, UserRole.LOCATION_MANAGER]),
@@ -67,6 +68,7 @@ def register_invite_routes(bp):
                 operator_id=getattr(g, "operator_id", None),
                 email=email,
                 full_name=form.full_name.data.strip(),
+                phone=form.phone.data,
                 role=UserRole.INDIVIDUAL,
                 is_active=False,  # activated when invite is accepted
             )
@@ -115,6 +117,73 @@ def register_invite_routes(bp):
         return render_template("admin/invites/accept.html", form=form, user=user)
 
     # --------------------------------------------------------------- company --
+
+    @bp.route("/invites/<int:user_id>/resend", methods=["POST"])
+    @manager_or_super_required
+    def invite_resend(user_id: int):
+        user = User.query.filter_by(id=user_id, is_active=False, invite_revoked=False, email_verified=False).first_or_404()
+        specs = {
+            UserRole.INDIVIDUAL: ("operator-member-invite", "admin.accept_member_invite", "operator_member_invite"),
+            UserRole.COMPANY_ADMIN: ("operator-company-invite", "admin.accept_company_invite", "operator_company_invite"),
+            UserRole.MANAGER: ("operator-team-invite", "admin.accept_team_invite", "operator_team_invite"),
+            UserRole.LOCATION_MANAGER: ("operator-team-invite", "admin.accept_team_invite", "operator_team_invite"),
+        }
+        if user.role not in specs:
+            abort(404)
+        if user.role in (UserRole.MANAGER, UserRole.LOCATION_MANAGER) and not current_user.is_super_admin:
+            abort(403)
+        purpose, endpoint, template = specs[user.role]
+        user.set_password(token_urlsafe(32))
+        db.session.commit()
+        token = mail_service.make_token(user.id, purpose)
+        mail_service.send(subject=f"You're invited to {g.operator.name}", recipient=user.email, template=template,
+                          user=user, company=user.company, operator_name=g.operator.name,
+                          accept_url=url_for(endpoint, token=token, _external=True), ttl_days=7,
+                          role_label=user.role.value.replace("_", " ").title(), location=user.managed_location)
+        flash("Invitation resent. The previous link is no longer valid.", "success")
+        return redirect(url_for("admin.invites_list"))
+
+    @bp.route("/individuals/<int:user_id>/edit", methods=["GET", "POST"])
+    @manager_or_super_required
+    def individual_edit(user_id: int):
+        user = User.query.filter_by(id=user_id, role=UserRole.INDIVIDUAL).first_or_404()
+        form = InviteIndividualForm(obj=user)
+        if form.validate_on_submit():
+            email = form.email.data.strip().lower()
+            if User.query.filter(User.email == email, User.id != user.id).first():
+                form.email.errors.append("That email is already registered under this workspace.")
+            else:
+                user.full_name, user.email, user.phone = form.full_name.data.strip(), email, form.phone.data
+                db.session.commit()
+                flash("Individual updated.", "success")
+                return redirect(url_for("admin.individuals_list"))
+        return render_template("admin/invites/individual_form.html", form=form, editing=True)
+
+    @bp.route("/individuals/<int:user_id>/<action>", methods=["POST"])
+    @manager_or_super_required
+    def individual_status(user_id: int, action: str):
+        user = User.query.filter_by(id=user_id, role=UserRole.INDIVIDUAL).first_or_404()
+        if action == "deactivate":
+            user.is_active, user.invite_revoked = False, True
+        elif action == "reactivate":
+            ok, message = tier_limits.check_limit(g.operator, "person")
+            if not ok:
+                flash(message, "warning")
+                return redirect(url_for("admin.individuals_list"))
+            user.invite_revoked = False
+            user.is_active = bool(user.email_verified)
+            if not user.is_active:
+                user.set_password(token_urlsafe(32))
+                db.session.commit()
+                token = mail_service.make_token(user.id, "operator-member-invite")
+                mail_service.send(subject=f"You're invited to {g.operator.name}", recipient=user.email,
+                                  template="operator_member_invite", user=user, operator_name=g.operator.name,
+                                  accept_url=url_for("admin.accept_member_invite", token=token, _external=True), ttl_days=7)
+        else:
+            abort(404)
+        db.session.commit()
+        flash("Member access updated. Billing history is retained.", "success")
+        return redirect(url_for("admin.individuals_list"))
 
     @bp.route("/invites/company/new", methods=["GET", "POST"])
     @manager_or_super_required
@@ -202,7 +271,7 @@ def register_invite_routes(bp):
     @bp.route("/invites/individual/<int:user_id>/revoke", methods=["POST"])
     @manager_or_super_required
     def invite_individual_revoke(user_id: int):
-        u = User.query.filter_by(id=user_id, role=UserRole.INDIVIDUAL, is_active=False).first_or_404()
+        u = User.query.filter_by(id=user_id, role=UserRole.INDIVIDUAL, is_active=False, invite_revoked=False, email_verified=False).first_or_404()
         db.session.delete(u)
         db.session.commit()
         flash("Invitation revoked.", "info")

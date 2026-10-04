@@ -85,8 +85,12 @@ def suggest_credits(operator_id: int, seats: int) -> int:
 
 def capacity_credits(operator_id: int) -> int:
     """Credits per month if every active room were booked for every bookable slot."""
+    return sum(row["credits"] for row in capacity_breakdown(operator_id))
+
+
+def capacity_breakdown(operator_id: int) -> list[dict]:
     settings = CreditSettings.for_operator(operator_id)
-    total = 0
+    rows = []
     for room in _q(ConferenceRoom, operator_id).filter_by(is_active=True).all():
         loc = room.location
         if not loc.is_active:
@@ -96,8 +100,10 @@ def capacity_credits(operator_id: int) -> int:
         else:
             minutes = (loc.close_time.hour * 60 + loc.close_time.minute) - (loc.open_time.hour * 60 + loc.open_time.minute)
             slots_per_day = max(0, minutes // SLOT_MINUTES)
-        total += slots_per_day * settings.capacity_days_per_month * room.credits_per_slot
-    return total
+        rows.append({"room": room.name, "location": loc.name, "slots": slots_per_day,
+                     "days": settings.capacity_days_per_month, "per_slot": room.credits_per_slot,
+                     "credits": slots_per_day * settings.capacity_days_per_month * room.credits_per_slot})
+    return rows
 
 
 def usage_by_subject(operator_id: int, today: date, now: datetime | None = None) -> dict:

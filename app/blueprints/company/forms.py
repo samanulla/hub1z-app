@@ -2,6 +2,8 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, SelectField, IntegerField, DecimalField, DateField, TextAreaField
 from wtforms.validators import DataRequired, Email, Length, Optional, EqualTo, NumberRange
+from ..profile_forms import BusinessDetailsForm
+from ...services.gst import INDIAN_STATES
 
 
 class CreditRulesForm(FlaskForm):
@@ -32,8 +34,12 @@ class AcceptInviteForm(FlaskForm):
     submit = SubmitField("Set password and sign in")
 
 
-class CompanyProfileForm(FlaskForm):
+class CompanyProfileForm(BusinessDetailsForm):
+    name = StringField("Company name", validators=[Optional(), Length(max=200)])
     legal_name = StringField("Legal name", validators=[Optional(), Length(max=255)])
+    tax_id = StringField("GSTIN", validators=[Optional(), Length(max=20)])
+    pan = StringField("PAN", validators=[Optional(), Length(max=20)])
+    gst_state = SelectField("State of registration (GST)", choices=[("", "Not set")] + INDIAN_STATES, validators=[Optional()])
     industry = StringField("Industry", validators=[Optional(), Length(max=120)])
     website = StringField("Website", validators=[Optional(), Length(max=255)])
     billing_email = StringField("Billing email", validators=[DataRequired(), Email(), Length(max=255)])
