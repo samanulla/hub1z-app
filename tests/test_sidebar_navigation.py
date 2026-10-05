@@ -42,7 +42,8 @@ def test_super_admin_sees_full_admin_sidebar():
     assert b"Settings" in r.data
     settings = c.get("/admin/settings")
     assert b"Audit log" in settings.data
-    assert b"Invites" in r.data
+    assert b"People" in r.data
+    assert b"Invitations" in c.get("/admin/people").data
 
 
 def test_location_manager_sees_restricted_admin_sidebar():
@@ -166,3 +167,19 @@ def test_people_hub_combines_search_and_preserves_operator_isolation():
     assert b'owner@otherspace.com' not in page.data
     filtered = _get(owner, DEMO, "/admin/people?q=Acme&kind=company")
     assert b'Acme Co' in filtered.data and b'Ivy Individual' not in filtered.data
+
+
+def test_invitations_live_under_people_and_render_distinct_content():
+    from tests.test_release_upi_parcels_alerts import DEMO, _client, _get, _seeded_app
+    app, _ = _seeded_app()
+    owner = _client(app, DEMO, "owner@demospace.com")
+    people = _get(owner, DEMO, "/admin/people").data
+    invitations = _get(owner, DEMO, "/admin/invites").data
+    assert b'<h1>People</h1>' in people and b'Invite people' in people
+    assert b'<h1 class="mb-1">Invitations</h1>' in invitations
+    assert b'Pending individual invites' in invitations and b'Pending company invites' in invitations
+    assert b'Search name, email or phone' not in invitations
+    sidebar = invitations.split(b'<aside class="h-side"')[1].split(b'</aside>')[0]
+    assert b'href="/admin/invites"' not in sidebar
+    assert b'h-nav-link active" href="/admin/people"' in sidebar
+    assert b'href="/admin/invites"' in invitations.split(b'aria-label="Section navigation"')[1]

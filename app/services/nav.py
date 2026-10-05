@@ -29,7 +29,7 @@ def section_navigation():
             "settings": [],
         }
         if current_user.is_manager or current_user.is_super_admin:
-            groups["people"].insert(3, ("Invites", "admin.invites_list"))
+            groups["people"].insert(3, ("Invitations", "admin.invites_list"))
         if current_user.is_super_admin:
             groups["billing"] += [("Hub1z invoices", "admin.hub1z_billing"), ("Billing settings", "admin.billing_settings")]
             groups["settings"] = [("Operator profile", "admin.settings"), ("Email templates", "admin.email_templates"), ("Audit log", "admin.audit_log")]

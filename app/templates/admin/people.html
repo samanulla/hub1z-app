@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}People{% endblock %}
 {% block content %}
-<div class="h-page-head"><h1>People</h1>{% if current_user.is_manager or current_user.is_super_admin %}<a class="btn btn-brand" href="{{ url_for('admin.invites_list') }}"><i class="bi bi-person-plus"></i> Invites</a>{% endif %}</div>
+<div class="h-page-head"><h1>People</h1>{% if current_user.is_manager or current_user.is_super_admin %}<a class="btn btn-brand" href="{{ url_for('admin.invites_list') }}"><i class="bi bi-person-plus"></i> Invite people</a>{% endif %}</div>
 <div class="row g-3 mb-4">
   {% for label, value in [('Companies', overview.total), ('Individuals', individual_count), ('Seats in use', overview.seats_in_use)] %}
   <div class="col-6 col-md-4"><div class="h-card h-kpi"><div><div class="label">{{ label }}</div><div class="value">{{ value }}</div></div></div></div>

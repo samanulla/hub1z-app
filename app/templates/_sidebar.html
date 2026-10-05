@@ -78,10 +78,7 @@
   {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('admin.dashboard'), area == 'overview', badges.get('alerts')) }}
   {{ link('Leads', 'bi-funnel-fill', url_for('admin.leads'), ep.startswith('admin.lead')) }}
   {{ link('Workspace', 'bi-geo-alt-fill', url_for('admin.locations_list'), area == 'workspace' and not ep.startswith('admin.lead')) }}
-  {{ link('People', 'bi-people-fill', url_for('admin.people'), area == 'people' and not ep.startswith('admin.invite')) }}
-  {% if current_user.is_manager or current_user.is_super_admin or current_user.is_platform_owner %}
-    {{ link('Invites', 'bi-envelope-paper-fill', url_for('admin.invites_list'), ep.startswith('admin.invite') or ep in ('admin.invites_list','admin.accept_member_invite','admin.accept_company_invite','admin.accept_team_invite')) }}
-  {% endif %}
+  {{ link('People', 'bi-people-fill', url_for('admin.people'), area == 'people') }}
   {{ link('Billing', 'bi-receipt', url_for('admin.invoices_list'), area == 'billing') }}
   {{ link('Reports', 'bi-bar-chart-fill', url_for('admin.reports_home'), ep.startswith('admin.report')) }}
   {{ link('Services', 'bi-chat-square', url_for('community.announcements'), area == 'services', badges.get('parcels')) }}
