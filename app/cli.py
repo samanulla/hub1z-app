@@ -44,6 +44,8 @@ def release_no_shows_cmd() -> None:
     """Free rooms nobody checked in to and close finished meetings. Run every few minutes."""
     from .services.booking_service import release_no_shows
     r = release_no_shows()
+    from .services.notifications import run_jobs
+    run_jobs()
     click.echo(f"Released {r['released']} no-show room booking(s); completed {r['completed']}.")
 
 
@@ -66,6 +68,8 @@ def run_scheduled_jobs_cmd(month: str | None) -> None:
     operator_invoices = run_operator_billing()
     from .services.alerts import run_alert_emails
     reminders = run_alert_emails()
+    from .services.notifications import run_jobs as run_notifications
+    run_notifications()
     click.echo(f"Created {bookings} recurring booking(s); generated {len(invoices)} invoice(s); "
                f"agreements: {agreements['ended']} ended, {agreements['proposed']} rate revision(s) proposed; "
                f"credits: {credits['granted']} granted, {credits['expired']} expired; "

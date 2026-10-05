@@ -115,6 +115,11 @@ body.h-ui {
 }
 .h-search input:focus { border-color: var(--h-brand); background: #fff; box-shadow: 0 0 0 3px var(--h-brand-50); }
 .h-top-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.h-notification-count { position: absolute; top: -5px; right: -5px; background: var(--h-danger); color: #fff; border-radius: 12px; padding: 1px 4px; min-width: 18px; font-size: 10px; line-height: 16px; }
+.h-notification-menu { width: 360px; max-width: calc(100vw - 24px); }
+.h-notification-item { display: block; width: 100%; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--h-line); background: transparent; text-align: left; font: inherit; color: var(--h-ink); overflow-wrap: anywhere; }
+.h-notification-item:hover { background: var(--h-surface-2); }
+.h-notification-unread { display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: var(--h-brand); }
 .h-top .h-org { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .h-top-actions, .h-burger { flex-shrink: 0; }
 .h-icon-btn {

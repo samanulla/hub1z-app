@@ -166,7 +166,8 @@ def test_people_hub_combines_search_and_preserves_operator_isolation():
     assert page.status_code == 200 and b'Acme Co' in page.data and b'Ivy Individual' in page.data
     assert b'owner@otherspace.com' not in page.data
     filtered = _get(owner, DEMO, "/admin/people?q=Acme&kind=company")
-    assert b'Acme Co' in filtered.data and b'Ivy Individual' not in filtered.data
+    content = filtered.data.split(b'<main class="h-content">', 1)[1]
+    assert b'Acme Co' in content and b'Ivy Individual' not in content
 
 
 def test_invitations_live_under_people_and_render_distinct_content():

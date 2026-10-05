@@ -12,6 +12,8 @@ def section_navigation():
     if not has_request_context() or not current_user.is_authenticated or current_user.is_platform_staff:
         return None
     endpoint = request.endpoint or ""
+    if endpoint.startswith("notifications."):
+        return None
     groups = {}
     if current_user.is_admin:
         groups = {

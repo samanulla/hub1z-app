@@ -36,7 +36,7 @@ NO_OPERATOR_COLUMN = {"operators", "location_amenities", "room_amenity_link", "p
 PLATFORM_LEVEL = {"operator_subscriptions", "operator_usage_snapshots", "platform_credit_notes",
                   "platform_invoices", "platform_refunds", "platform_payment_reports", "operator_addons"}
 NULLABLE_OPERATOR_ID = {"users", "audit_logs", "documents", "system_settings",
-                        "leads", "lead_activities", "attendance_records"}  # the last three also hold Platform rows
+                        "leads", "lead_activities", "attendance_records", "notifications"}  # also holds platform recipients
 
 
 def _app():

@@ -1,7 +1,7 @@
 /* Service worker for the installable app. It keeps the styles and an offline page on the phone; it never stores
    signed-in pages, so nothing personal stays on a shared device. */
-const CACHE = 'hub1z-app-v2';
-const CORE = ['/offline', '/static/css/hub1z-ui.css', '/static/css/hub1z-bootstrap.css', '/static/js/hub1z-ui.js'];
+const CACHE = 'hub1z-app-v3';
+const CORE = ['/offline', '/static/css/hub1z-ui.css', '/static/css/hub1z-bootstrap.css', '/static/js/hub1z-ui.js', '/static/js/notifications.js'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(CORE)).then(() => self.skipWaiting()));

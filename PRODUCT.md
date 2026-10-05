@@ -206,7 +206,16 @@ Every value is per-operator, editable from Settings.
 
 ---
 
-## 10. Roadmap (still open, low priority)
+## 10. In-App Notifications
+
+The top-bar bell shows each recipient's unread count and recent notifications. The inbox supports All/Unread/Read filters, opening an item (marks it read), marking individual items unread/read, and marking all read. State is private to the recipient and operator; event keys prevent repeated jobs from duplicating notifications.
+
+Sources include new announcements, new/updated support tickets, the booking owner's meetings starting within 30 minutes, agreement renewal/lock-in/move-out reminders, overdue invoices, reported payments, parcels, lead follow-ups and Hub1z subscription invoices. Platform billing staff receive pending operator-payment notices. Announcements respect their location scope. Notifications supplement existing email reminders, not replace them.
+
+The visible page refreshes the bell every minute. Scheduled notification checks run with `release-no-shows` (every five minutes in the deployment scheduler) and `run-scheduled-jobs`. Notification content is never cached by the service worker. Migration: `f9b3c7d1a620`.
+
+## 11. Roadmap (still open, low priority)
+
 
 - **Custom-domain automation** — White Label gates new portal mappings; automated DNS/certificate provisioning remains deferred.
 - **Pricing rollout** — stages 1-3 are live. Accounting Sync, API/Webhooks, GST E-Invoicing, Featured Listing, Razorpay, WhatsApp and live PAN/GSTIN checks remain Coming Soon.

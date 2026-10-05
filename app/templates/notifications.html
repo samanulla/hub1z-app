@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="h-page-head"><h1>Notifications</h1><form method="post" action="{{ url_for('notifications.read_all') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-dark" type="submit"><i class="bi bi-check2-all"></i> Mark all read</button></form></div>
+<nav class="nav nav-tabs mb-3" aria-label="Notification filters">{% for key, label in [('all','All'),('unread','Unread'),('read','Read')] %}<a class="nav-link {{ 'active' if state == key }}" href="{{ url_for('notifications.index', state=key) }}">{{ label }}</a>{% endfor %}</nav>
+{% for item in rows.items %}
+<article class="border-bottom py-3" id="notification-{{ item.id }}">
+  <div class="d-flex flex-wrap justify-content-between gap-2">
+    <div style="min-width:0"><span class="badge {{ 'bg-secondary' if item.read_at else 'bg-primary' }}">{{ 'Read' if item.read_at else 'Unread' }}</span> <strong>{{ item.title }}</strong><div class="text-muted small">{{ item.created_at | dt }}</div></div>
+    <div class="d-flex gap-2">
+      <form method="post" action="{{ url_for('notifications.update', notification_id=item.id, action='open') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-dark" type="submit"><i class="bi bi-box-arrow-up-right"></i> Open</button></form>
+      <form method="post" action="{{ url_for('notifications.update', notification_id=item.id, action='unread' if item.read_at else 'read') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-link" type="submit">{{ 'Mark unread' if item.read_at else 'Mark read' }}</button></form>
+    </div>
+  </div>
+  {% if item.body %}<p class="mb-0 mt-2 text-break">{{ item.body }}</p>{% endif %}
+</article>
+{% else %}<p class="text-muted mt-3">No notifications{{ ' in this view' if state != 'all' else ' yet' }}.</p>{% endfor %}
+<nav class="d-flex gap-3 mt-3" aria-label="Notification pages">{% if rows.has_prev %}<a href="{{ url_for('notifications.index', state=state, page=rows.prev_num) }}">Previous</a>{% endif %}{% if rows.has_next %}<a href="{{ url_for('notifications.index', state=state, page=rows.next_num) }}">Next</a>{% endif %}</nav>
+{% endblock %}

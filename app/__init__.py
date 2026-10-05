@@ -33,6 +33,8 @@ def create_app(config_override: dict | None = None) -> Flask:
     operator_resolver.install(app)
     from .services import entitlements
     entitlements.install(app)
+    from .services import notifications
+    notifications.install(app)
 
     return app
 
@@ -77,8 +79,10 @@ def _register_blueprints(app: Flask) -> None:
     from .blueprints.community import community_bp
     from .blueprints.checkin import checkin_bp
     from .blueprints.pwa import pwa_bp
+    from .blueprints.notifications import notifications_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
+    app.register_blueprint(notifications_bp, url_prefix="/notifications")
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(company_bp, url_prefix="/company")
     app.register_blueprint(member_bp, url_prefix="/me")
@@ -120,6 +124,8 @@ def _register_context(app: Flask) -> None:
     from .services.pricing_page import trial_days
     app.jinja_env.globals["nav_badges"] = nav_badges
     app.jinja_env.globals["section_navigation"] = section_navigation
+    from .services.notifications import summary as notification_summary
+    app.jinja_env.globals["notification_summary"] = notification_summary
     app.jinja_env.globals["trial_period_days"] = trial_days
 
     @app.context_processor

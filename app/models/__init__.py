@@ -38,6 +38,7 @@ from .audit import AuditLog
 from .lead import Lead, LeadActivity
 from .attendance import AttendanceRecord
 from .parcel import Parcel, AlertNotice
+from .notification import Notification
 from .daypass import DayPass, DayPassStatus
 from .booking_addons import (
     RoomWaitlist, WaitlistStatus,
@@ -55,6 +56,7 @@ from .community import (
 )
 
 __all__ = [
+    "Notification",
     "User", "UserRole", "PLATFORM_FEATURES", "PLATFORM_FEATURE_KEYS", "SENSITIVE_PLATFORM_FEATURES",
     "Company", "CompanyStatus", "CompanyDocument",
     "Location", "Floor", "Amenity",

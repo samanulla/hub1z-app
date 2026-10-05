@@ -186,7 +186,18 @@ def announcements():
                           .order_by(Announcement.is_pinned.desc(),
                                     Announcement.published_at.desc())
                           .limit(50).all())
-    return render_template("community/announcements.html", posts=posts)
+    from ...services.notifications import announcement_visible
+    return render_template("community/announcements.html", posts=[post for post in posts if announcement_visible(current_user, post)])
+
+
+@community_bp.route("/announcements/<int:post_id>")
+@login_required
+def announcement_detail(post_id):
+    from ...services.notifications import announcement_visible
+    post = Announcement.query.get_or_404(post_id)
+    if not announcement_visible(current_user, post):
+        abort(404)
+    return render_template("community/announcements.html", posts=[post])
 
 
 @community_bp.route("/announcements/new", methods=["GET", "POST"])
@@ -205,7 +216,13 @@ def announcement_new():
         if not (a.title and a.body):
             flash("Title and body are required.", "warning")
             return redirect(url_for("community.announcement_new"))
-        db.session.add(a); db.session.commit()
+        if a.location_id and not Location.query.filter_by(id=a.location_id, operator_id=g.operator_id).first():
+            abort(404)
+        db.session.add(a)
+        db.session.flush()
+        from ...services.notifications import announcement_added
+        announcement_added(a)
+        db.session.commit()
         audit_service.record("announcement.created", "announcement", a.id,
                              {"title": a.title})
         flash("Announcement posted.", "success")
@@ -283,7 +300,13 @@ def tickets():
         if not (t.subject and t.body):
             flash("Subject and description are required.", "warning")
             return redirect(url_for("community.tickets"))
-        db.session.add(t); db.session.commit()
+        if t.location_id and not Location.query.filter_by(id=t.location_id, operator_id=g.operator_id).first():
+            abort(404)
+        db.session.add(t)
+        db.session.flush()
+        from ...services.notifications import ticket_changed
+        ticket_changed(t, new=True)
+        db.session.commit()
         _notify_support(t)
         flash("Ticket submitted.", "success")
         return redirect(url_for("community.tickets"))
@@ -305,6 +328,9 @@ def ticket_resolve(tid: int):
     t = SupportTicket.query.get_or_404(tid)
     t.status = TicketStatus.RESOLVED
     t.resolved_at = datetime.utcnow()
+    db.session.flush()
+    from ...services.notifications import ticket_changed
+    ticket_changed(t)
     db.session.commit()
     audit_service.record("ticket.resolved", "ticket", t.id, {})
     flash("Ticket resolved.", "success")
