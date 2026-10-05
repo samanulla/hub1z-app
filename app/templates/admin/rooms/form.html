@@ -3,6 +3,7 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
+{% include "admin/_inventory_nav.html" %}
 <h3>{{ title }} — {{ location.name }}</h3>
 <div class="card"><div class="card-body">
   <form method="post" novalidate>
@@ -20,7 +21,9 @@
     </div>
     {{ field(form.cross_location_bookable) }}
     {{ field(form.description) }}
-    <button class="btn btn-dark">Save</button>
+    {% if request.endpoint == 'admin.room_new' %}{{ field(form.carry_details) }}{% endif %}
+    <button class="btn btn-dark" type="submit" name="submit_action" value="save">Save</button>
+    {% if request.endpoint == 'admin.room_new' %}<button class="btn btn-outline-dark" type="submit" name="submit_action" value="save_next"><i class="bi bi-plus-lg"></i> Save &amp; add next</button>{% endif %}
     <a class="btn btn-link" href="{{ url_for('admin.rooms_list', location_id=location.id) }}">Cancel</a>
   </form>
 </div></div>

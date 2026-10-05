@@ -1,0 +1,16 @@
+{% set endpoint = request.endpoint or '' %}
+{% set seats_view = 'seat' in endpoint %}
+{% set rooms_view = 'room' in endpoint %}
+<nav aria-label="Inventory path">
+  <ol class="breadcrumb mb-2">
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.locations_list') }}">Locations</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.location_detail', location_id=location.id) }}">{{ location.name }}</a></li>
+    {% if seats_view %}<li class="breadcrumb-item"><a href="{{ url_for('admin.seats_list', location_id=location.id) }}">Seats</a></li>{% endif %}
+    {% if rooms_view %}<li class="breadcrumb-item"><a href="{{ url_for('admin.rooms_list', location_id=location.id) }}">Rooms</a></li>{% endif %}
+  </ol>
+</nav>
+<nav class="nav nav-tabs mb-3" aria-label="Location inventory">
+  <a class="nav-link {{ 'active' if endpoint == 'admin.location_detail' }}" href="{{ url_for('admin.location_detail', location_id=location.id) }}">Location</a>
+  <a class="nav-link {{ 'active' if seats_view }}" href="{{ url_for('admin.seats_list', location_id=location.id) }}">Seats</a>
+  <a class="nav-link {{ 'active' if rooms_view }}" href="{{ url_for('admin.rooms_list', location_id=location.id) }}">Rooms</a>
+</nav>

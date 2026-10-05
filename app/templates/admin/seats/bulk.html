@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Add seats in bulk{% endblock %}
+{% block content %}
+{% include "admin/_inventory_nav.html" %}
+<h3>Add seats in bulk - {{ location.name }}</h3>
+<form method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="row g-3">{% for name in ['code_prefix', 'start_number', 'count', 'number_digits'] %}<div class="col-md-3">{{ field(form[name]) }}</div>{% endfor %}</div>
+  <output class="d-block text-muted mb-3" id="code-preview"></output>
+  <div class="row g-3">{% for name in ['floor_id', 'seat_type', 'capacity'] %}<div class="col-md-4">{{ field(form[name]) }}</div>{% endfor %}</div>
+  <div class="row g-3">{% for name in ['hourly_rate', 'daily_rate', 'monthly_rate'] %}<div class="col-md-4">{{ field(form[name]) }}</div>{% endfor %}</div>
+  {{ field(form.is_active) }}{{ field(form.notes) }}
+  <button class="btn btn-brand" type="submit"><i class="bi bi-plus-lg"></i> Create seats</button>
+  <a class="btn btn-link" href="{{ url_for('admin.seats_list', location_id=location.id) }}">Cancel</a>
+</form>
+<script>
+(() => {
+  const names = ['code_prefix', 'start_number', 'count', 'number_digits'];
+  const controls = Object.fromEntries(names.map(name => [name, document.getElementById(name)]));
+  const refresh = () => {
+    const start = Number(controls.start_number.value), count = Number(controls.count.value), digits = Number(controls.number_digits.value);
+    const valid = Number.isInteger(start) && start >= 1 && start <= 999999 && Number.isInteger(count) && count >= 1 && count <= 100 && Number.isInteger(digits) && digits >= 1 && digits <= 6;
+    document.getElementById('code-preview').textContent = valid ? Array.from({length: count}, (_, index) => controls.code_prefix.value.trim() + String(start + index).padStart(digits, '0')).join(', ') : '';
+  };
+  Object.values(controls).forEach(control => control.addEventListener('input', refresh));
+  refresh();
+})();
+</script>
+{% endblock %}

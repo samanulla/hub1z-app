@@ -78,7 +78,7 @@
   {{ link('Leads', 'bi-funnel-fill', url_for('admin.leads'), ep.startswith('admin.lead')) }}
   {{ group('Workspace') }}
   {{ book_links() }}
-  {{ link('Locations & seats', 'bi-geo-alt-fill', url_for('admin.locations_list'), ep in ('admin.locations_list','admin.location_new','admin.location_detail','admin.location_edit','admin.floor_new','admin.seats_list','admin.seat_new','admin.seat_edit','admin.rooms_list','admin.room_new','admin.room_edit')) }}
+  {{ link('Locations & seats', 'bi-geo-alt-fill', url_for('admin.locations_list'), ep in ('admin.locations_list','admin.location_new','admin.location_detail','admin.location_edit','admin.floor_new','admin.seats_list','admin.seat_new','admin.seat_edit','admin.seats_bulk_add','admin.seats_bulk_edit','admin.rooms_list','admin.room_new','admin.room_edit')) }}
   {{ link('Pricing plans', 'bi-tags-fill', url_for('admin.plans_list'), ep in ('admin.plans_list','admin.plan_new','admin.plan_edit')) }}
   {{ link('Credits', 'bi-clock-history', url_for('admin.credits_overview'), ep.startswith('admin.credits')) }}
   {{ link('Seat allocations', 'bi-person-workspace', url_for('admin.allocations'), ep in ('admin.allocations','admin.allocation_end')) }}

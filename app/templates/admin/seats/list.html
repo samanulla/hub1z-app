@@ -2,19 +2,23 @@
 {% block title %}Seats — {{ location.name }}{% endblock %}
 
 {% block content %}
+{% include "admin/_inventory_nav.html" %}
 <div class="d-flex justify-content-between mb-3">
   <h3>Seats at {{ location.name }}</h3>
-  <a class="btn btn-dark" href="{{ url_for('admin.seat_new', location_id=location.id) }}">+ New seat</a>
+  <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-dark" href="{{ url_for('admin.seats_bulk_add', location_id=location.id) }}"><i class="bi bi-plus-lg"></i> Bulk add</a><a class="btn btn-dark" href="{{ url_for('admin.seat_new', location_id=location.id) }}">+ New seat</a></div>
 </div>
 
-<table class="table bg-white shadow-sm">
-  <thead><tr><th>Code</th><th>Floor</th><th>Type</th><th>Hourly</th><th>Daily</th><th>Monthly</th><th>Active</th><th></th></tr></thead>
+<form method="get" action="{{ url_for('admin.seats_bulk_edit', location_id=location.id) }}">
+<button class="btn btn-outline-dark mb-3" type="submit"><i class="bi bi-pencil"></i> Edit selected</button>
+<div class="table-responsive"><table class="table bg-white shadow-sm">
+  <thead><tr><th><input class="form-check-input" type="checkbox" id="select-seats" aria-label="Select all seats"></th><th>Code</th><th>Floor</th><th>Type</th><th>Hourly</th><th>Daily</th><th>Monthly</th><th>Active</th><th></th></tr></thead>
   <tbody>
     {% for s in seats %}
     <tr>
+      <td><input class="form-check-input" type="checkbox" name="seat_id" value="{{ s.id }}" aria-label="Select {{ s.code }}"></td>
       <td><strong>{{ s.code }}</strong></td>
       <td>L{{ s.floor.level }} — {{ s.floor.name }}</td>
-      <td>{{ s.seat_type.value.replace('_',' ') }}</td>
+      <td>{{ s.seat_type.value.replace('_',' ') | title }}</td>
       <td>{{ s.hourly_rate | money }}</td>
       <td>{{ s.daily_rate | money }}</td>
       <td>{{ s.monthly_rate | money }}</td>
@@ -22,8 +26,10 @@
       <td class="text-end"><a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.seat_edit', seat_id=s.id) }}">Edit</a></td>
     </tr>
     {% else %}
-    <tr><td colspan="8" class="text-center text-muted py-4">No seats yet.</td></tr>
+    <tr><td colspan="9" class="text-center text-muted py-4">No seats yet.</td></tr>
     {% endfor %}
   </tbody>
-</table>
+</table></div>
+</form>
+<script>document.getElementById('select-seats').addEventListener('change', event => document.querySelectorAll('input[name="seat_id"]').forEach(input => { input.checked = event.target.checked; }));</script>
 {% endblock %}

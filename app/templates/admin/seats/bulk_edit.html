@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Edit seats in bulk{% endblock %}
+{% block content %}
+{% include "admin/_inventory_nav.html" %}
+<h3>Edit {{ seats | length }} seats</h3>
+<p>{{ seats | map(attribute='code') | join(', ') }}</p>
+<form method="post" novalidate>
+  {{ form.hidden_tag() }}
+  {% for seat_id in form.seat_ids.data or [] %}<input type="hidden" name="seat_ids" value="{{ seat_id }}">{% endfor %}
+  {% for error in form.seat_ids.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
+  {% for error in form.apply_fields.errors %}<p class="text-danger">{{ error }}</p>{% endfor %}
+  <div class="row g-3">
+  {% for name, label in form.apply_fields.choices %}
+    <div class="col-md-6">
+      <label class="form-check"><input class="form-check-input" type="checkbox" name="apply_fields" value="{{ name }}" {{ 'checked' if name in (form.apply_fields.data or []) }}> Change {{ label | lower }}</label>
+      {{ field(form[name]) }}
+    </div>
+  {% endfor %}
+  </div>
+  <button class="btn btn-brand" type="submit"><i class="bi bi-check-lg"></i> Update selected seats</button>
+  <a class="btn btn-link" href="{{ url_for('admin.seats_list', location_id=location.id) }}">Cancel</a>
+</form>
+{% endblock %}

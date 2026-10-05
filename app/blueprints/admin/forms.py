@@ -54,16 +54,60 @@ class FloorForm(FlaskForm):
 
 
 class SeatForm(FlaskForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.seat_type.raw_data is None and self.seat_type.object_data is not None:
+            self.seat_type.data = getattr(self.seat_type.object_data, "value", self.seat_type.object_data)
+
     floor_id = SelectField("Floor", coerce=int, validators=[DataRequired()])
     code = StringField("Seat code", validators=[DataRequired(), Length(max=30)])
     seat_type = SelectField("Type", choices=_enum_choices(SeatType), validators=[DataRequired()])
     capacity = IntegerField("Capacity", default=1, validators=[NumberRange(min=1, max=200)])
-    hourly_rate = DecimalField("Hourly $", default=0, validators=[NumberRange(min=0)])
-    daily_rate = DecimalField("Daily $", default=0, validators=[NumberRange(min=0)])
-    monthly_rate = DecimalField("Monthly $", default=0, validators=[NumberRange(min=0)])
+    hourly_rate = DecimalField("Hourly rate (INR)", default=0, validators=[NumberRange(min=0)])
+    daily_rate = DecimalField("Daily rate (INR)", default=0, validators=[NumberRange(min=0)])
+    monthly_rate = DecimalField("Monthly rate (INR)", default=0, validators=[NumberRange(min=0)])
     is_active = BooleanField("Active", default=True)
     notes = TextAreaField("Notes", validators=[Optional()])
+    carry_details = BooleanField("Carry over details", default=True)
     submit = SubmitField("Save")
+
+
+class BulkSeatForm(SeatForm):
+    code = None
+    code_prefix = StringField("Code prefix", default="D-", validators=[DataRequired(), Length(max=24)])
+    start_number = IntegerField("Starting number", default=1, validators=[DataRequired(), NumberRange(min=1, max=999999)])
+    count = IntegerField("Number of seats", default=10, validators=[DataRequired(), NumberRange(min=1, max=100)])
+    number_digits = IntegerField("Number digits", default=2, validators=[DataRequired(), NumberRange(min=1, max=6)])
+
+
+class BulkSeatEditForm(FlaskForm):
+    seat_ids = SelectMultipleField("Seats", coerce=int, validators=[DataRequired()])
+    apply_fields = SelectMultipleField("Fields to change", choices=[
+        ("floor_id", "Floor"), ("seat_type", "Type"), ("capacity", "Capacity"),
+        ("hourly_rate", "Hourly rate"), ("daily_rate", "Daily rate"), ("monthly_rate", "Monthly rate"),
+        ("is_active", "Status"), ("notes", "Notes")], validators=[DataRequired()])
+    floor_id = SelectField("Floor", coerce=int, validators=[Optional()])
+    seat_type = SelectField("Type", choices=[("", "Choose type")] + _enum_choices(SeatType), validators=[Optional()])
+    capacity = IntegerField("Capacity", default=1, validators=[Optional(), NumberRange(min=1, max=200)])
+    hourly_rate = DecimalField("Hourly rate (INR)", default=0, validators=[Optional(), NumberRange(min=0)])
+    daily_rate = DecimalField("Daily rate (INR)", default=0, validators=[Optional(), NumberRange(min=0)])
+    monthly_rate = DecimalField("Monthly rate (INR)", default=0, validators=[Optional(), NumberRange(min=0)])
+    is_active = SelectField("Status", choices=[("", "Choose status"), ("active", "Active"), ("inactive", "Inactive")], validators=[Optional()])
+    notes = TextAreaField("Notes", validators=[Optional()])
+
+    def validate(self, extra_validators=None):
+        valid = super().validate(extra_validators=extra_validators)
+        if len(self.seat_ids.data or []) > 100:
+            self.seat_ids.errors.append("Choose up to 100 seats per batch.")
+            valid = False
+        for name in self.apply_fields.data or []:
+            if name != "notes" and self[name].data in (None, "", 0) and name not in ("hourly_rate", "daily_rate", "monthly_rate"):
+                self[name].errors.append("Enter a value for this change.")
+                valid = False
+            if name in ("hourly_rate", "daily_rate", "monthly_rate") and self[name].data is None:
+                self[name].errors.append("Enter a rate, including 0 for a free seat.")
+                valid = False
+        return valid
 
 
 class RoomForm(FlaskForm):
@@ -83,6 +127,7 @@ class RoomForm(FlaskForm):
                     "from any location's calendar, not just its own.",
     )
     description = TextAreaField("Description", validators=[Optional()])
+    carry_details = BooleanField("Carry over details", default=True)
     submit = SubmitField("Save")
 
 

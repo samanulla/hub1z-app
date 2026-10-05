@@ -3,6 +3,7 @@
 {% block title %}New floor{% endblock %}
 
 {% block content %}
+{% include "admin/_inventory_nav.html" %}
 <h3>Add floor to {{ location.name }}</h3>
 <div class="card"><div class="card-body">
   <form method="post" novalidate>

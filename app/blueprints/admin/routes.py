@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+import re
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, g
 from flask_login import current_user
 from sqlalchemy import func, or_
+from sqlalchemy.exc import IntegrityError
 
 from ...extensions import db
 from ...models import (
@@ -19,7 +21,7 @@ from ...services.storage import storage_service
 from ...services import tier_limits
 from ...utils.decorators import admin_required, super_admin_required, manager_or_super_required
 from .forms import (
-    LocationForm, FloorForm, SeatForm, RoomForm, PricingPlanForm,
+    LocationForm, FloorForm, SeatForm, BulkSeatForm, BulkSeatEditForm, RoomForm, PricingPlanForm,
     CompanyForm, AllocationForm, DocumentUploadForm,
 )
 
@@ -133,6 +135,81 @@ def floor_new(location_id: int):
 
 # ---------------------------------------------------------------- seats --
 
+def _next_inventory_code(model, location_id, current_code):
+    match = re.fullmatch(r"(.*?)(\d+)", current_code)
+    if not match:
+        return ""
+    prefix, digits = match.groups()
+    number = int(digits) + 1
+    existing = {row.code for row in model.query.filter_by(location_id=location_id).with_entities(model.code).all()}
+    candidate = f"{prefix}{number:0{len(digits)}d}"
+    while candidate in existing:
+        number += 1
+        candidate = f"{prefix}{number:0{len(digits)}d}"
+    return candidate if len(candidate) <= 30 else ""
+
+@admin_bp.route("/locations/<int:location_id>/seats/bulk", methods=["GET", "POST"])
+@admin_required
+def seats_bulk_add(location_id: int):
+    location = Location.query.get_or_404(location_id)
+    form = BulkSeatForm()
+    form.floor_id.choices = [(floor.id, f"L{floor.level} - {floor.name}") for floor in location.floors]
+    if form.validate_on_submit():
+        prefix = form.code_prefix.data.strip()
+        codes = [f"{prefix}{number:0{form.number_digits.data}d}" for number in
+                 range(form.start_number.data, form.start_number.data + form.count.data)]
+        conflicts = Seat.query.filter(Seat.location_id == location.id, Seat.code.in_(codes)).all()
+        if len(codes[-1]) > 30:
+            form.code_prefix.errors.append("Generated seat codes must be 30 characters or fewer.")
+        elif conflicts:
+            form.code_prefix.errors.append("Already in use: " + ", ".join(seat.code for seat in conflicts) + ". No seats were added.")
+        else:
+            for code in codes:
+                seat = Seat(operator_id=location.operator_id, location_id=location.id, code=code)
+                for name in ("floor_id", "capacity", "hourly_rate", "daily_rate", "monthly_rate", "is_active", "notes"):
+                    setattr(seat, name, form[name].data)
+                seat.seat_type = SeatType(form.seat_type.data)
+                db.session.add(seat)
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                form.code_prefix.errors.append("A seat code was added by another request. No seats were added; choose another range.")
+            else:
+                flash(f"{len(codes)} seats created.", "success")
+                return redirect(url_for("admin.seats_list", location_id=location.id))
+    return render_template("admin/seats/bulk.html", form=form, location=location)
+
+@admin_bp.route("/locations/<int:location_id>/seats/bulk-edit", methods=["GET", "POST"])
+@admin_required
+def seats_bulk_edit(location_id: int):
+    location = Location.query.get_or_404(location_id)
+    available = Seat.query.filter_by(location_id=location.id).order_by(Seat.code).all()
+    form = BulkSeatEditForm()
+    form.seat_ids.choices = [(seat.id, seat.code) for seat in available]
+    form.floor_id.choices = [(0, "Choose floor")] + [(floor.id, f"L{floor.level} - {floor.name}") for floor in location.floors]
+    if not form.is_submitted():
+        selected_ids = set(request.args.getlist("seat_id", type=int))
+        if not selected_ids or len(selected_ids) > 100 or not selected_ids.issubset({seat.id for seat in available}):
+            flash("Select between 1 and 100 seats from this location.", "warning")
+            return redirect(url_for("admin.seats_list", location_id=location.id))
+        form.seat_ids.data = sorted(selected_ids)
+    if form.validate_on_submit():
+        selected = [seat for seat in available if seat.id in form.seat_ids.data]
+        for seat in selected:
+            for name in form.apply_fields.data:
+                value = form[name].data
+                if name == "seat_type":
+                    value = SeatType(value)
+                elif name == "is_active":
+                    value = value == "active"
+                setattr(seat, name, value)
+        db.session.commit()
+        flash(f"{len(selected)} seats updated.", "success")
+        return redirect(url_for("admin.seats_list", location_id=location.id))
+    selected = [seat for seat in available if seat.id in (form.seat_ids.data or [])]
+    return render_template("admin/seats/bulk_edit.html", form=form, location=location, seats=selected)
+
 @admin_bp.route("/locations/<int:location_id>/seats", methods=["GET"])
 @admin_required
 def seats_list(location_id: int):
@@ -145,9 +222,18 @@ def seats_list(location_id: int):
 @admin_required
 def seat_new(location_id: int):
     loc = Location.query.get_or_404(location_id)
-    form = SeatForm()
+    previous_id = request.args.get("previous", type=int)
+    previous = Seat.query.filter_by(id=previous_id, location_id=loc.id).first_or_404() if previous_id else None
+    carry = request.args.get("carry") == "1"
+    form = SeatForm(obj=previous if carry else None)
     form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in loc.floors]
+    if previous and not form.is_submitted():
+        form.code.data = _next_inventory_code(Seat, loc.id, previous.code)
+        form.carry_details.data = carry
     if form.validate_on_submit():
+        if Seat.query.filter_by(location_id=loc.id, code=form.code.data).first():
+            form.code.errors.append("This seat code is already in use at this location.")
+            return render_template("admin/seats/form.html", form=form, location=loc, title="New seat")
         resource = "private_office" if form.seat_type.data == SeatType.PRIVATE_OFFICE.value else "seat"
         ok, msg = tier_limits.check_limit(getattr(g, "operator", None), resource)
         if not ok:
@@ -156,8 +242,16 @@ def seat_new(location_id: int):
         seat = Seat(operator_id=loc.operator_id, location_id=loc.id)
         form.populate_obj(seat)
         db.session.add(seat)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            form.code.errors.append("This seat code was just added. Choose another code.")
+            return render_template("admin/seats/form.html", form=form, location=loc, title="New seat")
         flash("Seat created.", "success")
+        if request.form.get("submit_action") == "save_next":
+            return redirect(url_for("admin.seat_new", location_id=loc.id, previous=seat.id,
+                                    carry="1" if form.carry_details.data else "0"))
         return redirect(url_for("admin.seats_list", location_id=loc.id))
     return render_template("admin/seats/form.html", form=form, location=loc, title="New seat")
 
@@ -169,8 +263,18 @@ def seat_edit(seat_id: int):
     form = SeatForm(obj=seat)
     form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in seat.location.floors]
     if form.validate_on_submit():
+        duplicate = Seat.query.filter(Seat.location_id == seat.location_id, Seat.code == form.code.data,
+                                      Seat.id != seat.id).first()
+        if duplicate:
+            form.code.errors.append("This seat code is already in use at this location.")
+            return render_template("admin/seats/form.html", form=form, location=seat.location, title="Edit seat")
         form.populate_obj(seat)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            form.code.errors.append("This seat code was just added. Choose another code.")
+            return render_template("admin/seats/form.html", form=form, location=seat.location, title="Edit seat")
         flash("Seat updated.", "success")
         return redirect(url_for("admin.seats_list", location_id=seat.location_id))
     return render_template("admin/seats/form.html", form=form, location=seat.location, title="Edit seat")
@@ -190,9 +294,17 @@ def rooms_list(location_id: int):
 @admin_required
 def room_new(location_id: int):
     loc = Location.query.get_or_404(location_id)
-    form = RoomForm()
+    previous_id = request.args.get("previous", type=int)
+    previous = ConferenceRoom.query.filter_by(id=previous_id, location_id=loc.id).first_or_404() if previous_id else None
+    carry = request.args.get("carry") == "1"
+    form = RoomForm(obj=previous if carry else None)
     form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in loc.floors]
     form.category_id.choices = _room_category_choices(loc.operator_id)
+    if previous and not form.is_submitted():
+        form.code.data = _next_inventory_code(ConferenceRoom, loc.id, previous.code)
+        form.name.data = ""
+        form.category_id.data = (previous.category_id or 0) if carry else 0
+        form.carry_details.data = carry
     if form.validate_on_submit():
         ok, msg = tier_limits.check_limit(getattr(g, "operator", None), "room")
         if not ok:
@@ -204,6 +316,9 @@ def room_new(location_id: int):
         db.session.add(room)
         db.session.commit()
         flash("Room created.", "success")
+        if request.form.get("submit_action") == "save_next":
+            return redirect(url_for("admin.room_new", location_id=loc.id, previous=room.id,
+                                    carry="1" if form.carry_details.data else "0"))
         return redirect(url_for("admin.rooms_list", location_id=loc.id))
     return render_template("admin/rooms/form.html", form=form, location=loc, title="New room")
 
