@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}People{% endblock %}
+{% block content %}
+<div class="h-page-head"><h1>People</h1>{% if current_user.is_manager or current_user.is_super_admin %}<a class="btn btn-brand" href="{{ url_for('admin.invites_list') }}"><i class="bi bi-person-plus"></i> Invites</a>{% endif %}</div>
+<div class="row g-3 mb-4">
+  {% for label, value in [('Companies', overview.total), ('Individuals', individual_count), ('Seats in use', overview.seats_in_use)] %}
+  <div class="col-6 col-md-4"><div class="h-card h-kpi"><div><div class="label">{{ label }}</div><div class="value">{{ value }}</div></div></div></div>
+  {% endfor %}
+</div>
+<form method="get" class="d-flex flex-wrap gap-2 mb-3">
+  <input class="form-control" type="search" name="q" value="{{ query }}" placeholder="Search name, email or phone" aria-label="Search people" style="flex:1;min-width:180px">
+  <select class="form-select" name="kind" aria-label="Member type" style="width:auto">{% for value, label in [('all','Everyone'),('company','Companies'),('individual','Individuals')] %}<option value="{{ value }}" {{ 'selected' if kind == value }}>{{ label }}</option>{% endfor %}</select>
+  <button class="btn btn-outline-dark" type="submit"><i class="bi bi-search"></i> Search</button>
+</form>
+<div class="table-responsive"><table class="table"><thead><tr><th>Name</th><th>Type</th><th>Email</th><th>Phone</th><th>Seats</th><th>Outstanding</th><th>Status</th></tr></thead><tbody>
+{% for row in rows %}<tr><td><a href="{{ row.url }}">{{ row.name }}</a></td><td>{{ row.kind }}</td><td>{{ row.email }}</td><td>{{ row.phone or '' }}</td><td>{{ row.seats if row.seats is not none else '' }}</td><td>{{ row.due | inr }}</td><td>{{ row.status | title }}</td></tr>
+{% else %}<tr><td colspan="7">No matching people.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

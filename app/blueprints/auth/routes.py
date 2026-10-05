@@ -204,10 +204,7 @@ def register_company():
 
 @auth_bp.route("/register/operator", methods=["GET", "POST"])
 def register_operator():
-    """Self-serve: a coworking business signs itself up directly, no
-    platform staff involved. Lands as a time-boxed TRIAL so they can try the
-    platform; a Platform Super Admin/Manager still has to Approve it
-    (/platform/operators/<id>/approve) to lift the trial deadline."""
+    """Create a trial workspace and direct the owner to its own sign-in host."""
     if current_user.is_authenticated:
         return redirect(url_for("auth.post_login_redirect"))
 
@@ -249,12 +246,14 @@ def register_operator():
         )
         admin.set_password(form.password.data)
         db.session.add(admin)
+        from ...services.operator_billing import start_trial
+        start_trial(t)
         db.session.commit()
 
-        login_user(admin)
         flash(f"Welcome! Your {trial_days}-day free trial has started — "
              f"explore everything, and we'll be in touch to get you fully set up.", "success")
-        return redirect(url_for("admin.dashboard"))
+        from ...services.operator_urls import workspace_url
+        return redirect(workspace_url(t, "/auth/login"))
     return render_template("auth/register_operator.html", form=form)
 
 
@@ -314,8 +313,12 @@ def reset_password(token: str):
     form = ResetPasswordForm()
     if form.validate_on_submit():
         user.set_password(form.password.data)
+        user.auth_version = (user.auth_version or 0) + 1
         db.session.commit()
         flash("Password updated. Please sign in with your new password.", "success")
+        if user.operator_id:
+            from ...services.operator_urls import workspace_url
+            return redirect(workspace_url(user.operator, "/auth/login"))
         return redirect(url_for("auth.login"))
     return render_template("auth/reset_password.html", form=form)
 

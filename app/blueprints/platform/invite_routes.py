@@ -2,17 +2,19 @@
 
 Distinct from direct provisioning (/platform/operators/new, staff sets
 everything including the admin password and the operator goes live
-immediately): here the business sets its own password via a signed link,
-and the operator lands as TRIAL pending an explicit /platform/operators/<id>/approve.
+    immediately): here the business sets its own password via a signed link.
+Every new workspace starts a trial without platform approval.
 """
 from __future__ import annotations
 
 from flask import render_template, redirect, url_for, flash, current_app
-from flask_login import login_user
+from flask_login import logout_user
 
 from ...extensions import db
 from ...models import Operator, OperatorStatus, User, UserRole
 from ...services import audit_service, mail_service
+from ...services.operator_billing import start_trial
+from ...services.operator_urls import workspace_url
 from ...utils.decorators import platform_permission_required
 from .forms import InviteOperatorForm
 from ..admin.forms import AcceptOperatorInviteForm
@@ -53,6 +55,7 @@ def register_invite_routes(bp):
             )
             admin.set_password(current_app.config["SECRET_KEY"] + admin_email)
             db.session.add(admin)
+            start_trial(t)
             db.session.commit()
 
             token = mail_service.make_token(admin.id, "platform-operator-invite")
@@ -90,9 +93,9 @@ def register_invite_routes(bp):
             user.set_password(form.password.data)
             user.is_active = True
             user.email_verified = True
+            if user.operator.trial_ends_at is None:
+                start_trial(user.operator)
             db.session.commit()
-            login_user(user)
-            flash("Your account is set up. Your workspace is pending platform approval "
-                 "before it goes fully live.", "success")
-            return redirect(url_for("admin.dashboard"))
+            logout_user()
+            return redirect(workspace_url(user.operator, "/auth/login"))
         return render_template("platform/operator_accept_invite.html", form=form, user=user)

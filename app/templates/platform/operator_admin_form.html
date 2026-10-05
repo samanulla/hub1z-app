@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Edit operator admin{% endblock %}
+{% block content %}
+<h3>{{ operator.name }} admin</h3>
+<form method="post" novalidate>
+  {{ form.hidden_tag() }}
+  {{ field(form.full_name) }}{{ field(form.email) }}{{ field(form.phone) }}
+  <button class="btn btn-brand" type="submit">Save admin</button>
+  <a class="btn btn-link" href="{{ url_for('platform.operator_edit', operator_id=operator.id) }}">Cancel</a>
+</form>
+{% endblock %}

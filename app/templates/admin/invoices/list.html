@@ -2,7 +2,7 @@
 {% block title %}Invoices{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between mb-3">
+<div class="d-flex flex-wrap gap-2 justify-content-between mb-3">
   <h3>Invoices</h3>
   <div>
     <a class="btn btn-outline-dark" href="{{ url_for('admin.invoice_new') }}">+ New invoice</a>
@@ -13,7 +13,7 @@
   </div>
 </div>
 
-<table class="table bg-white shadow-sm">
+<div class="table-responsive"><table class="table bg-white shadow-sm">
   <thead>
     <tr><th>Number</th><th>Customer</th><th>Period</th><th>Total</th><th>Paid</th><th>Balance</th><th>Status</th><th>Issued</th><th></th></tr>
   </thead>
@@ -34,5 +34,5 @@
     <tr><td colspan="9" class="text-center text-muted py-4">No invoices yet.</td></tr>
     {% endfor %}
   </tbody>
-</table>
+</table></div>
 {% endblock %}

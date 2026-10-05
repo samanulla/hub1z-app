@@ -142,6 +142,8 @@ def operator_new():
         if form.seed_defaults.data:
             _seed_operator_defaults(t)
 
+        from ...services.operator_billing import start_trial
+        start_trial(t)
         db.session.commit()
         audit_service.record("operator.created", "operator", t.id,
                              {"slug": t.slug, "name": t.name})
@@ -175,7 +177,47 @@ def operator_edit(operator_id: int):
         flash("Operator workspace updated.", "success")
         return redirect(url_for("platform.operators_list"))
     return render_template("platform/operator_form.html", form=form,
-                           title=f"Edit {t.name}", operator=t)
+                           title=f"Edit {t.name}", operator=t,
+                           operator_admins=User.query.execution_options(skip_operator_filter=True).filter_by(
+                               operator_id=t.id, role=UserRole.SUPER_ADMIN).order_by(User.id).all())
+
+
+@platform_bp.route("/operators/<int:operator_id>/admins/<int:user_id>/edit", methods=["GET", "POST"])
+@platform_permission_required("operators")
+def operator_admin_edit(operator_id: int, user_id: int):
+    from secrets import token_urlsafe
+    from .forms import OperatorAdminForm
+    from ...services.operator_urls import workspace_url
+    operator = Operator.query.execution_options(skip_operator_filter=True).filter_by(id=operator_id).first_or_404()
+    admin = User.query.execution_options(skip_operator_filter=True).filter_by(
+        id=user_id, operator_id=operator.id, role=UserRole.SUPER_ADMIN).first_or_404()
+    form = OperatorAdminForm(obj=admin)
+    if form.validate_on_submit():
+        email = form.email.data.strip().lower()
+        duplicate = User.query.execution_options(skip_operator_filter=True).filter(
+            User.operator_id == operator.id, User.email == email, User.id != admin.id).first()
+        if duplicate:
+            form.email.errors.append("That email already belongs to someone in this workspace.")
+        else:
+            changed = email != admin.email
+            admin.full_name, admin.phone = form.full_name.data.strip(), form.phone.data
+            admin.email = email
+            if changed:
+                admin.set_password(token_urlsafe(32))
+                admin.auth_version = (admin.auth_version or 0) + 1
+                admin.email_verified = False
+                admin.is_active = True
+                admin.invite_revoked = False
+            db.session.commit()
+            audit_service.record("operator.admin_updated", "user", admin.id, {"operator_id": operator.id, "email_changed": changed})
+            if changed:
+                token = mail_service.make_token(admin.id, "password-reset")
+                mail_service.send(subject=f"Set up your {operator.name} admin access", recipient=email,
+                                  template="password_reset", user=admin,
+                                  reset_url=workspace_url(operator, url_for("auth.reset_password", token=token)), ttl_hours=2)
+            flash("Admin updated. A password setup link was sent to the new email." if changed else "Admin updated.", "success")
+            return redirect(url_for("platform.operator_edit", operator_id=operator.id))
+    return render_template("platform/operator_admin_form.html", form=form, operator=operator)
 
 
 @platform_bp.route("/operators/<int:operator_id>/send-password-reset", methods=["POST"])
@@ -193,7 +235,8 @@ def operator_send_password_reset(operator_id: int):
         return redirect(url_for("platform.operator_edit", operator_id=t.id))
     for admin in admins:
         token = mail_service.make_token(admin.id, "password-reset")
-        reset_url = url_for("auth.reset_password", token=token, _external=True)
+        from ...services.operator_urls import workspace_url
+        reset_url = workspace_url(t, url_for("auth.reset_password", token=token))
         mail_service.send(
             subject=f"Reset your {current_app.config['APP_NAME']} password",
             recipient=admin.email,
@@ -203,23 +246,6 @@ def operator_send_password_reset(operator_id: int):
     audit_service.record("operator.password_reset_sent", "operator", t.id, {"slug": t.slug})
     flash(f"Password reset link sent to: {', '.join(a.email for a in admins)}.", "success")
     return redirect(url_for("platform.operator_edit", operator_id=t.id))
-
-
-@platform_bp.route("/operators/<int:operator_id>/approve", methods=["POST"])
-@platform_permission_required("operators")
-def operator_approve(operator_id: int):
-    """TRIAL -> ACTIVE. For operators that came in via /platform/operators/invite
-    (directly-provisioned operators from /platform/operators/new start ACTIVE already)."""
-    t = (Operator.query.execution_options(skip_operator_filter=True)
-                     .filter_by(id=operator_id).first_or_404())
-    if t.status != OperatorStatus.TRIAL:
-        flash(f"{t.name} isn't pending approval.", "warning")
-        return redirect(url_for("platform.operators_list"))
-    t.status = OperatorStatus.ACTIVE
-    db.session.commit()
-    audit_service.record("operator.approved", "operator", t.id, {"slug": t.slug})
-    flash(f"{t.name} approved and now active.", "success")
-    return redirect(url_for("platform.operators_list"))
 
 
 @platform_bp.route("/operators/<int:operator_id>/hold", methods=["POST"])

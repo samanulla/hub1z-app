@@ -22,7 +22,7 @@
   </div>
   <div class="row">
     <div class="col-md-3">{{ field(form.plan_tier) }}</div>
-    <div class="col-md-3">{{ field(form.status) }}</div>
+    {% if form.admin_name is not defined %}<div class="col-md-3">{{ field(form.status) }}</div>{% else %}<input type="hidden" name="status" value="trial"><div class="col-md-3"><span class="badge bg-info text-dark">Trial</span></div>{% endif %}
   </div>
 
   <hr>
@@ -94,6 +94,8 @@
 
 {% if operator %}
 <hr>
+<h6>Operator admins</h6>
+{% for admin in operator_admins %}<p>{{ admin.full_name }} · {{ admin.email }} <a class="btn btn-sm btn-outline-dark" href="{{ url_for('platform.operator_admin_edit', operator_id=operator.id, user_id=admin.id) }}">Edit admin</a></p>{% endfor %}
 <h6>Locked out?</h6>
 <p class="text-muted small">Sends a password-reset link to this operator's Super Admin(s) &mdash;
   use this if they can't get in and can't use self-service Forgot Password.</p>

@@ -2,6 +2,7 @@
 involved to get started; login and trial features continue after the deadline."""
 import os
 from datetime import datetime, timedelta
+from urllib.parse import urlsplit
 
 os.environ.setdefault("FLASK_ENV", "testing")
 
@@ -22,7 +23,7 @@ def _app(trial_days=14):
     return app
 
 
-def test_self_serve_signup_creates_trial_operator_and_logs_in():
+def test_self_serve_signup_creates_trial_and_redirects_to_workspace():
     app = _app(trial_days=14)
     c = app.test_client()
     r = c.post("/auth/register/operator", data={
@@ -31,7 +32,8 @@ def test_self_serve_signup_creates_trial_operator_and_logs_in():
         "password": "TaraPass123!", "confirm": "TaraPass123!", "country_code": "IN",
     }, follow_redirects=False)
     assert r.status_code == 302
-    assert r.headers["Location"].endswith("/admin/")
+    assert urlsplit(r.headers["Location"]).hostname == "trialbiz.hub1z.com"
+    assert r.headers["Location"].endswith("/auth/login")
 
     with app.app_context():
         t = Operator.query.filter_by(slug="trialbiz").first()
@@ -44,6 +46,10 @@ def test_self_serve_signup_creates_trial_operator_and_logs_in():
                           .execution_options(skip_operator_filter=True).first()
         assert admin.role == UserRole.SUPER_ADMIN
         assert admin.is_active is True  # self-serve: sets own password immediately, no invite loop
+    workspace = "trialbiz.hub1z.com"
+    response = c.post("/auth/login", data={"email": "tara@trialbiz.com", "password": "TaraPass123!"}, headers={"Host": workspace})
+    assert response.status_code == 302
+    assert c.get("/admin/", headers={"Host": workspace}).status_code == 200
 
 
 def test_duplicate_slug_and_email_rejected():
@@ -75,7 +81,7 @@ def test_login_continues_after_trial_expires():
 
     c = app.test_client()
     r = c.post("/auth/login", data={"email": "admin@expired.com", "password": "AdminPass123!"},
-              follow_redirects=True)
+              headers={"Host": "expired.hub1z.com"}, follow_redirects=True)
     assert b"trial ended" not in r.data
     assert b"Sign out" in r.data  # expiry keeps access until a plan is paid
 
@@ -93,13 +99,13 @@ def test_login_allowed_while_trial_still_active():
 
     c = app.test_client()
     r = c.post("/auth/login", data={"email": "admin@activetrial.com", "password": "AdminPass123!"},
-              follow_redirects=True)
+              headers={"Host": "activetrial.hub1z.com"}, follow_redirects=True)
     assert b"trial ended" not in r.data
     assert b"Sign out" in r.data
 
 
-def test_approving_a_trial_operator_does_not_retroactively_block_login():
-    """Once approved (ACTIVE), an old trial_ends_at in the past must not matter —
+def test_active_operator_with_previous_trial_deadline_can_sign_in():
+    """For ACTIVE operators, an old trial_ends_at in the past must not matter —
     is_trial_expired only applies while status is still TRIAL."""
     app = _app()
     with app.app_context():
@@ -113,6 +119,6 @@ def test_approving_a_trial_operator_does_not_retroactively_block_login():
 
     c = app.test_client()
     r = c.post("/auth/login", data={"email": "admin@approved.com", "password": "AdminPass123!"},
-              follow_redirects=True)
+              headers={"Host": "approved.hub1z.com"}, follow_redirects=True)
     assert b"trial ended" not in r.data
     assert b"Sign out" in r.data

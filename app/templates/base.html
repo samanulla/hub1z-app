@@ -114,6 +114,12 @@
         {% endfor %}
       {% endwith %}
 
+      {% set section = section_navigation() %}
+      {% if section and section['items'] %}
+      <nav class="nav nav-pills gap-1 mb-3" aria-label="Section navigation">
+        {% for item in section['items'] %}<a class="nav-link {{ 'active' if item.active }}" href="{{ item.url }}" {% if item.active %}aria-current="page"{% endif %}>{{ item.label }}{% if item.feature and not has_feature(item.feature) %} <span class="badge bg-secondary">Upgrade</span>{% endif %}</a>{% endfor %}
+      </nav>
+      {% endif %}
       {% block content %}{% endblock %}
     </main>
     {% if not authed %}<footer class="h-public-foot">{{ powered_by() }}</footer>{% endif %}

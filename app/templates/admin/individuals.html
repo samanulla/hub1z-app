@@ -13,7 +13,7 @@
     <tbody>
       {% for p in people %}
       {% set active = subs.get(p.id, []) | selectattr('status.value', 'equalto', 'active') | list %}
-      <tr>
+      <tr id="individual-{{ p.id }}">
         <td>{{ p.full_name }}</td>
         <td>{{ p.email }}</td>
         <td>

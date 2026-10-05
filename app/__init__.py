@@ -50,8 +50,16 @@ def _init_extensions(app: Flask) -> None:
 
     @login_manager.user_loader
     def load_user(user_id: str):
-        user = db.session.get(User, int(user_id))
+        parts = user_id.split(":", 1)
+        try:
+            account_id = int(parts[0])
+            version = int(parts[1]) if len(parts) == 2 else 0
+        except ValueError:
+            return None
+        user = db.session.get(User, account_id)
         if not user or not user.is_active:
+            return None
+        if version != (user.auth_version or 0):
             return None
         if user.company and user.company.status.value in ("suspended", "churned"):
             return None
@@ -108,9 +116,10 @@ def _register_error_handlers(app: Flask) -> None:
 
 
 def _register_context(app: Flask) -> None:
-    from .services.nav import nav_badges
+    from .services.nav import nav_badges, section_navigation
     from .services.pricing_page import trial_days
     app.jinja_env.globals["nav_badges"] = nav_badges
+    app.jinja_env.globals["section_navigation"] = section_navigation
     app.jinja_env.globals["trial_period_days"] = trial_days
 
     @app.context_processor

@@ -72,6 +72,7 @@ class User(db.Model, PkMixin, TimestampMixin, UserMixin, OperatorScoped):
     is_active = Column(Boolean, default=True, nullable=False)
     email_verified = Column(Boolean, default=False, nullable=False)
     invite_revoked = Column(Boolean, default=False, server_default="false", nullable=False)
+    auth_version = Column(Integer, default=0, server_default="0", nullable=False)
     # Employee may book rooms with the company's credits when the company limits it to selected people.
     credit_booking_allowed = Column(Boolean, default=False, nullable=False)
 
@@ -101,6 +102,9 @@ class User(db.Model, PkMixin, TimestampMixin, UserMixin, OperatorScoped):
     )
 
     # ---- password helpers ----
+    def get_id(self) -> str:
+        return f"{self.id}:{self.auth_version or 0}"
+
     def set_password(self, raw: str) -> None:
         self.password_hash = generate_password_hash(raw)
 

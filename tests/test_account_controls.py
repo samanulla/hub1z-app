@@ -5,7 +5,7 @@ os.environ.setdefault("FLASK_ENV", "testing")
 from app.extensions import db
 from app.models import User
 from tests.test_release_upi_parcels_alerts import DEMO, _client, _get, _post, _seeded_app
-from tests.test_role_paths import _login
+from tests.test_role_paths import _login, APEX, OWNER_PASSWORD
 from app.cli import PERSONA_PASSWORD
 from urllib.parse import urlparse
 from email.utils import parseaddr
@@ -105,3 +105,55 @@ def test_invitation_sender_is_friendly_and_logo_is_inline(monkeypatch):
     assert "Powered by Hub1z" in message.body
     assert 'cid:hub1z-mark' in message.html
     assert message.attachments[0].headers["Content-ID"] == "<hub1z-mark>"
+
+
+def test_platform_can_replace_operator_admin_email_and_invalidates_old_access(monkeypatch):
+    from app.services import mail_service
+    app, _ = _seeded_app()
+    departing_admin = _client(app, DEMO, "owner@demospace.com")
+    sent = []
+    monkeypatch.setattr("app.services.mail_service.send", lambda **context: sent.append(context))
+    with app.app_context():
+        admin = User.query.execution_options(skip_operator_filter=True).filter_by(email="owner@demospace.com").one()
+        admin_id, operator_id = admin.id, admin.operator_id
+        old_token = mail_service.make_token(admin.id, "password-reset")
+    platform = _client(app, APEX, "admin@hub1z.com", OWNER_PASSWORD)
+    response = _post(platform, APEX, f"/platform/operators/{operator_id}/admins/{admin_id}/edit",
+                     {"full_name": "New Owner", "email": "replacement@demo.com", "phone": "9876543210"})
+    assert response.status_code == 302
+    assert sent[-1]["recipient"] == "replacement@demo.com"
+    assert _get(departing_admin, DEMO, "/admin/").status_code in (302, 401)
+    assert urlparse(sent[-1]["reset_url"]).hostname == DEMO
+    with app.app_context():
+        admin = db.session.get(User, admin_id)
+        assert admin.email == "replacement@demo.com" and not admin.check_password(PERSONA_PASSWORD)
+        assert mail_service.read_token(old_token, "password-reset", 7200) is None
+    guest = app.test_client()
+    reset_path = urlparse(sent[-1]["reset_url"]).path
+    response = _post(guest, DEMO, reset_path, {"password": "NewOwnerPass123!", "confirm": "NewOwnerPass123!"})
+    assert response.status_code == 302
+    assert _login(guest, DEMO, "replacement@demo.com", "NewOwnerPass123!").status_code == 302
+    assert _get(guest, DEMO, "/admin/").status_code == 200
+
+
+def test_direct_operator_provisioning_starts_trial_without_approval():
+    from app.models import Operator, OperatorStatus, OperatorSubscription, PricingTier
+    app, _ = _seeded_app()
+    with app.app_context():
+        db.session.add(PricingTier(key="starter", name="Starter", is_active=True))
+        db.session.commit()
+    platform = _client(app, APEX, "admin@hub1z.com", OWNER_PASSWORD)
+    response = _post(platform, APEX, "/platform/operators/new", {
+        "slug": "provisioned", "name": "Provisioned Space", "admin_name": "Admin",
+        "admin_email": "admin@provisioned.com", "admin_password": "AdminPass123!",
+        "status": "trial", "plan_tier": "starter", "brand_color": "#007f78",
+        "currency_code": "INR", "country_code": "IN", "locale": "en_IN", "number_grouping": "indian",
+        "timezone": "Asia/Kolkata", "date_format": "%d-%b-%Y", "datetime_format": "%d-%b-%Y %H:%M",
+        "time_format": "%H:%M", "default_tax_rate": "18", "tax_label": "GST", "invoice_prefix": "INV"})
+    assert response.status_code == 302
+    with app.app_context():
+        operator = Operator.query.filter_by(slug="provisioned").one()
+        assert operator.status == OperatorStatus.TRIAL and operator.trial_ends_at is not None
+        assert OperatorSubscription.query.filter_by(operator_id=operator.id).one().status == "trial"
+    page = _get(platform, APEX, "/platform/operators")
+    assert b'Pending approval' not in page.data and b'/approve' not in page.data

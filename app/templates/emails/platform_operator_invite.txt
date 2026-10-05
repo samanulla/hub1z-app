@@ -6,7 +6,7 @@ Click the link below to set your password and start setting up your workspace. T
 
 {{ accept_url }}
 
-Your workspace will be reviewed and approved by the {{ app_name }} team before it's fully live.
+Your workspace is ready to use on a free trial. No platform approval is required.
 
 If you weren't expecting this invitation, you can safely ignore it.
 

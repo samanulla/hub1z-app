@@ -92,6 +92,13 @@ class OperatorForm(FlaskForm):
     submit = SubmitField("Save operator")
 
 
+class OperatorAdminForm(FlaskForm):
+    full_name = StringField("Admin name", validators=[DataRequired(), Length(max=150)])
+    email = StringField("Admin email", validators=[DataRequired(), Email(), Length(max=255)])
+    phone = StringField("Phone", validators=[Optional(), Length(max=30)])
+    submit = SubmitField("Save admin")
+
+
 class PlatformManagerForm(FlaskForm):
     """Create/edit a Platform Manager — a real employee/contractor of the
     platform, set up by a Platform Super Admin with their own login and a
@@ -116,7 +123,7 @@ for _key, _label, _desc in PLATFORM_FEATURES:
 class InviteOperatorForm(FlaskForm):
     """Invite a prospective coworking business to become an operator. Unlike
     NewOperatorForm, the business sets its own admin password via the emailed
-    link, and the operator lands as TRIAL pending an explicit Approve."""
+    link, and the operator starts a trial without approval."""
     slug = StringField(
         "URL slug",
         validators=[

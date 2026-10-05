@@ -23,7 +23,7 @@ def _serializer(salt: str) -> URLSafeTimedSerializer:
 
 
 def make_token(payload: Any, purpose: str) -> str:
-    if purpose in USER_INVITE_ROLES:
+    if purpose in USER_INVITE_ROLES or purpose == "password-reset":
         from ..extensions import db
         from ..models import User
         user = db.session.get(User, int(payload))
@@ -32,13 +32,14 @@ def make_token(payload: Any, purpose: str) -> str:
 
 
 USER_INVITE_ROLES = {"employee-invite": "employee", "operator-member-invite": "individual",
-                     "operator-company-invite": "company_admin", "operator-team-invite": ("manager", "location_manager")}
+                     "operator-company-invite": "company_admin", "operator-team-invite": ("manager", "location_manager"),
+                     "platform-operator-invite": "super_admin"}
 
 
 def read_token(token: str, purpose: str, max_age_seconds: int) -> Any | None:
     try:
         payload = _serializer(f"cowork-{purpose}").loads(token, max_age=max_age_seconds)
-        if purpose not in USER_INVITE_ROLES:
+        if purpose not in USER_INVITE_ROLES and purpose != "password-reset":
             return payload
         from ..extensions import db
         from ..models import User
@@ -46,12 +47,15 @@ def read_token(token: str, purpose: str, max_age_seconds: int) -> Any | None:
         if not isinstance(user_id, int):
             return None
         user = db.session.get(User, user_id)
-        roles = USER_INVITE_ROLES[purpose]
-        if not user or user.invite_revoked or user.role.value not in (roles if isinstance(roles, tuple) else (roles,)):
+        roles = USER_INVITE_ROLES.get(purpose)
+        if not user or (roles and (user.invite_revoked or user.role.value not in (roles if isinstance(roles, tuple) else (roles,)))):
             return None
         if user.company and user.company.status.value in ("suspended", "churned"):
             return None
-        if has_request_context() and user.operator_id != getattr(g, "operator_id", None):
+        if has_request_context() and user.operator_id != getattr(g, "operator_id", None) and not (
+                purpose in ("platform-operator-invite", "password-reset") and getattr(g, "operator_id", None) is None):
+            return None
+        if purpose == "password-reset" and not isinstance(payload, dict):
             return None
         if isinstance(payload, dict) and payload.get("stamp") != sha256((user.password_hash + user.email).encode()).hexdigest():
             return None

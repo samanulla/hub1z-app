@@ -39,8 +39,9 @@ def test_super_admin_sees_full_admin_sidebar():
     _login(c, "super@side1.com", "SuperPass123!")
     r = c.get("/admin/")
     assert r.status_code == 200
-    assert b"System settings" in r.data
-    assert b"Audit log" in r.data
+    assert b"Settings" in r.data
+    settings = c.get("/admin/settings")
+    assert b"Audit log" in settings.data
     assert b"Invites" in r.data
 
 
@@ -65,7 +66,7 @@ def test_location_manager_sees_restricted_admin_sidebar():
     assert b"System settings" not in r.data
     assert b"Audit log" not in r.data
     assert b"Invites" not in r.data
-    assert b"Locations &amp; seats" in r.data or b"Locations" in r.data
+    assert b"Workspace" in r.data
 
 
 def test_platform_owner_sees_full_platform_sidebar():
@@ -122,8 +123,11 @@ def test_company_admin_sees_company_sidebar():
     r = c.get("/company/")
     assert r.status_code == 200
     assert b'<aside class="h-side"' in r.data
-    assert b"Plans &amp; subscriptions" in r.data
-    assert b"Seat allocations" in r.data
+    assert b"Billing" in r.data and b"Workspace" in r.data
+    workspace = c.get("/book/")
+    assert b"Seat allocations" in workspace.data
+    billing = c.get("/company/invoices")
+    assert b"Plans &amp; subscriptions" in billing.data
     header = r.data.split(b'<header class="h-top">')[1].split(b'</header>')[0]
     sidebar = r.data.split(b'<aside class="h-side"')[1].split(b'</aside>')[0]
     assert b'Sidebar Co' in header
@@ -151,3 +155,14 @@ def test_company_and_member_pages_unaffected_by_sidebar():
     assert b'<aside class="h-side"' in r.data
     assert b"My space" in r.data and b"Announcements" in r.data
     assert b"Billing &amp; finance" not in r.data and b"Pricing plans" not in r.data
+
+
+def test_people_hub_combines_search_and_preserves_operator_isolation():
+    from tests.test_release_upi_parcels_alerts import DEMO, _client, _get, _seeded_app
+    app, _ = _seeded_app()
+    owner = _client(app, DEMO, "owner@demospace.com")
+    page = _get(owner, DEMO, "/admin/people")
+    assert page.status_code == 200 and b'Acme Co' in page.data and b'Ivy Individual' in page.data
+    assert b'owner@otherspace.com' not in page.data
+    filtered = _get(owner, DEMO, "/admin/people?q=Acme&kind=company")
+    assert b'Acme Co' in filtered.data and b'Ivy Individual' not in filtered.data

@@ -458,6 +458,33 @@ def companies_list():
     return render_template("admin/companies/list.html", overview=company_overview.build(g.operator_id))
 
 
+@admin_bp.route("/people")
+@admin_required
+def people():
+    from ...services import company_overview
+    overview = company_overview.build(g.operator_id)
+    individuals = User.query.filter_by(role=UserRole.INDIVIDUAL).order_by(User.full_name).all()
+    rows = [{"name": card["company"].name, "email": card["company"].billing_email,
+             "phone": card["company"].contact_phone, "kind": "Company", "status": card["company"].status.value,
+             "seats": card["seats"], "due": card["due"],
+             "url": url_for("admin.company_detail", company_id=card["company"].id)} for card in overview["cards"]]
+    invoices = Invoice.query.filter(Invoice.user_id.in_([user.id for user in individuals] or [0]),
+                                    Invoice.status.in_(["issued", "partial", "overdue"])).all()
+    balances = {}
+    for invoice in invoices:
+        balances[invoice.user_id] = balances.get(invoice.user_id, 0) + invoice.balance_due
+    for user in individuals:
+        rows.append({"name": user.full_name, "email": user.email, "phone": user.phone, "kind": "Individual",
+                     "status": "active" if user.is_active else "inactive", "seats": None, "due": balances.get(user.id, 0),
+                     "url": url_for("admin.individuals_list") + f"#individual-{user.id}"})
+    query = request.args.get("q", "").strip()
+    kind = request.args.get("kind", "all")
+    visible = [row for row in rows if (kind == "all" or row["kind"].lower() == kind) and
+               query.lower() in " ".join(str(row[key] or "") for key in ("name", "email", "phone")).lower()]
+    return render_template("admin/people.html", rows=visible, overview=overview, individual_count=len(individuals),
+                           query=query, kind=kind)
+
+
 @admin_bp.route("/companies/new", methods=["GET", "POST"])
 @manager_or_super_required
 def company_new():

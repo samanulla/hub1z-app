@@ -1,4 +1,4 @@
-"""Operator lifecycle: platform invites an operator -> TRIAL -> Approve -> ACTIVE,
+"""Operator lifecycle: platform invites an operator directly into TRIAL,
 plus Hold (shared) vs Suspend/Deactivate (Platform Super Admin only)."""
 import os
 os.environ.setdefault("FLASK_ENV", "testing")
@@ -13,6 +13,7 @@ def _app():
     app = create_app({"SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
                       "WTF_CSRF_ENABLED": False,
                       "MAIL_SUPPRESS_SEND": True,
+                      "PLATFORM_BASE_DOMAIN": "localhost",
                       "STORAGE_BACKEND": "local",
                       "LOCAL_STORAGE_DIR": "./var/test-uploads"})
     with app.app_context():
@@ -73,7 +74,7 @@ def test_invite_operator_creates_trial_operator_and_inactive_admin():
         assert admin.operator_id == t.id
 
 
-def test_accept_operator_invite_activates_admin_but_not_operator():
+def test_accept_operator_invite_starts_trial_and_redirects_to_workspace():
     app = _app()
     with app.app_context():
         t = Operator(slug="newbiz", name="New Biz", primary_domain="newbiz.hub1z.com",
@@ -90,16 +91,17 @@ def test_accept_operator_invite_activates_admin_but_not_operator():
                     data={"password": "NinaPass123!", "confirm": "NinaPass123!"},
                     follow_redirects=False)
     assert r.status_code == 302
+    assert r.location == "http://newbiz.hub1z.com/auth/login"
     with app.app_context():
         admin = User.query.filter_by(email="nina@newbiz.com") \
                           .execution_options(skip_operator_filter=True).first()
         t = Operator.query.filter_by(slug="newbiz").first()
         assert admin.is_active is True
         assert admin.check_password("NinaPass123!")
-        assert t.status == OperatorStatus.TRIAL  # still pending approval
+        assert t.status == OperatorStatus.TRIAL and t.trial_ends_at is not None
 
 
-def test_approve_moves_trial_to_active_and_only_from_trial():
+def test_operator_approval_route_is_removed():
     app = _app()
     _seed_owner(app)
     with app.app_context():
@@ -110,15 +112,9 @@ def test_approve_moves_trial_to_active_and_only_from_trial():
 
     c = app.test_client()
     _login(c, "platform@hub1z.com", "OwnerPass123!")
-    c.post(f"/platform/operators/{tid}/approve")
+    assert c.post(f"/platform/operators/{tid}/approve").status_code == 404
     with app.app_context():
-        assert db.session.get(Operator, tid).status == OperatorStatus.ACTIVE
-
-    # Approving again (already active, not trial) is a no-op, not an error.
-    r = c.post(f"/platform/operators/{tid}/approve", follow_redirects=False)
-    assert r.status_code == 302
-    with app.app_context():
-        assert db.session.get(Operator, tid).status == OperatorStatus.ACTIVE
+        assert db.session.get(Operator, tid).status == OperatorStatus.TRIAL
 
 
 def test_manager_with_operators_permission_can_hold_and_release():
