@@ -13,12 +13,12 @@ GROWTH_FEATURES = (
 ANNUAL_DISCOUNT = Decimal("16.67")
 
 MANIFEST_TIERS = [
-    dict(key="starter_v2", name="Starter", sort_order=110, monthly_price=2999,
+    dict(key="starter_v1", name="Starter", sort_order=110, monthly_price=2999,
          description="One location with everything a single space needs.",
          max_locations=1, included_active_contracted_seats=50, max_staff_users=3, max_open_leads=250,
          storage_mb=5 * 1024, additional_seat_rate=55, additional_location_rate=0,
          location_overage_policy=OveragePolicy.REQUIRE_PLAN_UPGRADE, features=("payment_reminders",)),
-    dict(key="growth_v2", name="Growth", sort_order=120, monthly_price=7999,
+    dict(key="growth_v1", name="Growth", sort_order=120, monthly_price=7999,
          description="Multi-location operations with payroll, expenses and advanced reports.",
          max_locations=3, included_active_contracted_seats=150, storage_mb=25 * 1024,
          additional_seat_rate=49, additional_location_rate=1999,

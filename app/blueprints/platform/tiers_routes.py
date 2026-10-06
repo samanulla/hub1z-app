@@ -6,6 +6,8 @@ is handled under /platform/billing.
 """
 from __future__ import annotations
 
+import re
+
 from flask import render_template, redirect, url_for, flash
 
 from ...extensions import db
@@ -32,6 +34,15 @@ def _feature_modules():
                                        and BY_CODE[m.code].value_type == EntitlementValueType.BOOLEAN))]
 
 
+def generate_tier_key(name: str) -> str:
+    """Slug of the name plus the first unused version suffix, e.g. growth_v1."""
+    slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:24] or "tier"
+    version = 1
+    while PricingTier.query.filter_by(key=f"{slug}_v{version}").first():
+        version += 1
+    return f"{slug}_v{version}"
+
+
 def _is_built(code: str) -> bool:
     return BY_CODE[code].built if code in BY_CODE else True
 
@@ -50,7 +61,7 @@ def register_tiers_routes(bp):
                                always_features=always_features,
                                plan_features=[m for m in features if m.kind == FEATURE],
                                addon_features=[m for m in features if m.kind == ADDON],
-                               copy_sources=copy_sources)
+                               copy_sources=copy_sources, current_tier=current_tier)
 
     def configure_feature_choices(form, features):
         form.feature_ids.choices = [(m.id, m.name) for m in features]
@@ -104,10 +115,7 @@ def register_tiers_routes(bp):
         form = PricingTierForm()
         configure_feature_choices(form, features)
         if form.validate_on_submit():
-            key = form.key.data.lower().strip()
-            if PricingTier.query.filter_by(key=key).first():
-                flash("A tier with that key already exists.", "warning")
-                return tier_form(form, features, "New pricing tier")
+            key = generate_tier_key(form.name.data)
             tier = PricingTier(key=key)
             form.populate_obj(tier)
             tier.key = key

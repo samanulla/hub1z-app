@@ -140,11 +140,6 @@ class InviteOperatorForm(FlaskForm):
 
 
 class PricingTierForm(FlaskForm):
-    key = StringField(
-        "Key", validators=[DataRequired(), Length(max=30), Regexp(r"^[a-z0-9_-]+$",
-        message="Lowercase letters, digits, hyphens/underscores only")],
-        description="Stable identifier stored on operators — don't change this after operators are on it.",
-    )
     name = StringField("Tier name", validators=[DataRequired(), Length(max=80)])
     description = StringField("Short description", validators=[Optional(), Length(max=200)],
                               description="One line shown under the plan name on the pricing page.")

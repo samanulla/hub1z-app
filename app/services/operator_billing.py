@@ -42,6 +42,10 @@ def subscription_for(operator):
 def start_trial(operator):
     operator.trial_ends_at = datetime.utcnow() + timedelta(days=trial_days())
     operator.status = OperatorStatus.TRIAL
+    if not PricingTier.query.filter_by(key=operator.plan_tier).first():
+        first = PricingTier.query.order_by(PricingTier.sort_order, PricingTier.id).first()
+        if first:
+            operator.plan_tier = first.key
     subscription_for(operator)
 
 

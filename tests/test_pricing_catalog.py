@@ -239,10 +239,10 @@ def test_public_catalog_discovers_registered_features_and_labels_beta():
 def test_manifest_tiers_are_private_drafts_managed_in_the_tier_list():
     app = _app()
     with app.app_context():
-        assert ensure_manifest_tiers() == ["starter_v2", "growth_v2", "scale_v1", "enterprise_v1"]
+        assert ensure_manifest_tiers() == ["starter_v1", "growth_v1", "scale_v1", "enterprise_v1"]
         db.session.commit()
         assert ensure_manifest_tiers() == []
-        drafts = PricingTier.query.filter(PricingTier.key.in_(["starter_v2", "scale_v1"])).all()
+        drafts = PricingTier.query.filter(PricingTier.key.in_(["starter_v1", "scale_v1"])).all()
         assert all(t.status == TierStatus.DRAFT and not t.is_public and not t.all_features for t in drafts)
         scale = PricingTier.query.filter_by(key="scale_v1").one()
         assert "white_label" in {m.code for m in scale.module_catalog}
@@ -250,7 +250,7 @@ def test_manifest_tiers_are_private_drafts_managed_in_the_tier_list():
 
     html = _owner_client(app).get("/platform/tiers", headers=APEX).data.decode()
     assert "Entitlement offer drafts" not in html
-    assert "starter_v2" in html and "scale_v1" in html
+    assert "starter_v1" in html and "scale_v1" in html
     assert "+ White-label web portal / PWA" in html
 
 
@@ -266,13 +266,13 @@ def test_tier_form_groups_every_plan_plan_features_and_included_addons():
     client = _owner_client(app)
     html = client.get("/platform/tiers/new", headers=APEX).data.decode()
     assert "Included in every plan" in html and "Plan features" in html and "Add-ons included" in html
-    assert "Copy features from" in html and "growth_v2" in html
+    assert "Copy features from" in html and "growth_v1" in html
     assert 'name="all_features"' not in html
     assert "Extra Storage" not in html.split("Add-ons included")[1]
     assert "Native mobile apps" not in html
 
     response = client.post(f"/platform/tiers/{growth_id}/edit", data={
-        "key": "growth", "name": "Growth", "status": "active", "monthly_price": "1000", "annual_discount": "10",
+        "name": "Growth", "status": "active", "monthly_price": "1000", "annual_discount": "10",
         "effective_from": "2026-01-01", "max_locations": "3", "included_active_contracted_seats": "100",
         "seat_overage_policy": "require_plan_upgrade", "location_overage_policy": "require_plan_upgrade",
         "seat_usage_method": "maximum_during_billing_period", "sort_order": "0",

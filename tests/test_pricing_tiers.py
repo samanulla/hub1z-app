@@ -46,7 +46,7 @@ def test_owner_can_create_and_edit_tier():
     _login(c, "platform@hub1z.com", "OwnerPass123!")
 
     r = c.post("/platform/tiers/new", data={
-        "key": "starter", "name": "Starter", "monthly_price": "4999", "status": "active",
+        "name": "Starter", "monthly_price": "4999", "status": "active",
         "max_locations": "1", "included_active_contracted_seats": "50", "additional_seat_rate": "50",
         "additional_location_rate": "1000", "annual_discount": "10", "max_staff_users": "3",
         "max_open_leads": "100", "storage_mb": "500", "is_public": "y",
@@ -56,7 +56,7 @@ def test_owner_can_create_and_edit_tier():
     }, follow_redirects=False)
     assert r.status_code == 302
     with app.app_context():
-        tier = PricingTier.query.filter_by(key="starter").first()
+        tier = PricingTier.query.filter_by(key="starter_v1").first()
         assert tier is not None
         assert tier.included_active_contracted_seats == 50
         assert tier.max_staff_users == 3 and tier.max_open_leads == 100 and tier.storage_mb == 500
@@ -73,7 +73,7 @@ def test_owner_can_create_and_edit_tier():
         assert re.search(rf'<option(?=[^>]*value="{expected}")(?=[^>]*selected)[^>]*>', options)
 
     r = c.post(f"/platform/tiers/{tid}/edit", data={
-        "key": "renamed-should-be-ignored", "name": "Starter Plus", "monthly_price": "5999", "status": "active",
+        "name": "Starter Plus", "monthly_price": "5999", "status": "active",
         "max_locations": "1", "included_active_contracted_seats": "60", "additional_seat_rate": "50",
         "additional_location_rate": "1000", "annual_discount": "10",
         "max_staff_users": "", "max_open_leads": "", "storage_mb": "",
@@ -86,7 +86,7 @@ def test_owner_can_create_and_edit_tier():
         tier = db.session.get(PricingTier, tid)
         assert tier.name == "Starter Plus"
         assert tier.included_active_contracted_seats == 60
-        assert tier.key == "starter"  # immutable once created
+        assert tier.key == "starter_v1"  # generated, immutable
         assert tier.module_catalog == []  # unticked features are removed
         assert tier.max_staff_users is None  # blank means unlimited
 
@@ -97,14 +97,14 @@ def test_contact_sales_tier_needs_no_price_to_activate():
     c = app.test_client()
     _login(c, "platform@hub1z.com", "OwnerPass123!")
     r = c.post("/platform/tiers/new", data={
-        "key": "enterprise", "name": "Enterprise", "status": "active", "contact_sales": "y", "all_features": "y",
+        "name": "Enterprise", "status": "active", "contact_sales": "y", "all_features": "y",
         "max_locations": "2", "max_staff_users": "5", "storage_mb": "500",
         "seat_overage_policy": "require_plan_upgrade", "location_overage_policy": "require_plan_upgrade",
         "seat_usage_method": "maximum_during_billing_period",
     }, follow_redirects=False)
     assert r.status_code == 302
     with app.app_context():
-        tier = PricingTier.query.filter_by(key="enterprise").one()
+        tier = PricingTier.query.filter_by(key="enterprise_v1").one()
         assert tier.max_locations is None and tier.max_staff_users is None and tier.storage_mb is None
         tier_id = tier.id
     html = c.get(f"/platform/tiers/{tier_id}/edit").data.decode()
@@ -113,14 +113,14 @@ def test_contact_sales_tier_needs_no_price_to_activate():
     assert 'id="all-feature-note"' in html and 'name="all_features"' in html
     # A normal tier still needs its price and limits before it can go live.
     r = c.post("/platform/tiers/new", data={
-        "key": "growth", "name": "Growth", "status": "active",
+        "name": "Growth", "status": "active",
         "seat_overage_policy": "require_plan_upgrade", "location_overage_policy": "require_plan_upgrade",
         "seat_usage_method": "maximum_during_billing_period",
     })
     assert r.status_code == 200 and b"Monthly price is required" in r.data
     with app.app_context():
-        assert PricingTier.query.filter_by(key="enterprise").one().contact_sales is True
-        assert PricingTier.query.filter_by(key="growth").first() is None
+        assert PricingTier.query.filter_by(key="enterprise_v1").one().contact_sales is True
+        assert PricingTier.query.filter_by(key="growth_v1").first() is None
 
 
 def test_manager_cannot_manage_tiers_without_the_pricing_permission():

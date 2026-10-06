@@ -10,7 +10,11 @@
   {{ form.hidden_tag() }}
   <h6>Plan</h6>
   <div class="row">
-    <div class="col-md-3">{{ field(form.key) }}</div>
+    <div class="col-md-3">
+      <label class="form-label">Plan key</label>
+      <div><code>{{ current_tier.key if current_tier else "generated on save" }}</code></div>
+      <div class="form-text">Set automatically and locked; operators reference it.</div>
+    </div>
     <div class="col-md-4">{{ field(form.name) }}</div>
     <div class="col-md-3">{{ field(form.status) }}</div>
     <div class="col-md-2">{{ field(form.sort_order) }}</div>
