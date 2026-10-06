@@ -37,7 +37,7 @@
     <tr>
       <td>{{ b.start_at | dt_at(b.room.location) }} → {{ b.end_at | time_at(b.room.location) }}</td>
       <td>{{ b.room.name }} <span class="text-muted small">at {{ b.room.location.name }}</span></td>
-      <td>{{ b.title or "—" }}</td>
+      <td>{{ b.title or "—" }}{% if b.recurring_booking_id %} <span class="badge bg-light text-dark">Repeats</span>{% endif %}</td>
       <td>{{ b.credits_used }}</td>
       <td>{{ b.total_amount | money }}</td>
       <td><span class="badge bg-secondary">{{ b.status.value }}</span></td>
@@ -48,11 +48,21 @@
           <button class="btn btn-sm btn-dark">Check in</button>
         </form>
         {% endif %}
+        {% if b.status.value == 'confirmed' and b.start_at > now %}
+        <a class="btn btn-sm btn-outline-dark" href="{{ url_for('book.room_booking_edit', booking_id=b.id) }}">Edit</a>
+        {% endif %}
         {% if b.status.value in ['confirmed','checked_in'] %}
         <form method="post" action="{{ url_for('member.cancel_room_booking', booking_id=b.id) }}" class="d-inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button class="btn btn-sm btn-outline-danger">Cancel</button>
+          <button class="btn btn-sm btn-outline-danger">Cancel{{ ' this event' if b.recurring_booking_id }}</button>
         </form>
+        {% if b.recurring_booking_id and b.recurring_booking and b.recurring_booking.is_active %}
+        <form method="post" action="{{ url_for('member.cancel_room_booking', booking_id=b.id) }}" class="d-inline" onsubmit="return confirm('Cancel every upcoming meeting in this series?')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="scope" value="series">
+          <button class="btn btn-sm btn-danger">Cancel series</button>
+        </form>
+        {% endif %}
         {% endif %}
       </td>
     </tr>

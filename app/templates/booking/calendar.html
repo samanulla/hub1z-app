@@ -128,6 +128,12 @@
           </div>
           <div class="mb-2"><input class="form-control form-control-sm" name="title" placeholder="Title (e.g. Sprint planning)"></div>
           <div class="mb-2"><input class="form-control form-control-sm" type="number" name="attendees" id="bAttendees" min="1" value="1" title="Attendees"></div>
+          <div class="row g-2 mb-2">
+            <div class="col-5"><select class="form-select form-select-sm" name="repeat" id="bRepeat" title="Repeat">
+              <option value="">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option>
+            </select></div>
+            <div class="col-7"><input class="form-control form-control-sm" type="date" name="repeat_until" id="bUntil" title="Repeat until" disabled></div>
+          </div>
           {% if current_user.is_admin %}
           <div class="mb-2">
             <select class="form-select form-select-sm" name="for_user_id" id="bFor">
@@ -183,6 +189,22 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn btn-sm btn-outline-dark">Check in</button>
           </form>
+          {% endif %}
+          {% if can_manage(b, current_user) and b.status.value == 'confirmed' and b.start_at > now %}
+          <a class="btn btn-sm btn-outline-dark" href="{{ url_for('book.room_booking_edit', booking_id=b.id) }}">Edit</a>
+          {% endif %}
+          {% if can_manage(b, current_user) %}
+          <form method="post" action="{{ url_for('member.cancel_room_booking', booking_id=b.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-danger">Cancel{{ ' this event' if b.recurring_booking_id }}</button>
+          </form>
+          {% if b.recurring_booking_id and b.recurring_booking and b.recurring_booking.is_active %}
+          <form method="post" action="{{ url_for('member.cancel_room_booking', booking_id=b.id) }}" class="d-inline" onsubmit="return confirm('Cancel every upcoming meeting in this series?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="scope" value="series">
+            <button class="btn btn-sm btn-danger">Cancel series</button>
+          </form>
+          {% endif %}
           {% endif %}
         </td>
       </tr>
@@ -292,5 +314,12 @@
 
   [room, start, end, $('bAttendees'), $('bFor'), $('bWaive')].forEach((el) => el && el.addEventListener('change', refresh));
 })();
+</script>
+<script>
+  (function () {
+    const rep = document.getElementById('bRepeat'), until = document.getElementById('bUntil');
+    if (!rep || !until) return;
+    rep.addEventListener('change', () => { until.disabled = !rep.value; until.required = !!rep.value; });
+  })();
 </script>
 {% endblock %}

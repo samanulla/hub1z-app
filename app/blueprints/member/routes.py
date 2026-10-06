@@ -17,7 +17,7 @@ from ...models import (
 from ...services import credit_service
 from ...services.alerts import customer_agreements
 from ...services.pdf_docs import address_letter_response
-from ...services.booking_service import cancel_booking, can_check_in, BookingError
+from ...services.booking_service import cancel_booking, cancel_series, can_check_in, BookingError
 from ...utils.decorators import member_required, member_or_admin_required, roles_required
 from ..customer_billing import register_customer_billing_routes
 
@@ -111,11 +111,18 @@ def cancel_seat_booking(booking_id: int):
 def cancel_room_booking(booking_id: int):
     booking = RoomBooking.query.get_or_404(booking_id)
     try:
-        cancel_booking(booking, current_user)
-        flash("Booking cancelled.", "info")
+        if request.form.get("scope") == "series" and booking.recurring_booking is not None:
+            result = cancel_series(booking.recurring_booking, current_user)
+            msg = f"Series cancelled: {result['cancelled']} upcoming meeting(s) removed."
+            if result["kept"]:
+                msg += f" {result['kept']} starting too soon could not be cancelled."
+            flash(msg, "info")
+        else:
+            cancel_booking(booking, current_user)
+            flash("Booking cancelled.", "info")
     except BookingError as e:
         flash(str(e), "warning")
-    return redirect(url_for("member.bookings"))
+    return redirect(request.referrer or url_for("member.bookings"))
 
 
 # ------- day passes -------

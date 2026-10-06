@@ -17,9 +17,9 @@ from ...models import (
 from ...services import calendar_view, credit_service
 from ...services.booking_service import (
     create_seat_booking, create_room_booking, quote_seat, quote_room, preview_room, check_in, can_check_in,
-    BookingError, check_seat_conflict, check_room_conflict,
+    BookingError, check_seat_conflict, check_room_conflict, can_manage_booking, update_room_booking, update_series,
 )
-from ...services.formatting import format_money, now_local, parse_local_naive_to_utc
+from ...services.formatting import format_money, now_local, parse_local_naive_to_utc, to_local
 from ...utils.decorators import member_or_admin_required
 
 booking_bp = Blueprint("book", __name__, template_folder="../../templates")
@@ -127,7 +127,7 @@ def location_calendar(location_id: int):
         "booking/calendar.html", location=loc, locations=locations, bookable_rooms=bookable_rooms, cal=cal,
         view=view, week_room=week_room, recipients=recipients, day=day, prev_day=day - step, next_day=day + step,
         today=datetime.now(tz).date(), credits_available=_current_user_credits(),
-        day_bookings=bookings, blocks=blocks, now=now, can_check_in=can_check_in,
+        day_bookings=bookings, blocks=blocks, now=now, can_check_in=can_check_in, can_manage=can_manage_booking,
     )
 
 
@@ -214,6 +214,56 @@ def room_check_in(booking_id: int):
     return redirect(request.referrer or url_for("member.bookings"))
 
 
+@booking_bp.route("/bookings/room/<int:booking_id>/edit", methods=["GET", "POST"])
+@member_or_admin_required
+def room_booking_edit(booking_id: int):
+    """Change one meeting, or every upcoming meeting in its series (time of day only), like a calendar app."""
+    b = RoomBooking.query.get_or_404(booking_id)
+    if not can_manage_booking(b, current_user):
+        abort(403)
+    series = b.recurring_booking
+    fmt = "%Y-%m-%dT%H:%M"
+    if request.method == "POST":
+        form = request.form
+        try:
+            start = parse_local_naive_to_utc(form["start"])
+            end = parse_local_naive_to_utc(form["end"])
+        except (KeyError, ValueError):
+            flash("Invalid start or end time.", "danger")
+            return redirect(url_for("book.room_booking_edit", booking_id=b.id))
+        title = (form.get("title") or "").strip()[:200] or None
+        notes = (form.get("notes") or "").strip() or None
+        attendees = form.get("attendees", type=int) or 1
+        try:
+            if series is not None and form.get("scope") == "series":
+                tz = ZoneInfo(b.room.location.timezone or "UTC")
+                utc = ZoneInfo("UTC")
+                local_start = start.replace(tzinfo=utc).astimezone(tz)
+                local_end = end.replace(tzinfo=utc).astimezone(tz)
+                until = form.get("series_until")
+                result = update_series(
+                    series, current_user, start_time=local_start.time(), end_time=local_end.time(),
+                    end_date=date_cls.fromisoformat(until) if until else None,
+                    title=title, attendees=attendees, notes=notes)
+                msg = f"Series updated: {result['updated']} upcoming meeting(s) changed."
+                if result["cancelled"]:
+                    msg += f" {result['cancelled']} after the new end date cancelled."
+                if result["failed"]:
+                    msg += (" Could not change " + ", ".join(d.strftime("%d %b") for d in result["failed"])
+                            + " (room busy or too close to start).")
+                flash(msg, "warning" if result["failed"] else "success")
+            else:
+                update_room_booking(b, current_user, start=start, end=end, title=title, attendees=attendees,
+                                    notes=notes)
+                flash("Meeting updated.", "success")
+        except (BookingError, ValueError) as e:
+            flash(str(e), "danger")
+            return redirect(url_for("book.room_booking_edit", booking_id=b.id))
+        return redirect(url_for("member.bookings"))
+    return render_template("booking/room_booking_edit.html", booking=b, series=series,
+                           start=to_local(b.start_at).strftime(fmt), end=to_local(b.end_at).strftime(fmt))
+
+
 @booking_bp.route("/locations/<int:location_id>/calendar/quick-book", methods=["POST"])
 @member_or_admin_required
 def location_calendar_quick_book(location_id: int):
@@ -247,6 +297,23 @@ def location_calendar_quick_book(location_id: int):
                 User.id == recipient_id, User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL]),
             ).first()
         waive_charge = bool(request.form.get("waive_charge"))
+    series = None
+    if request.form.get("repeat") in ("daily", "weekly"):
+        utc, tz = ZoneInfo("UTC"), ZoneInfo(room.location.timezone or "UTC")
+        local_start, local_end = start.replace(tzinfo=utc).astimezone(tz), end.replace(tzinfo=utc).astimezone(tz)
+        try:
+            until = date_cls.fromisoformat(request.form["repeat_until"])
+        except (KeyError, ValueError):
+            until = None
+        if until is None or until < local_start.date():
+            flash("Choose the date the repeat ends (on or after the first meeting).", "warning")
+            return redirect(url_for("book.location_calendar", location_id=loc.id, date=day_param))
+        series = RecurringRoomBooking(
+            operator_id=room.operator_id, room_id=room.id, user_id=(for_user or current_user).id,
+            pattern=RecurrencePattern(request.form["repeat"]), start_time=local_start.time(),
+            end_time=local_end.time(), start_date=local_start.date(), end_date=until, is_active=True)
+        db.session.add(series)
+        db.session.flush()
     try:
         b = create_room_booking(
             user=current_user, room=room, start=start, end=end,
@@ -254,8 +321,11 @@ def location_calendar_quick_book(location_id: int):
             attendees=request.form.get("attendees", 1, type=int),
             notes=request.form.get("notes"),
             for_user=for_user, waive_charge=waive_charge,
+            recurring_booking_id=series.id if series else None,
         )
         msg = "Meeting booked."
+        if series:
+            msg = "Recurring meeting booked; later dates are created automatically each day."
         if b.credits_used:
             msg += f" Used {b.credits_used} credit(s)."
         if b.total_amount and b.total_amount > 0:
@@ -264,6 +334,7 @@ def location_calendar_quick_book(location_id: int):
             msg += " No charge (waived)."
         flash(msg, "success")
     except BookingError as e:
+        db.session.rollback()
         flash(str(e), "danger")
     return redirect(url_for("book.location_calendar", location_id=loc.id, date=day_param))
 

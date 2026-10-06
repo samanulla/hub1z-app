@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Edit meeting{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-md-8">
+  <h3>Edit meeting <span class="text-muted">{{ booking.room.name }}</span></h3>
+  <p class="text-muted">{{ booking.room.location.name }} · Capacity {{ booking.room.capacity }}</p>
+
+  <div class="card"><div class="card-body">
+    <form method="post" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if series %}
+      <div class="mb-3">
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="scope" id="scopeOne" value="one" checked>
+          <label class="form-check-label" for="scopeOne">This event only</label>
+        </div>
+        <div class="form-check">
+          <input class="form-check-input" type="radio" name="scope" id="scopeSeries" value="series">
+          <label class="form-check-label" for="scopeSeries">All upcoming events in the series
+            <span class="text-muted small">(time of day, title, attendees and notes; the date stays the same)</span></label>
+        </div>
+      </div>
+      {% endif %}
+      <div class="mb-3">
+        <label class="form-label">Meeting title</label>
+        <input class="form-control" name="title" maxlength="200" value="{{ booking.title or '' }}">
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Start</label>
+          <input class="form-control" type="datetime-local" step="1800" name="start" value="{{ start }}" required>
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">End</label>
+          <input class="form-control" type="datetime-local" step="1800" name="end" value="{{ end }}" required>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Attendees</label>
+          <input class="form-control" type="number" name="attendees" min="1" max="{{ booking.room.capacity }}" value="{{ booking.attendee_count }}">
+        </div>
+        {% if series %}
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Series ends on <span class="text-muted small">(series only)</span></label>
+          <input class="form-control" type="date" name="series_until" value="{{ series.end_date.isoformat() }}">
+        </div>
+        {% endif %}
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Notes</label>
+        <textarea class="form-control" name="notes" rows="2">{{ booking.notes or '' }}</textarea>
+      </div>
+      <div class="text-muted small mb-3">A new time is checked for conflicts and re-priced: credits from the old time are returned and the new time is charged.</div>
+      <button class="btn btn-dark">Save changes</button>
+      <a class="btn btn-link" href="{{ url_for('member.bookings') }}">Back</a>
+    </form>
+  </div></div>
+</div>
+</div>
+{% endblock %}

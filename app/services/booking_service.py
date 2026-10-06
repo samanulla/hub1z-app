@@ -324,6 +324,157 @@ def cancel_booking(booking, actor: User) -> None:
     db.session.commit()
 
 
+_KEEP = object()
+
+
+def can_manage_booking(booking, actor: User) -> bool:
+    """The organiser, an operator admin, or the organiser's company admin."""
+    return bool(booking.user_id == actor.id or actor.is_admin
+                or (actor.is_company_admin and getattr(booking, "company_id", None) == actor.company_id))
+
+
+def _local_tz(location):
+    from zoneinfo import ZoneInfo
+    try:
+        return ZoneInfo(location.timezone or "UTC")
+    except Exception:  # noqa: BLE001 - bad/legacy timezone data
+        return ZoneInfo("UTC")
+
+
+def _reprice_room_booking(booking: RoomBooking, actor: User, start: datetime, end: datetime) -> None:
+    """Give back the credits of the old time, then charge the new one as a fresh booking would be."""
+    booked_for = db.session.get(User, booking.user_id)
+    if not booking.credits_used and not (booking.total_amount or 0):
+        return  # waived or free: stays free
+    credit_service.refund_booking(booking, actor)
+    db.session.flush()
+    q = quote_room(booked_for, booking.room, start, end)
+    if not actor.is_admin:
+        try:
+            credit_service.check_company_rules(booked_for, q.credits_used, start.date())
+        except credit_service.CreditError as e:
+            raise BookingError(str(e))
+    if q.credits_used:
+        try:
+            credit_service.spend(booking.operator_id, **credit_service.subject_for(booked_for),
+                                 credits=q.credits_used, booking=booking, actor=actor)
+        except credit_service.CreditError as e:
+            raise BookingError(str(e))
+    booking.credits_used, booking.total_amount = q.credits_used, q.subtotal
+
+
+def update_room_booking(booking: RoomBooking, actor: User, *, start: datetime, end: datetime,
+                        title=_KEEP, attendees=_KEEP, notes=_KEEP) -> RoomBooking:
+    """Change one meeting. A new time is re-checked like a new booking and re-priced in credits."""
+    if booking.status != BookingStatus.CONFIRMED:
+        raise BookingError("Only upcoming, confirmed meetings can be changed.")
+    if not can_manage_booking(booking, actor):
+        raise BookingError("You do not have permission to change this booking.")
+    now = datetime.utcnow()
+    if booking.start_at <= now:
+        raise BookingError("This meeting has already started.")
+    window = current_app.config["BOOKING_CANCEL_WINDOW_MINUTES"]
+    if booking.start_at - now < timedelta(minutes=window) and not actor.is_admin:
+        raise BookingError(f"Bookings must be changed at least {window} minutes before start.")
+
+    room = booking.room
+    people = booking.attendee_count if attendees is _KEEP or attendees is None else attendees
+    if people > room.capacity:
+        raise BookingError(f"Room capacity is {room.capacity}.")
+    try:
+        db.session.query(ConferenceRoom.id).filter(ConferenceRoom.id == room.id).with_for_update().first()
+        if (start, end) != (booking.start_at, booking.end_at):
+            _validate_window(start, end)
+            try:
+                credit_service.slots_between(start, end)
+            except credit_service.CreditError as e:
+                raise BookingError(str(e))
+            _validate_location_hours(room.location, start, end)
+            if room_blocked(room.id, start, end):
+                raise BookingError("This room is not available at that time.")
+            if check_room_conflict(room.id, start, end, exclude_id=booking.id):
+                raise BookingError("Room already booked for this time.")
+            _reprice_room_booking(booking, actor, start, end)
+            booking.start_at, booking.end_at = start, end
+        booking.attendee_count = people
+        if title is not _KEEP:
+            booking.title = title
+        if notes is not _KEEP:
+            booking.notes = notes
+        db.session.commit()
+    except BookingError:
+        db.session.rollback()
+        raise
+    except IntegrityError:
+        db.session.rollback()
+        raise BookingError("Room already booked for this time.")
+    return booking
+
+
+def _can_manage_series(series, actor: User) -> bool:
+    return bool(series.user_id == actor.id or actor.is_admin
+                or (actor.is_company_admin and series.user and series.user.company_id == actor.company_id))
+
+
+def _future_instances(series) -> list[RoomBooking]:
+    return (RoomBooking.query.filter(RoomBooking.recurring_booking_id == series.id,
+                                     RoomBooking.status == BookingStatus.CONFIRMED,
+                                     RoomBooking.start_at > datetime.utcnow())
+            .order_by(RoomBooking.start_at).all())
+
+
+def cancel_series(series, actor: User) -> dict:
+    """Stop the series and cancel its upcoming meetings (those inside a member's cancel window are kept)."""
+    if not _can_manage_series(series, actor):
+        raise BookingError("You do not have permission to cancel this series.")
+    series.is_active = False
+    db.session.commit()
+    cancelled = kept = 0
+    for b in _future_instances(series):
+        try:
+            cancel_booking(b, actor)
+            cancelled += 1
+        except BookingError:
+            kept += 1
+    return {"cancelled": cancelled, "kept": kept}
+
+
+def update_series(series, actor: User, *, start_time: time, end_time: time, end_date: date | None = None,
+                  title=_KEEP, attendees=_KEEP, notes=_KEEP) -> dict:
+    """Move every upcoming meeting to a new time of day (and optionally end the series earlier)."""
+    from zoneinfo import ZoneInfo
+    if not _can_manage_series(series, actor):
+        raise BookingError("You do not have permission to change this series.")
+    if end_time <= start_time:
+        raise BookingError("End time must be after start time.")
+    if end_date is not None and end_date < series.start_date:
+        raise BookingError("The series cannot end before it starts.")
+    series.start_time, series.end_time = start_time, end_time
+    if end_date is not None:
+        series.end_date = end_date
+    db.session.commit()
+
+    tz, utc = _local_tz(series.room.location), ZoneInfo("UTC")
+    updated, cancelled, failed = 0, 0, []
+    for b in _future_instances(series):
+        day = b.start_at.replace(tzinfo=utc).astimezone(tz).date()
+        if day > series.end_date:
+            try:
+                cancel_booking(b, actor)
+                cancelled += 1
+            except BookingError:
+                failed.append(day)
+            continue
+        new_start = datetime.combine(day, start_time).replace(tzinfo=tz).astimezone(utc).replace(tzinfo=None)
+        new_end = datetime.combine(day, end_time).replace(tzinfo=tz).astimezone(utc).replace(tzinfo=None)
+        try:
+            update_room_booking(b, actor, start=new_start, end=new_end, title=title, attendees=attendees, notes=notes)
+            updated += 1
+        except BookingError:
+            failed.append(day)
+    return {"updated": updated, "cancelled": cancelled, "failed": failed}
+
+
 CHECK_IN_OPENS = timedelta(minutes=15)
 
 
