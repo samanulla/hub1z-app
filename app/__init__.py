@@ -296,7 +296,7 @@ def _register_root_routes(app: Flask) -> None:
         if billing not in {"monthly", "annual"}:
             billing = "monthly"
         plans = public_plans(billing)
-        best_discount = max((p["discount"] for p in plans if p["discount"]), default=None)
+        best_discount = max((p["discount"] for p in plans if p["discount"] and not p["custom"]), default=None)
         return render_template("public/pricing.html", plans=plans, billing=billing,
                                catalog=public_catalog() if plans else None, best_discount=best_discount,
                                trial_days=trial_days())
