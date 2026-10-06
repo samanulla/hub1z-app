@@ -8,7 +8,7 @@ from flask import current_app
 from sqlalchemy import or_
 
 from ..models import OveragePolicy, PlatformModule, PlatformProfile, PricingTier, TierStatus
-from .catalog import ADDON, ALWAYS, AVAILABLE, COMING_SOON, FEATURE, USAGE
+from .catalog import ADDON, ALWAYS, AVAILABLE, BETA, COMING_SOON, FEATURE, USAGE
 from .formatting import format_inr
 
 
@@ -104,6 +104,8 @@ def public_plans(billing: str = "monthly") -> list[dict]:
 
 
 def addon_price_text(module: PlatformModule) -> str:
+    if module.availability == BETA:
+        return "Beta"
     if module.availability != AVAILABLE:
         return "Coming soon"
     if module.kind == USAGE:
@@ -114,13 +116,17 @@ def addon_price_text(module: PlatformModule) -> str:
     return "Contact us"
 
 
-def public_catalog() -> dict:
+def public_catalog() -> dict | None:
     """What every plan includes, plus the add-ons and pay-per-use items worth listing."""
+    if not pricing_is_public():
+        return None
     modules = (PlatformModule.query.filter(PlatformModule.is_active.is_(True),
                                            PlatformModule.availability != "hidden")
                .order_by(PlatformModule.sort_order, PlatformModule.id).all())
     return {
         "always": [m.name for m in modules if m.kind == ALWAYS],
+        "beta_features": [m.name for m in modules if m.kind == FEATURE and m.availability == BETA],
+        "upcoming_features": [m.name for m in modules if m.kind == FEATURE and m.availability == COMING_SOON],
         "addons": [{"name": m.name, "description": m.description, "price": addon_price_text(m),
                     "soon": m.availability == COMING_SOON} for m in modules if m.kind == ADDON],
         "usage": [{"name": m.name, "description": m.description, "price": addon_price_text(m),

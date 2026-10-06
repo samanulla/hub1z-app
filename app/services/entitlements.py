@@ -38,7 +38,7 @@ def active_addon(operator, code, today=None):
         PlatformModule.is_active.is_(True), PlatformModule.availability == "available").first())
 
 
-def has_feature(operator, code):
+def legacy_has_feature(operator, code):
     entry = BY_CODE.get(code)
     if entry is None or not entry.built:
         return False
@@ -51,6 +51,22 @@ def has_feature(operator, code):
         return active_addon(operator, code) is not None
     terms = plan_terms(operator)
     return bool(terms.get("all_features") or code in terms.get("features", []))
+
+
+def has_feature(operator, code):
+    """Compatibility adapter; optional shadow checks never change legacy access."""
+    from flask import current_app, has_app_context
+
+    legacy_allowed = legacy_has_feature(operator, code)
+    if operator is None or not has_app_context():
+        return legacy_allowed
+    shadow = current_app.config.get("ENTITLEMENTS_SHADOW_ENABLED", False)
+    enforcing = current_app.config.get("ENTITLEMENTS_ENFORCEMENT_ENABLED", False)
+    if not shadow and not enforcing:
+        return legacy_allowed
+    from .entitlement_resolver import check_entitlement
+    decision = check_entitlement(operator.id, code)
+    return decision.allowed if enforcing else legacy_allowed
 
 
 def storage_used(operator_id):

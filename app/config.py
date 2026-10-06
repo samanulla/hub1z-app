@@ -74,6 +74,8 @@ class BaseConfig:
     OPERATOR_ID = os.getenv("OPERATOR_ID")  # only used when DEPLOY_MODE=dedicated
     PLATFORM_BASE_DOMAIN = os.getenv("PLATFORM_BASE_DOMAIN", "hub1z.com")
     OPERATOR_TRIAL_DAYS = int(os.getenv("OPERATOR_TRIAL_DAYS", "14"))
+    ENTITLEMENTS_SHADOW_ENABLED = _bool("ENTITLEMENTS_SHADOW_ENABLED", False)
+    ENTITLEMENTS_ENFORCEMENT_ENABLED = _bool("ENTITLEMENTS_ENFORCEMENT_ENABLED", False)
 
 
 class DevelopmentConfig(BaseConfig):

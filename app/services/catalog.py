@@ -14,14 +14,33 @@ kind:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 
-AVAILABLE, COMING_SOON, HIDDEN = "available", "coming_soon", "hidden"
-AVAILABILITY_CHOICES = [(AVAILABLE, "Available"), (COMING_SOON, "Coming soon"), (HIDDEN, "Hidden")]
+AVAILABLE, BETA, COMING_SOON, HIDDEN = "available", "beta", "coming_soon", "hidden"
+FUTURE = COMING_SOON
+AVAILABILITY_CHOICES = [(AVAILABLE, "Available"), (BETA, "Beta"),
+                        (COMING_SOON, "Coming soon"), (HIDDEN, "Hidden")]
+
+
+class EntitlementValueType(str, Enum):
+    BOOLEAN = "boolean"
+    ALLOWANCE = "allowance"
+    USAGE = "usage"
 
 ALWAYS, FEATURE, ADDON, USAGE = "always", "feature", "addon", "usage"
 KIND_LABELS = {ALWAYS: "Included in every plan", FEATURE: "Plan features", ADDON: "Paid add-ons",
                USAGE: "Pay-per-use"}
 KIND_ORDER = [ALWAYS, FEATURE, ADDON, USAGE]
+
+@dataclass(frozen=True)
+class EntitlementDefinitionSpec:
+    key: str
+    name: str
+    value_type: EntitlementValueType
+    unit: str = ""
+    measurement: str = "capability"
+    built: bool = True
+    protected_actions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -34,6 +53,7 @@ class CatalogEntry:
     built: bool = True            # False = the app cannot deliver it yet, so it can never be set to Available
     unit_label: str = ""
     default_growth: bool = False  # ticked on the seeded Growth tier
+    value_type: EntitlementValueType = EntitlementValueType.BOOLEAN
 
 
 _ALWAYS = [
@@ -64,7 +84,8 @@ _ADDONS = [
     CatalogEntry("white_label", "White Label", ADDON,
                  "Your own domain and no Hub1z branding on your portal."),
     CatalogEntry("extra_storage", "Extra Storage", ADDON,
-                 "More document storage on top of the plan allowance.", unit_label="per 5 GB"),
+                 "More document storage on top of the plan allowance.", unit_label="per 5 GB",
+                 value_type=EntitlementValueType.ALLOWANCE),
     CatalogEntry("accounting_sync", "Accounting Sync", ADDON,
                  "Sync invoices and payments to your accounting software.", COMING_SOON, built=False),
     CatalogEntry("api_webhooks", "API & Webhooks", ADDON,
@@ -77,13 +98,27 @@ _ADDONS = [
                  "Collect cards, netbanking and UPI with automatic confirmation.", COMING_SOON, built=False),
     CatalogEntry("whatsapp_packs", "WhatsApp Messaging Packs", ADDON,
                  "Send reminders and alerts on WhatsApp.", COMING_SOON, built=False),
+    CatalogEntry("multi_gstin", "Multiple GSTINs", ADDON,
+                 "Manage multiple seller registrations.", COMING_SOON, built=False),
+    CatalogEntry("native_apps", "Native mobile apps", ADDON,
+                 "Branded iOS and Android applications.", COMING_SOON, built=False),
+    CatalogEntry("franchise_tenancy", "Franchise tenancy", ADDON,
+                 "Manage separately isolated franchise operators.", COMING_SOON, built=False),
+    CatalogEntry("sso", "Single sign-on", ADDON,
+                 "Authenticate operator teams through an identity provider.", COMING_SOON, built=False),
+    CatalogEntry("customer_sandbox", "Customer sandbox", ADDON,
+                 "Operate an isolated customer test environment.", COMING_SOON, built=False),
+    CatalogEntry("sla_fulfillment", "SLA fulfillment", ADDON,
+                 "Contracted service-level and support commitments.", COMING_SOON, built=False),
 ]
 
 _USAGE = [
     CatalogEntry("pan_verification", "PAN verification", USAGE,
-                 "Live PAN check against government records.", COMING_SOON, built=False, unit_label="per verification"),
+                 "Live PAN check against government records.", COMING_SOON, built=False,
+                 unit_label="per verification", value_type=EntitlementValueType.USAGE),
     CatalogEntry("gstin_verification", "GSTIN verification", USAGE,
-                 "Live GSTIN check against the GST portal.", COMING_SOON, built=False, unit_label="per verification"),
+                 "Live GSTIN check against the GST portal.", COMING_SOON, built=False,
+                 unit_label="per verification", value_type=EntitlementValueType.USAGE),
 ]
 
 CATALOG: list[CatalogEntry] = (
@@ -94,6 +129,36 @@ CATALOG: list[CatalogEntry] = (
 
 BY_CODE = {e.code: e for e in CATALOG}
 LOCKABLE_CODES = [e.code for e in CATALOG if e.kind == FEATURE]
+
+ENTITLEMENT_DEFINITIONS = {
+    entry.code: EntitlementDefinitionSpec(
+        key=entry.code, name=entry.name, value_type=entry.value_type,
+        unit=entry.unit_label, built=entry.built,
+        measurement="period" if entry.value_type == EntitlementValueType.USAGE else "capability")
+    for entry in CATALOG
+}
+ENTITLEMENT_DEFINITIONS.update({
+    "tenant_isolation": EntitlementDefinitionSpec("tenant_isolation", "Tenant isolation",
+        EntitlementValueType.BOOLEAN, protected_actions=("read", "write", "execute")),
+    "authentication": EntitlementDefinitionSpec("authentication", "Authentication",
+        EntitlementValueType.BOOLEAN, protected_actions=("read", "write", "execute")),
+    "financial_settlement": EntitlementDefinitionSpec("financial_settlement", "Financial settlement",
+        EntitlementValueType.BOOLEAN, protected_actions=("read", "settle", "correct")),
+    "existing_bookings": EntitlementDefinitionSpec("existing_bookings", "Existing bookings",
+        EntitlementValueType.BOOLEAN, protected_actions=("read", "cancel", "checkin", "settle")),
+    "document_downloads": EntitlementDefinitionSpec("document_downloads", "Owned document downloads",
+        EntitlementValueType.BOOLEAN, protected_actions=("read", "download", "delete")),
+    "location_count": EntitlementDefinitionSpec("location_count", "Locations",
+        EntitlementValueType.ALLOWANCE, "location", "gauge"),
+    "contracted_seats": EntitlementDefinitionSpec("contracted_seats", "Contracted seats",
+        EntitlementValueType.ALLOWANCE, "seat", "gauge"),
+    "staff_accounts": EntitlementDefinitionSpec("staff_accounts", "Staff accounts",
+        EntitlementValueType.ALLOWANCE, "account", "gauge"),
+    "open_manual_leads": EntitlementDefinitionSpec("open_manual_leads", "Open manual leads",
+        EntitlementValueType.ALLOWANCE, "lead", "gauge"),
+    "document_storage_bytes": EntitlementDefinitionSpec("document_storage_bytes", "Document storage",
+        EntitlementValueType.ALLOWANCE, "byte", "gauge"),
+})
 
 # Seeded as drafts with no price: Platform admin sets prices and publishes them.
 DEFAULT_TIERS = [
@@ -109,6 +174,33 @@ DEFAULT_TIERS = [
 def can_be_available(code: str) -> bool:
     entry = BY_CODE.get(code)
     return entry is None or entry.built
+
+
+def ensure_entitlement_definitions() -> int:
+    """Sync app-owned entitlement types without importing commercial terms."""
+    from ..extensions import db
+    from ..models import EntitlementDefinition
+
+    existing = {row.key: row for row in EntitlementDefinition.query.all()}
+    added = 0
+    for spec in ENTITLEMENT_DEFINITIONS.values():
+        row = existing.get(spec.key)
+        if row is None:
+            db.session.add(EntitlementDefinition(
+                key=spec.key, name=spec.name, value_type=spec.value_type.value,
+                unit=spec.unit or None, measurement=spec.measurement, built=spec.built,
+                protected_actions=list(spec.protected_actions)))
+            added += 1
+        else:
+            row.name = spec.name
+            row.value_type = spec.value_type.value
+            row.unit = spec.unit or None
+            row.measurement = spec.measurement
+            row.built = spec.built
+            row.protected_actions = list(spec.protected_actions)
+    if added or existing:
+        db.session.flush()
+    return added
 
 
 def ensure_catalog() -> int:
@@ -128,4 +220,5 @@ def ensure_catalog() -> int:
         added += 1
     if added:
         db.session.flush()
+    ensure_entitlement_definitions()
     return added

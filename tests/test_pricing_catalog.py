@@ -19,7 +19,8 @@ from app.models import (
     PlatformProfile, PricingTier, TierStatus, PlatformModule, User, UserRole, Operator, OperatorStatus,
 )
 from app.services.catalog import ensure_catalog
-from app.services.pricing_page import public_plans
+from app.services.pricing_page import addon_price_text, public_catalog, public_plans
+from app.services.catalog import BETA
 
 APEX = {"Host": "hub1z.com"}
 
@@ -216,6 +217,21 @@ def test_public_pricing_excludes_retired_future_and_unavailable_items():
         db.session.commit()
         assert "Payroll" not in public_plans()[0]["features"]
         assert "Lead export" not in public_plans()[0]["features"]
+
+
+def test_public_catalog_discovers_registered_features_and_labels_beta():
+    app = _app()
+    with app.app_context():
+        payroll = PlatformModule.query.filter_by(code="payroll").one()
+        payroll.availability = BETA
+        assert "Payroll" in public_catalog()["beta_features"]
+        white_label = PlatformModule.query.filter_by(code="white_label").one()
+        white_label.availability = BETA
+        assert addon_price_text(white_label) == "Beta"
+        upcoming = next(item for item in public_catalog()["addons"] if item["name"] == "Native mobile apps")
+        assert upcoming["price"] == "Coming soon"
+        PlatformProfile.get().pricing_page_public = False
+        assert public_catalog() is None
 
 
 @pytest.mark.parametrize("populated", [False, True])

@@ -4,6 +4,10 @@ from .pricing_tier import (
     PricingTier, TierStatus, OveragePolicy, SeatUsageMethod, PlatformModule, OperatorSubscription,
     OperatorUsageSnapshot, OperatorAddon,
 )
+from .entitlement import (
+    EntitlementDefinition, EntitlementOfferVersion, EntitlementOfferGrant, TenantPlanBinding,
+    TenantEntitlementGrant, EntitlementUsageBucket, EntitlementUsageEvent,
+)
 from .user import User, UserRole, PLATFORM_FEATURES, PLATFORM_FEATURE_KEYS, SENSITIVE_PLATFORM_FEATURES
 from .company import Company, CompanyStatus, CompanyDocument
 from .location import Location, Floor, Amenity
@@ -81,6 +85,8 @@ __all__ = [
     "AuditLog",
     "Operator", "OperatorScoped", "OperatorStatus", "PricingTier", "TierStatus", "OveragePolicy", "SeatUsageMethod",
     "PlatformModule", "OperatorSubscription", "OperatorUsageSnapshot",
+    "EntitlementDefinition", "EntitlementOfferVersion", "EntitlementOfferGrant", "TenantPlanBinding",
+    "TenantEntitlementGrant", "EntitlementUsageBucket", "EntitlementUsageEvent",
     "DayPass", "DayPassStatus",
     "RoomWaitlist", "WaitlistStatus",
     "RecurringRoomBooking", "RecurrencePattern",

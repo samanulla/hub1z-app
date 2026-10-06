@@ -72,6 +72,18 @@
           {% for item in catalog.usage %}<li><i class="bi bi-receipt"></i>{{ item.name }} <span style="color:var(--s-ink-3)">&middot; {{ item.price }}</span></li>{% endfor %}
         </ul>
         {% endif %}
+        {% if catalog.beta_features %}
+        <h3 style="font-size:20px; margin-top:24px">In beta</h3>
+        <ul class="s-list">
+          {% for name in catalog.beta_features %}<li><i class="bi bi-flask"></i>{{ name }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        {% if catalog.upcoming_features %}
+        <h3 style="font-size:20px; margin-top:24px">Coming soon</h3>
+        <ul class="s-list">
+          {% for name in catalog.upcoming_features %}<li><i class="bi bi-hourglass"></i>{{ name }}</li>{% endfor %}
+        </ul>
+        {% endif %}
       </div>
     </div>
     {% endif %}
