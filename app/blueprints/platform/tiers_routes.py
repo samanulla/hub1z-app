@@ -9,7 +9,8 @@ from __future__ import annotations
 from flask import render_template, redirect, url_for, flash
 
 from ...extensions import db
-from ...models import PricingTier, TierStatus, PlatformModule, PlatformProfile
+from ...models import (PricingTier, TierStatus, PlatformModule, PlatformProfile,
+                       EntitlementOfferGrant, EntitlementOfferVersion)
 from ...services import audit_service
 from ...services.catalog import BY_CODE, ensure_catalog, ALWAYS, FEATURE, KIND_LABELS, KIND_ORDER
 from ...services.pricing_page import trial_days
@@ -52,12 +53,20 @@ def register_tiers_routes(bp):
     def tiers_list():
         _feature_modules()
         tiers = PricingTier.query.order_by(PricingTier.sort_order, PricingTier.id).all()
+        offers = (EntitlementOfferVersion.query.filter_by(status="draft")
+                  .order_by(EntitlementOfferVersion.kind, EntitlementOfferVersion.name,
+                            EntitlementOfferVersion.version).all())
+        grant_counts = dict(db.session.query(
+            EntitlementOfferGrant.offer_version_id, db.func.count(EntitlementOfferGrant.id)
+        ).filter(EntitlementOfferGrant.offer_version_id.in_([offer.id for offer in offers] or [0]))
+         .group_by(EntitlementOfferGrant.offer_version_id).all())
         profile = PlatformProfile.get()
         db.session.commit()
         settings_form = PlanSettingsForm(obj=profile)
         settings_form.trial_tier_key.choices = [(t.key, t.name) for t in tiers]
         settings_form.trial_days.data = trial_days()
-        return render_template("platform/tiers_list.html", tiers=tiers, settings_form=settings_form)
+        return render_template("platform/tiers_list.html", tiers=tiers, settings_form=settings_form,
+                       entitlement_offers=offers, grant_counts=grant_counts)
 
     @bp.route("/tiers/settings", methods=["POST"])
     @requires_pricing

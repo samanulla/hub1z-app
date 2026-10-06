@@ -21,6 +21,7 @@ from app.models import (
 from app.services.catalog import ensure_catalog
 from app.services.pricing_page import addon_price_text, public_catalog, public_plans
 from app.services.catalog import BETA
+from app.services.entitlement_manifest import ensure_manifest_drafts
 
 APEX = {"Host": "hub1z.com"}
 
@@ -233,6 +234,23 @@ def test_public_catalog_discovers_registered_features_and_labels_beta():
         assert all(item["name"] != "Native mobile apps" for item in catalog["addons"])
         PlatformProfile.get().pricing_page_public = False
         assert public_catalog() is None
+
+
+def test_platform_tiers_page_lists_unpublished_entitlement_drafts():
+    app = _app()
+    with app.app_context():
+        ensure_manifest_drafts()
+        db.session.commit()
+
+    page = _owner_client(app).get("/platform/tiers", headers=APEX)
+    html = page.data.decode()
+    assert page.status_code == 200
+    assert "Entitlement offer drafts" in html
+    assert "Private configuration only" in html
+    assert "starter_v2" in html and "growth_v2" in html and "scale_v1" in html and "enterprise_v1" in html
+    assert "virtual_office_v1" in html and "Held" in html
+    assert "assisted_onboarding_v1" in html and "Service workflow needed" in html
+    assert "not published or assigned to customers" in html
 
 
 def test_unbuilt_features_never_appear_in_included_feature_lists():

@@ -27,6 +27,75 @@
   </form>
 </div></div>
 
+<section class="mb-4" aria-labelledby="entitlement-drafts-heading">
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+    <div>
+      <h5 id="entitlement-drafts-heading" class="mb-1">Entitlement offer drafts</h5>
+      <p class="text-muted mb-0">Private configuration only. These offers are not published or assigned to customers.</p>
+    </div>
+    <span class="badge bg-warning text-dark">Unpublished</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table bg-white shadow-sm">
+      <thead>
+        <tr>
+          <th>Offer</th>
+          <th>Draft price</th>
+          <th>Included capacity</th>
+          <th>Grants</th>
+          <th>Status</th>
+          <th>Public</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for offer in entitlement_offers %}
+        {% set terms = offer.terms_snapshot or {} %}
+        <tr>
+          <td>
+            <strong>{{ offer.name }}</strong>
+            <div class="small text-muted"><code>{{ offer.offer_key }}</code> v{{ offer.version }}</div>
+          </td>
+          <td>
+            {% if terms.get('hold') %}
+              On hold
+            {% elif terms.get('price_from') %}
+              From {{ offer.base_price | inr }} / month
+            {% elif offer.billing_period == 'one_time' %}
+              {{ offer.base_price | inr }} one time
+            {% elif offer.base_price is not none %}
+              {{ offer.base_price | inr }} / month
+            {% else %}
+              Not set
+            {% endif %}
+            {% if terms.get('unit') %}<div class="small text-muted">{{ terms.get('unit') }}</div>{% endif %}
+            {% if terms.get('fulfillment_workflow_built') is sameas false %}
+              <div class="small text-warning">Service workflow needed</div>
+            {% endif %}
+          </td>
+          <td>
+            {% if terms.get('included_seats') is not none %}{{ terms.get('included_seats') }} seats{% endif %}
+            {% if terms.get('included_locations') is not none %}
+              {% if terms.get('included_seats') is not none %}<br>{% endif %}
+              {{ terms.get('included_locations') }} locations
+            {% endif %}
+            {% if terms.get('storage_gib') is not none %}<br>{{ terms.get('storage_gib') }} GiB storage{% endif %}
+            {% if terms.get('included_active_vo_clients') %}<br>{{ terms.get('included_active_vo_clients') }} VO clients{% endif %}
+          </td>
+          <td>{{ grant_counts.get(offer.id, 0) }}</td>
+          <td>
+            <span class="badge bg-secondary">{{ offer.status }}</span>
+            {% if terms.get('hold') %}<div class="small text-warning">Held</div>{% endif %}
+          </td>
+          <td><span class="badge bg-light text-dark">No</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted py-3">No entitlement offer drafts.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
 <div class="table-responsive">
 <table class="table bg-white shadow-sm">
   <thead>
