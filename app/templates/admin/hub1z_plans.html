@@ -37,7 +37,8 @@
       <td>{{ module.monthly_price | inr }}</td><td><input form="addon-{{ module.id }}" name="quantity" aria-label="{{ module.name }} quantity" class="form-control" style="width:80px" type="number" min="1" max="100" value="1"></td>
       <td><form id="addon-{{ module.id }}" method="post" action="{{ url_for('admin.hub1z_addon_purchase', module_id=module.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <button class="btn btn-soft btn-sm"{% if not subscription or subscription.status != 'active' or module.monthly_price <= 0 %} disabled{% endif %}><i class="bi bi-plus-circle"></i> Add</button>
+        {% if module.code in included_addons %}<span class="badge bg-success">Included in your plan</span>
+        {% else %}<button class="btn btn-soft btn-sm"{% if not subscription or subscription.status != 'active' or module.monthly_price <= 0 %} disabled{% endif %}><i class="bi bi-plus-circle"></i> Add</button>{% endif %}
       </form></td></tr>{% endfor %}</tbody>
   </table></div>
   {% for addon in purchased %}<div class="border-bottom py-3">

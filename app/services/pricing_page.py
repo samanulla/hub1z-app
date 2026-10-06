@@ -65,7 +65,7 @@ def tier_feature_names(tier: PricingTier) -> list[str]:
         return [m.name for m in query.order_by(PlatformModule.sort_order, PlatformModule.id)
                 if BY_CODE.get(m.code) and BY_CODE[m.code].built]
     modules = [m for m in tier.module_catalog
-               if m.kind == FEATURE and m.is_active and m.availability == AVAILABLE
+               if m.kind in (FEATURE, ADDON) and m.is_active and m.availability == AVAILABLE
                and BY_CODE.get(m.code) and BY_CODE[m.code].built]
     return [m.name for m in sorted(modules, key=lambda m: (m.sort_order, m.id))]
 

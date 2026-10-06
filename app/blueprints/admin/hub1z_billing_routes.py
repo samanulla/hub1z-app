@@ -69,9 +69,11 @@ def register_hub1z_billing_routes(bp):
         addons = PlatformModule.query.filter_by(kind="addon", availability="available", is_active=True).order_by(
             PlatformModule.sort_order).all()
         purchased = OperatorAddon.query.filter_by(operator_id=g.operator_id, active=True).all()
+        from ...services.entitlements import plan_terms
         from ...services.pricing_page import tier_limit_lines, tier_feature_names
         return render_template("admin/hub1z_plans.html", tiers=tiers, subscription=subscription, addons=addons,
-                               purchased=purchased, limits=tier_limit_lines, features=tier_feature_names)
+                               purchased=purchased, limits=tier_limit_lines, features=tier_feature_names,
+                               included_addons=set(plan_terms(g.operator).get("included_addons", [])))
 
     @bp.route("/hub1z-billing/addons/<int:module_id>", methods=["POST"])
     @super_admin_required

@@ -48,7 +48,9 @@ def legacy_has_feature(operator, code):
     if module and (not module.is_active or module.availability != "available"):
         return False
     if entry.kind == ADDON:
-        return active_addon(operator, code) is not None
+        if active_addon(operator, code) is not None:
+            return True
+        return code in plan_terms(operator).get("included_addons", [])
     terms = plan_terms(operator)
     return bool(terms.get("all_features") or code in terms.get("features", []))
 

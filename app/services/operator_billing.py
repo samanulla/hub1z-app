@@ -53,6 +53,7 @@ def snapshot(tier, subscription=None):
         "annual_discount": str(tier.annual_discount), "pricing_version": tier.pricing_version,
         "all_features": tier.all_features,
         "features": [module.code for module in tier.module_catalog if module.kind == "feature"],
+        "included_addons": [module.code for module in tier.module_catalog if module.kind == "addon"],
         "included_locations": tier.max_locations, "included_active_contracted_seats": tier.included_active_contracted_seats,
         "max_staff_users": tier.max_staff_users, "max_open_leads": tier.max_open_leads, "storage_mb": tier.storage_mb,
         "additional_seat_rate": str(tier.additional_seat_rate),
@@ -80,6 +81,9 @@ def paid_terms(subscription):
     stored = json.loads(subscription.pricing_snapshot or "{}")
     terms = snapshot(subscription.tier, subscription)
     terms.update(stored)
+    if "features" in stored and "included_addons" not in stored:
+        # Contracts captured before tiers could include add-ons keep their original terms.
+        terms["included_addons"] = []
     if "negotiated_base_price" not in stored and subscription.negotiated_base_price is not None:
         terms["negotiated_base_price"] = str(subscription.negotiated_base_price)
     for name in ("premium_modules_amount", "discount_amount"):
@@ -297,6 +301,9 @@ def request_addon(operator, module, quantity=1, today=None, actor_id=None):
     if (module.kind != ADDON or not module.is_active or module.availability != "available" or not entry or not entry.built
             or not 1 <= quantity <= 100 or module.monthly_price <= 0):
         raise ValueError("This add-on is not available for purchase.")
+    from .entitlements import plan_terms
+    if module.code in plan_terms(operator).get("included_addons", []):
+        raise ValueError("This add-on is already included in your plan.")
     subscription = subscription_for(operator)
     if subscription.status != "active" or not subscription.current_period_end or today > subscription.current_period_end:
         raise ValueError("Activate a paid plan before purchasing add-ons.")

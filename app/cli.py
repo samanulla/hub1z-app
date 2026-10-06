@@ -24,7 +24,7 @@ def register_cli(app: Flask) -> None:
     app.cli.add_command(release_no_shows_cmd)
     app.cli.add_command(update_platform_owner_email_cmd)
     app.cli.add_command(set_platform_owner_password_cmd)
-    app.cli.add_command(seed_entitlement_drafts_cmd)
+    app.cli.add_command(seed_manifest_tiers_cmd)
 
 
 @click.command("credits-cycle")
@@ -79,17 +79,14 @@ def run_scheduled_jobs_cmd(month: str | None) -> None:
                f"{operator_invoices} Hub1z renewal invoice(s).")
 
 
-@click.command("seed-entitlement-drafts")
+@click.command("seed-manifest-tiers")
 @with_appcontext
-def seed_entitlement_drafts_cmd() -> None:
-    """Create the unlisted pricing-manifest drafts without tenant bindings."""
-    from .services.entitlement_manifest import ensure_manifest_drafts
-    offers = ensure_manifest_drafts()
+def seed_manifest_tiers_cmd() -> None:
+    """Add the pricing manifest's tiers as hidden drafts; existing tiers are left unchanged."""
+    from .services.tier_manifest import ensure_manifest_tiers
+    created = ensure_manifest_tiers()
     db.session.commit()
-    for offer in offers:
-        click.echo(f"{offer['offer_key']} v{offer['version']} id={offer['id']} status={offer['status']} "
-                   f"publicly_listed={offer['publicly_listed']}")
-    click.echo(f"Created/verified {len(offers)} draft offer(s); no tenant bindings created.")
+    click.echo(f"Created {len(created)} draft tier(s): {', '.join(created) or 'none'}.")
 
 
 @click.command("create-admin")

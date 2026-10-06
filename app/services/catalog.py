@@ -75,14 +75,11 @@ _FEATURES = [
     ("attendance_export", "Attendance CSV export", "Download attendance as a CSV file."),
     ("lead_export", "Lead export", "Download leads as a CSV file."),
     ("advanced_reports", "Advanced reporting", "People and heatmap reports, plus new advanced reports as they ship."),
-    ("people_analytics", "People analytics", "Advanced people and headcount analytics."),
-    ("booking_heatmap", "Booking heatmap", "Booking density by day and hour."),
     ("alert_digests", "Alert email digests", "Emailed digests of parcels, agreements and overdue invoices."),
     ("payment_reminders", "Payment reminders", "Automatic reminder emails to customers with unpaid invoices."),
     ("payroll", "Payroll", "Salary structures, payroll runs and payslips."),
     ("expenses", "Expenses", "Expense tracking and approvals."),
     ("audit_export", "Audit log exports", "Download the audit log as a CSV file."),
-    ("network_reports", "Multi-location reports", "Reports across locations within the same operator workspace."),
 ]
 
 _ADDONS = [

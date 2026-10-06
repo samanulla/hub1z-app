@@ -110,7 +110,7 @@ def test_contact_sales_tier_needs_no_price_to_activate():
     html = c.get(f"/platform/tiers/{tier_id}/edit").data.decode()
     assert "Included in every plan" in html and "Bookings" in html
     assert re.search(r'<div[^>]*id="feature-choices"[^>]*hidden', html)
-    assert re.search(r'<ul[^>]*id="all-feature-list"', html)
+    assert 'id="all-feature-note"' in html and 'name="all_features"' in html
     # A normal tier still needs its price and limits before it can go live.
     r = c.post("/platform/tiers/new", data={
         "key": "growth", "name": "Growth", "status": "active",

@@ -1,4 +1,5 @@
 """Payment-confirmed operator subscriptions and retained trial access."""
+import json
 import os
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -139,6 +140,27 @@ def test_paid_addons_and_enterprise_not_free(scenario, monkeypatch):
     billing.confirm_payment(invoice, invoice.amount, "bank")
     assert has_feature(operator, "payroll")
     assert not has_feature(operator, "white_label")
+
+
+def test_tier_included_addon_is_granted_without_purchase(scenario):
+    app, operator = scenario
+    from app.models import PlatformModule
+    white_label = PlatformModule.query.filter_by(code="white_label").one()
+    white_label.monthly_price = 500
+    starter = PricingTier.query.filter_by(key="starter").one()
+    invoice = billing.request_plan(operator, starter)
+    billing.confirm_payment(invoice, invoice.amount, "cash")
+    assert not has_feature(operator, "white_label")
+
+    starter.module_catalog.append(white_label)
+    db.session.flush()
+    assert not has_feature(operator, "white_label"), "existing contracts keep their stored terms"
+
+    subscription = OperatorSubscription.query.one()
+    subscription.pricing_snapshot = json.dumps(billing.snapshot(starter, subscription))
+    assert has_feature(operator, "white_label")
+    with pytest.raises(ValueError, match="already included"):
+        billing.request_addon(operator, white_label)
 
 
 def test_payment_rejects_invalid_and_preserves_suspension(scenario):

@@ -21,7 +21,7 @@ from app.models import (
 from app.services.catalog import ensure_catalog
 from app.services.pricing_page import addon_price_text, public_catalog, public_plans
 from app.services.catalog import BETA
-from app.services.entitlement_manifest import ensure_manifest_drafts
+from app.services.tier_manifest import ensure_manifest_tiers
 
 APEX = {"Host": "hub1z.com"}
 
@@ -236,21 +236,51 @@ def test_public_catalog_discovers_registered_features_and_labels_beta():
         assert public_catalog() is None
 
 
-def test_platform_tiers_page_lists_unpublished_entitlement_drafts():
+def test_manifest_tiers_are_private_drafts_managed_in_the_tier_list():
     app = _app()
     with app.app_context():
-        ensure_manifest_drafts()
+        assert ensure_manifest_tiers() == ["starter_v2", "growth_v2", "scale_v1", "enterprise_v1"]
         db.session.commit()
+        assert ensure_manifest_tiers() == []
+        drafts = PricingTier.query.filter(PricingTier.key.in_(["starter_v2", "scale_v1"])).all()
+        assert all(t.status == TierStatus.DRAFT and not t.is_public and not t.all_features for t in drafts)
+        scale = PricingTier.query.filter_by(key="scale_v1").one()
+        assert "white_label" in {m.code for m in scale.module_catalog}
+        assert [p["tier"].key for p in public_plans()] == ["growth"]
 
-    page = _owner_client(app).get("/platform/tiers", headers=APEX)
-    html = page.data.decode()
-    assert page.status_code == 200
-    assert "Entitlement offer drafts" in html
-    assert "Private configuration only" in html
-    assert "starter_v2" in html and "growth_v2" in html and "scale_v1" in html and "enterprise_v1" in html
-    assert "virtual_office_v1" in html and "Held" in html
-    assert "assisted_onboarding_v1" in html and "Service workflow needed" in html
-    assert "not published or assigned to customers" in html
+    html = _owner_client(app).get("/platform/tiers", headers=APEX).data.decode()
+    assert "Entitlement offer drafts" not in html
+    assert "starter_v2" in html and "scale_v1" in html
+    assert "+ White-label web portal / PWA" in html
+
+
+def test_tier_form_groups_every_plan_plan_features_and_included_addons():
+    app = _app()
+    with app.app_context():
+        ensure_manifest_tiers()
+        db.session.commit()
+        growth_id = PricingTier.query.filter_by(key="growth").one().id
+        white_label = PlatformModule.query.filter_by(code="white_label").one().id
+        payroll = PlatformModule.query.filter_by(code="payroll").one().id
+
+    client = _owner_client(app)
+    html = client.get("/platform/tiers/new", headers=APEX).data.decode()
+    assert "Included in every plan" in html and "Plan features" in html and "Add-ons included" in html
+    assert "Copy features from" in html and "growth_v2" in html
+    assert 'name="all_features"' not in html
+    assert "Extra Storage" not in html.split("Add-ons included")[1]
+    assert "Native mobile apps" not in html
+
+    response = client.post(f"/platform/tiers/{growth_id}/edit", data={
+        "key": "growth", "name": "Growth", "status": "active", "monthly_price": "1000", "annual_discount": "10",
+        "effective_from": "2026-01-01", "max_locations": "3", "included_active_contracted_seats": "100",
+        "seat_overage_policy": "require_plan_upgrade", "location_overage_policy": "require_plan_upgrade",
+        "seat_usage_method": "maximum_during_billing_period", "sort_order": "0",
+        "feature_ids": [str(payroll), str(white_label)]}, headers=APEX)
+    assert response.status_code == 302
+    with app.app_context():
+        codes = {m.code for m in PricingTier.query.filter_by(key="growth").one().module_catalog}
+        assert codes == {"payroll", "white_label"}
 
 
 def test_unbuilt_features_never_appear_in_included_feature_lists():

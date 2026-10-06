@@ -17,10 +17,9 @@
   </div>
   {{ field(form.description) }}
   <div class="row">
-    <div class="col-md-3">{{ field(form.is_public) }}</div>
-    <div class="col-md-3">{{ field(form.is_highlighted) }}</div>
-    <div class="col-md-3">{{ field(form.contact_sales) }}</div>
-    <div class="col-md-3">{{ field(form.all_features) }}</div>
+    <div class="col-md-4">{{ field(form.is_public) }}</div>
+    <div class="col-md-4">{{ field(form.is_highlighted) }}</div>
+    <div class="col-md-4">{{ field(form.contact_sales) }}</div>
   </div>
 
   <hr>
@@ -57,23 +56,67 @@
   <p class="form-text">Additional seat rate is charged per active contracted seat per month. Additional location rate is charged per location per month. A rate of zero follows its overage policy; it never grants unlimited usage.</p>
 
   <hr>
-  <h6>Included in every plan</h6>
-  <ul class="row list-unstyled mb-3">
-    {% for m in always_features %}<li class="col-md-4 mb-2"><i class="bi bi-check2 text-success" aria-hidden="true"></i> {{ m.name }}</li>{% endfor %}
-  </ul>
-  <h6>Plan features</h6>
-  <ul id="all-feature-list" class="row list-unstyled mb-3" {% if not form.all_features.data %}hidden{% endif %}>
-    {% for m in features %}<li class="col-md-4 mb-2"><i class="bi bi-check2 text-success" aria-hidden="true"></i> {{ m.name }}</li>{% endfor %}
-  </ul>
-  <div id="feature-choices" class="row mb-3" {% if form.all_features.data %}hidden{% endif %}>
-    {% for m in features %}
-    <div class="col-md-4">
-      <div class="form-check">
-        <input class="form-check-input" type="checkbox" name="feature_ids" id="feature-{{ m.id }}" value="{{ m.id }}" {% if m.id in (form.feature_ids.data or []) %}checked{% endif %}>
-        <label class="form-check-label" for="feature-{{ m.id }}">{{ m.name }}</label>
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-1">
+    <h6 class="mb-0">Features</h6>
+    {% if copy_sources %}
+    <div class="d-flex align-items-center gap-2">
+      <label class="small text-muted mb-0" for="copy-features">Copy features from</label>
+      <select id="copy-features" class="form-select form-select-sm" style="width:auto">
+        <option value="">Choose a tier</option>
+        {% for source in copy_sources %}<option value="{{ source.ids | join(',') }}">{{ source.name }} ({{ source.key }})</option>{% endfor %}
+      </select>
+    </div>
+    {% endif %}
+  </div>
+  <p class="form-text mt-0">Tick what this tier includes. Items in the first column are part of every plan.</p>
+
+  {% if form.all_features.data %}
+  <div class="alert alert-warning py-2">
+    {{ field(form.all_features) }}
+    <div class="small">Legacy setting: it also removes every limit. Untick it to choose features and limits yourself.</div>
+  </div>
+  {% endif %}
+
+  <div class="row g-3 mb-3">
+    <div class="col-lg-4">
+      <div class="border rounded p-3 h-100">
+        <div class="fw-semibold mb-2">Included in every plan</div>
+        <ul class="list-unstyled small mb-0">
+          {% for m in always_features %}<li class="mb-1"><i class="bi bi-lock-fill text-muted" aria-hidden="true"></i> {{ m.name }}</li>{% endfor %}
+        </ul>
       </div>
     </div>
-    {% endfor %}
+    <div class="col-lg-4">
+      <div class="border rounded p-3 h-100">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="fw-semibold">Plan features</span>
+          <span class="small"><a href="#" data-select="plan" data-checked="1">All</a> · <a href="#" data-select="plan" data-checked="0">None</a></span>
+        </div>
+        <div id="all-feature-note" class="small text-muted" {% if not form.all_features.data %}hidden{% endif %}>Every plan feature is included.</div>
+        <div id="feature-choices" {% if form.all_features.data %}hidden{% endif %}>
+          {% for m in plan_features %}
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="feature_ids" id="feature-{{ m.id }}" value="{{ m.id }}" data-group="plan" {% if m.id in (form.feature_ids.data or []) %}checked{% endif %}>
+            <label class="form-check-label" for="feature-{{ m.id }}">{{ m.name }}</label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="border rounded p-3 h-100">
+        <div class="fw-semibold mb-2">Add-ons included</div>
+        {% for m in addon_features %}
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" name="feature_ids" id="feature-{{ m.id }}" value="{{ m.id }}" data-group="addon" {% if m.id in (form.feature_ids.data or []) %}checked{% endif %}>
+          <label class="form-check-label" for="feature-{{ m.id }}">{{ m.name }}</label>
+        </div>
+        {% else %}
+        <div class="small text-muted">No add-ons available.</div>
+        {% endfor %}
+        <div class="form-text">Operators on this tier get these without buying them. Other operators can still buy them.</div>
+      </div>
+    </div>
   </div>
   {% for e in form.feature_ids.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
 
@@ -109,11 +152,24 @@
     wirePolicy('seat_overage_policy', 'additional_seat_rate');
     wirePolicy('location_overage_policy', 'additional_location_rate');
     const allFeatures = document.getElementById('all_features');
-    const refreshFeatures = () => {
-      document.getElementById('all-feature-list').hidden = !allFeatures.checked;
-      document.getElementById('feature-choices').hidden = allFeatures.checked;
-    };
-    allFeatures.addEventListener('change', refreshFeatures); refreshFeatures();
+    if (allFeatures) {
+      const refreshFeatures = () => {
+        document.getElementById('all-feature-note').hidden = !allFeatures.checked;
+        document.getElementById('feature-choices').hidden = allFeatures.checked;
+      };
+      allFeatures.addEventListener('change', refreshFeatures); refreshFeatures();
+    }
+    document.querySelectorAll('[data-select]').forEach((link) => link.addEventListener('click', (event) => {
+      event.preventDefault();
+      document.querySelectorAll(`input[data-group="${link.dataset.select}"]`)
+        .forEach((box) => { box.checked = link.dataset.checked === '1'; });
+    }));
+    const copy = document.getElementById('copy-features');
+    if (copy) copy.addEventListener('change', () => {
+      if (!copy.value && copy.selectedIndex === 0) return;
+      const ids = new Set(copy.value.split(',').filter(Boolean));
+      document.querySelectorAll('input[name="feature_ids"]').forEach((box) => { box.checked = ids.has(box.value); });
+    });
   })();
 </script>
 {% endblock %}

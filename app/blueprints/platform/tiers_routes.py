@@ -9,10 +9,10 @@ from __future__ import annotations
 from flask import render_template, redirect, url_for, flash
 
 from ...extensions import db
-from ...models import (PricingTier, TierStatus, PlatformModule, PlatformProfile,
-                       EntitlementOfferGrant, EntitlementOfferVersion)
+from ...models import PricingTier, TierStatus, PlatformModule, PlatformProfile
 from ...services import audit_service
-from ...services.catalog import BY_CODE, ensure_catalog, ALWAYS, FEATURE, KIND_LABELS, KIND_ORDER
+from ...services.catalog import (ADDON, ALWAYS, AVAILABLE, BETA, BY_CODE, FEATURE, KIND_LABELS, KIND_ORDER,
+                                 EntitlementValueType, ensure_catalog)
 from ...services.pricing_page import trial_days
 from ...utils.decorators import platform_permission_required
 from .forms import PricingTierForm, PlanSettingsForm, CatalogEntryForm
@@ -21,10 +21,15 @@ requires_pricing = platform_permission_required("pricing")
 
 
 def _feature_modules():
+    """Built plan features and on/off add-ons a tier can include, in catalog order."""
     ensure_catalog()
     db.session.commit()
-    return (PlatformModule.query.filter_by(kind=FEATURE, is_active=True)
-            .order_by(PlatformModule.sort_order, PlatformModule.id).all())
+    modules = (PlatformModule.query.filter(PlatformModule.kind.in_((FEATURE, ADDON)),
+                                           PlatformModule.is_active.is_(True))
+               .order_by(PlatformModule.sort_order, PlatformModule.id).all())
+    return [m for m in modules if m.code in BY_CODE and BY_CODE[m.code].built
+            and (m.kind == FEATURE or (m.availability in (AVAILABLE, BETA)
+                                       and BY_CODE[m.code].value_type == EntitlementValueType.BOOLEAN))]
 
 
 def _is_built(code: str) -> bool:
@@ -33,11 +38,19 @@ def _is_built(code: str) -> bool:
 
 def register_tiers_routes(bp):
 
-    def tier_form(form, features, title):
-        always_features = (PlatformModule.query.filter_by(kind=ALWAYS, is_active=True, availability="available")
-                           .order_by(PlatformModule.sort_order, PlatformModule.id).all())
-        return render_template("platform/tier_form.html", form=form, features=features,
-                               always_features=always_features, title=title)
+    def tier_form(form, features, title, current_tier=None):
+        always_features = [m for m in PlatformModule.query.filter_by(kind=ALWAYS, is_active=True, availability="available")
+                           .order_by(PlatformModule.sort_order, PlatformModule.id).all()
+                           if m.code in BY_CODE and BY_CODE[m.code].built]
+        selectable = {m.id for m in features}
+        copy_sources = [{"name": t.name, "key": t.key, "ids": [m.id for m in t.module_catalog if m.id in selectable]}
+                        for t in PricingTier.query.order_by(PricingTier.sort_order, PricingTier.id).all()
+                        if t is not current_tier]
+        return render_template("platform/tier_form.html", form=form, title=title,
+                               always_features=always_features,
+                               plan_features=[m for m in features if m.kind == FEATURE],
+                               addon_features=[m for m in features if m.kind == ADDON],
+                               copy_sources=copy_sources)
 
     def configure_feature_choices(form, features):
         form.feature_ids.choices = [(m.id, m.name) for m in features]
@@ -53,21 +66,15 @@ def register_tiers_routes(bp):
     def tiers_list():
         _feature_modules()
         tiers = PricingTier.query.order_by(PricingTier.sort_order, PricingTier.id).all()
-        offers = (EntitlementOfferVersion.query.filter_by(status="draft")
-                  .order_by(EntitlementOfferVersion.kind, EntitlementOfferVersion.name,
-                            EntitlementOfferVersion.version).all())
-        grant_counts = dict(db.session.query(
-            EntitlementOfferGrant.offer_version_id, db.func.count(EntitlementOfferGrant.id)
-        ).filter(EntitlementOfferGrant.offer_version_id.in_([offer.id for offer in offers] or [0]))
-         .group_by(EntitlementOfferGrant.offer_version_id).all())
         profile = PlatformProfile.get()
         db.session.commit()
         settings_form = PlanSettingsForm(obj=profile)
-        settings_form.trial_tier_key.choices = [(t.key, t.name) for t in tiers]
+        names = [t.name for t in tiers]
+        settings_form.trial_tier_key.choices = [
+            (t.key, f"{t.name} ({t.key})" if names.count(t.name) > 1 else t.name) for t in tiers]
         settings_form.trial_days.data = trial_days()
         return render_template("platform/tiers_list.html", tiers=tiers, settings_form=settings_form,
-                       entitlement_offers=offers, grant_counts=grant_counts)
-
+                               plan_feature_count=len([m for m in _feature_modules() if m.kind == FEATURE]))
     @bp.route("/tiers/settings", methods=["POST"])
     @requires_pricing
     def tier_settings():
@@ -135,7 +142,7 @@ def register_tiers_routes(bp):
             audit_service.record("pricing_tier.updated", "pricing_tier", tier.id, {"key": tier.key})
             flash(f"Tier {tier.name} updated.", "success")
             return redirect(url_for("platform.tiers_list"))
-        return tier_form(form, features, f"Edit {tier.name}")
+        return tier_form(form, features, f"Edit {tier.name}", current_tier=tier)
 
     @bp.route("/catalog")
     @requires_pricing
