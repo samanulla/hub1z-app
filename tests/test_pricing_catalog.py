@@ -228,10 +228,23 @@ def test_public_catalog_discovers_registered_features_and_labels_beta():
         white_label = PlatformModule.query.filter_by(code="white_label").one()
         white_label.availability = BETA
         assert addon_price_text(white_label) == "Beta"
-        upcoming = next(item for item in public_catalog()["addons"] if item["name"] == "Native mobile apps")
-        assert upcoming["price"] == "Coming soon"
+        catalog = public_catalog()
+        assert "Native mobile apps" in catalog["coming_soon"]
+        assert all(item["name"] != "Native mobile apps" for item in catalog["addons"])
         PlatformProfile.get().pricing_page_public = False
         assert public_catalog() is None
+
+
+def test_unbuilt_features_never_appear_in_included_feature_lists():
+    app = _app()
+    with app.app_context():
+        future = PlatformModule.query.filter_by(code="api_webhooks").one()
+        future.kind = "feature"
+        future.availability = "available"
+        tier = PricingTier.query.filter_by(key="growth").one()
+        tier.all_features = True
+        db.session.commit()
+        assert future.name not in public_plans()[0]["features"]
 
 
 @pytest.mark.parametrize("populated", [False, True])

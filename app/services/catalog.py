@@ -60,9 +60,13 @@ _ALWAYS = [
     ("bookings", "Bookings"), ("calendar", "Calendar"), ("meeting_credits", "Meeting room credits"),
     ("gst_invoices", "GST invoices"), ("pdf_documents", "PDF documents"),
     ("upi_payments", "UPI QR payments with manual confirmation"),
-    ("location_qr_checkin", "Location QR check-in"), ("member_app", "Member mobile app"),
+    ("location_qr_checkin", "Location QR check-in"), ("manual_attendance", "Manual attendance entry"),
+    ("member_app", "Member PWA"),
     ("parcels", "Parcels"), ("inapp_alerts", "In-app alerts"), ("leads", "Leads"),
     ("lead_email_alerts", "Email lead notifications"), ("basic_reports", "Basic reports"),
+    ("people_admin", "People and member administration"), ("announcements", "Announcements"),
+    ("community_directory", "Community directory"), ("support_tickets", "Support tickets"),
+    ("audit_capture", "Audit capture"), ("audit_viewer", "Audit viewer"),
 ]
 
 _FEATURES = [
@@ -71,18 +75,21 @@ _FEATURES = [
     ("attendance_export", "Attendance CSV export", "Download attendance as a CSV file."),
     ("lead_export", "Lead export", "Download leads as a CSV file."),
     ("advanced_reports", "Advanced reporting", "People and heatmap reports, plus new advanced reports as they ship."),
+    ("people_analytics", "People analytics", "Advanced people and headcount analytics."),
+    ("booking_heatmap", "Booking heatmap", "Booking density by day and hour."),
     ("alert_digests", "Alert email digests", "Emailed digests of parcels, agreements and overdue invoices."),
     ("payment_reminders", "Payment reminders", "Automatic reminder emails to customers with unpaid invoices."),
     ("payroll", "Payroll", "Salary structures, payroll runs and payslips."),
     ("expenses", "Expenses", "Expense tracking and approvals."),
     ("audit_export", "Audit log exports", "Download the audit log as a CSV file."),
+    ("network_reports", "Multi-location reports", "Reports across locations within the same operator workspace."),
 ]
 
 _ADDONS = [
     CatalogEntry("virtual_office", "Virtual Office & NOC", ADDON,
                  "Virtual office plans and NOC / address letters for customers."),
-    CatalogEntry("white_label", "White Label", ADDON,
-                 "Your own domain and no Hub1z branding on your portal."),
+    CatalogEntry("white_label", "White-label web portal / PWA", ADDON,
+                 "Custom domain and Hub1z branding removal on the web/PWA portal."),
     CatalogEntry("extra_storage", "Extra Storage", ADDON,
                  "More document storage on top of the plan allowance.", unit_label="per 5 GB",
                  value_type=EntitlementValueType.ALLOWANCE),
@@ -148,6 +155,17 @@ ENTITLEMENT_DEFINITIONS.update({
         EntitlementValueType.BOOLEAN, protected_actions=("read", "cancel", "checkin", "settle")),
     "document_downloads": EntitlementDefinitionSpec("document_downloads", "Owned document downloads",
         EntitlementValueType.BOOLEAN, protected_actions=("read", "download", "delete")),
+    "audit_capture": EntitlementDefinitionSpec("audit_capture", "Audit capture",
+        EntitlementValueType.BOOLEAN, protected_actions=("capture", "read")),
+    "two_factor": EntitlementDefinitionSpec("two_factor", "Two-factor authentication",
+        EntitlementValueType.BOOLEAN, protected_actions=("verify", "disable")),
+    "password_reset": EntitlementDefinitionSpec("password_reset", "Password reset",
+        EntitlementValueType.BOOLEAN, protected_actions=("recover",)),
+    "billing_recovery": EntitlementDefinitionSpec("billing_recovery", "Billing recovery",
+        EntitlementValueType.BOOLEAN, protected_actions=("read", "pay", "recover")),
+    "financial_settlement_and_history": EntitlementDefinitionSpec(
+        "financial_settlement_and_history", "Financial settlement and history",
+        EntitlementValueType.BOOLEAN, protected_actions=("read", "settle", "correct")),
     "location_count": EntitlementDefinitionSpec("location_count", "Locations",
         EntitlementValueType.ALLOWANCE, "location", "gauge"),
     "contracted_seats": EntitlementDefinitionSpec("contracted_seats", "Contracted seats",
@@ -158,6 +176,8 @@ ENTITLEMENT_DEFINITIONS.update({
         EntitlementValueType.ALLOWANCE, "lead", "gauge"),
     "document_storage_bytes": EntitlementDefinitionSpec("document_storage_bytes", "Document storage",
         EntitlementValueType.ALLOWANCE, "byte", "gauge"),
+    "active_vo_clients": EntitlementDefinitionSpec("active_vo_clients", "Active Virtual Office clients",
+        EntitlementValueType.ALLOWANCE, "client", "gauge", built=False),
 })
 
 # Seeded as drafts with no price: Platform admin sets prices and publishes them.

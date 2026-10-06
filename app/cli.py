@@ -24,6 +24,7 @@ def register_cli(app: Flask) -> None:
     app.cli.add_command(release_no_shows_cmd)
     app.cli.add_command(update_platform_owner_email_cmd)
     app.cli.add_command(set_platform_owner_password_cmd)
+    app.cli.add_command(seed_entitlement_drafts_cmd)
 
 
 @click.command("credits-cycle")
@@ -76,6 +77,19 @@ def run_scheduled_jobs_cmd(month: str | None) -> None:
                f"{no_shows['released']} no-show(s) released; "
                f"alerts: {reminders['digests']} digest(s), {reminders['customer']} customer reminder(s); "
                f"{operator_invoices} Hub1z renewal invoice(s).")
+
+
+@click.command("seed-entitlement-drafts")
+@with_appcontext
+def seed_entitlement_drafts_cmd() -> None:
+    """Create the unlisted pricing-manifest drafts without tenant bindings."""
+    from .services.entitlement_manifest import ensure_manifest_drafts
+    offers = ensure_manifest_drafts()
+    db.session.commit()
+    for offer in offers:
+        click.echo(f"{offer['offer_key']} v{offer['version']} id={offer['id']} status={offer['status']} "
+                   f"publicly_listed={offer['publicly_listed']}")
+    click.echo(f"Created/verified {len(offers)} draft offer(s); no tenant bindings created.")
 
 
 @click.command("create-admin")

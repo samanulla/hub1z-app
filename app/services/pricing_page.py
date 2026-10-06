@@ -8,7 +8,7 @@ from flask import current_app
 from sqlalchemy import or_
 
 from ..models import OveragePolicy, PlatformModule, PlatformProfile, PricingTier, TierStatus
-from .catalog import ADDON, ALWAYS, AVAILABLE, BETA, COMING_SOON, FEATURE, USAGE
+from .catalog import ADDON, ALWAYS, AVAILABLE, BETA, BY_CODE, COMING_SOON, FEATURE, USAGE
 from .formatting import format_inr
 
 
@@ -62,9 +62,11 @@ def tier_feature_names(tier: PricingTier) -> list[str]:
     """Lockable features this tier includes, in catalog order."""
     if tier.all_features:
         query = PlatformModule.query.filter_by(kind=FEATURE, is_active=True, availability=AVAILABLE)
-        return [m.name for m in query.order_by(PlatformModule.sort_order, PlatformModule.id)]
+        return [m.name for m in query.order_by(PlatformModule.sort_order, PlatformModule.id)
+                if BY_CODE.get(m.code) and BY_CODE[m.code].built]
     modules = [m for m in tier.module_catalog
-               if m.kind == FEATURE and m.is_active and m.availability == AVAILABLE]
+               if m.kind == FEATURE and m.is_active and m.availability == AVAILABLE
+               and BY_CODE.get(m.code) and BY_CODE[m.code].built]
     return [m.name for m in sorted(modules, key=lambda m: (m.sort_order, m.id))]
 
 
@@ -123,12 +125,17 @@ def public_catalog() -> dict | None:
     modules = (PlatformModule.query.filter(PlatformModule.is_active.is_(True),
                                            PlatformModule.availability != "hidden")
                .order_by(PlatformModule.sort_order, PlatformModule.id).all())
+    built_modules = [m for m in modules if BY_CODE.get(m.code) and BY_CODE[m.code].built]
+    upcoming = [m.name for m in modules if m.availability == COMING_SOON or
+                (BY_CODE.get(m.code) is not None and not BY_CODE[m.code].built)]
     return {
-        "always": [m.name for m in modules if m.kind == ALWAYS],
-        "beta_features": [m.name for m in modules if m.kind == FEATURE and m.availability == BETA],
-        "upcoming_features": [m.name for m in modules if m.kind == FEATURE and m.availability == COMING_SOON],
+        "always": [m.name for m in built_modules if m.kind == ALWAYS],
+        "beta_features": [m.name for m in built_modules if m.kind == FEATURE and m.availability == BETA],
+        "coming_soon": list(dict.fromkeys(upcoming)),
         "addons": [{"name": m.name, "description": m.description, "price": addon_price_text(m),
-                    "soon": m.availability == COMING_SOON} for m in modules if m.kind == ADDON],
+                    "soon": m.availability == COMING_SOON} for m in built_modules
+                   if m.kind == ADDON and m.availability in (AVAILABLE, BETA)],
         "usage": [{"name": m.name, "description": m.description, "price": addon_price_text(m),
-                   "soon": m.availability == COMING_SOON} for m in modules if m.kind == USAGE],
+                   "soon": m.availability == COMING_SOON} for m in built_modules
+                  if m.kind == USAGE and m.availability in (AVAILABLE, BETA)],
     }

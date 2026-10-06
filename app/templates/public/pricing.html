@@ -78,10 +78,10 @@
           {% for name in catalog.beta_features %}<li><i class="bi bi-flask"></i>{{ name }}</li>{% endfor %}
         </ul>
         {% endif %}
-        {% if catalog.upcoming_features %}
+        {% if catalog.coming_soon %}
         <h3 style="font-size:20px; margin-top:24px">Coming soon</h3>
         <ul class="s-list">
-          {% for name in catalog.upcoming_features %}<li><i class="bi bi-hourglass"></i>{{ name }}</li>{% endfor %}
+          {% for name in catalog.coming_soon %}<li><i class="bi bi-hourglass"></i>{{ name }}</li>{% endfor %}
         </ul>
         {% endif %}
       </div>
