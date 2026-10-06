@@ -291,14 +291,15 @@ def _register_root_routes(app: Flask) -> None:
 
     @app.route("/pricing")
     def public_pricing():
-        from .services.pricing_page import public_plans, public_catalog
+        from .services.pricing_page import public_plans, public_catalog, trial_days
         billing = request.args.get("billing", "monthly")
         if billing not in {"monthly", "annual"}:
             billing = "monthly"
         plans = public_plans(billing)
         best_discount = max((p["discount"] for p in plans if p["discount"]), default=None)
         return render_template("public/pricing.html", plans=plans, billing=billing,
-                               catalog=public_catalog() if plans else None, best_discount=best_discount)
+                               catalog=public_catalog() if plans else None, best_discount=best_discount,
+                               trial_days=trial_days())
 
     @app.route("/legal")
     def public_legal_imprint():
