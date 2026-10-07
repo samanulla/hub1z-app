@@ -89,7 +89,7 @@ def upgrade():
         sa.Column("id", sa.Integer(), primary_key=True), _op(),
         sa.Column("listing_id", sa.Integer(), sa.ForeignKey("marketplace_listings.id", ondelete="RESTRICT"), nullable=False),
         sa.Column("customer_id", sa.Integer(), sa.ForeignKey("marketplace_customers.id", ondelete="RESTRICT"), nullable=False),
-        sa.Column("room_booking_id", sa.Integer(), sa.ForeignKey("room_bookings.id", ondelete="RESTRICT")),
+        sa.Column("room_block_id", sa.Integer(), sa.ForeignKey("room_blocks.id", ondelete="SET NULL")),
         sa.Column("code", sa.String(16), nullable=False), sa.Column("idempotency_key", sa.String(64), nullable=False),
         sa.Column("source", sa.String(24), nullable=False), sa.Column("status", sa.String(24), nullable=False),
         sa.Column("payment_status", sa.String(24), nullable=False), sa.Column("payment_method", sa.String(20)),
@@ -110,7 +110,7 @@ def upgrade():
         sa.CheckConstraint(_in("settlement_mode", ("operator_collects", "platform_collects")), name="ck_mkt_booking_settlement"),
         sa.UniqueConstraint("customer_id", "idempotency_key", name="uq_mkt_booking_idempotency"))
     op.create_index("ix_marketplace_bookings_code", "marketplace_bookings", ["code"], unique=True)
-    for col in ("listing_id", "customer_id", "room_booking_id", "start_at", "expires_at"):
+    for col in ("listing_id", "customer_id", "room_block_id", "start_at", "expires_at"):
         op.create_index(f"ix_marketplace_bookings_{col}", "marketplace_bookings", [col])
     op.create_index("ix_mkt_booking_slot", "marketplace_bookings", ["listing_id", "start_at", "end_at"])
 

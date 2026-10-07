@@ -1,4 +1,7 @@
-"""Operator marketplace: opt-in listings, platform-level customers, bookings and the commission ledger."""
+"""Operator marketplace: opt-in listings, platform-level customers, bookings and the commission ledger.
+
+A room booking holds its slot with a RoomBlock (same room row lock as member bookings), so no operator
+User is needed for a marketplace guest."""
 from __future__ import annotations
 
 import secrets
@@ -126,7 +129,7 @@ class MarketplaceBooking(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     listing_id = Column(Integer, ForeignKey("marketplace_listings.id", ondelete="RESTRICT"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("marketplace_customers.id", ondelete="RESTRICT"), nullable=False, index=True)
-    room_booking_id = Column(Integer, ForeignKey("room_bookings.id", ondelete="RESTRICT"), nullable=True, index=True)
+    room_block_id = Column(Integer, ForeignKey("room_blocks.id", ondelete="SET NULL"), nullable=True, index=True)
     code = Column(String(16), nullable=False, unique=True, index=True, default=lambda: secrets.token_hex(4).upper())
     idempotency_key = Column(String(64), nullable=False)
 
@@ -161,7 +164,7 @@ class MarketplaceBooking(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     listing = relationship("MarketplaceListing")
     customer = relationship("MarketplaceCustomer")
-    room_booking = relationship("RoomBooking")
+    room_block = relationship("RoomBlock")
 
 
 class CommissionLedgerEntry(db.Model, PkMixin, TimestampMixin, OperatorScoped):

@@ -77,7 +77,10 @@
   {{ group('Workspace') }}
   {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('admin.dashboard'), area == 'overview', badges.get('alerts')) }}
   {{ link('Leads', 'bi-funnel-fill', url_for('admin.leads'), ep.startswith('admin.lead')) }}
-  {{ link('Workspace', 'bi-geo-alt-fill', url_for('admin.locations_list'), area == 'workspace' and not ep.startswith('admin.lead')) }}
+  {% if config.get('MARKETPLACE_ENABLED') and (current_user.is_super_admin or current_user.is_platform_owner or current_user.role.value == 'manager') %}
+    {{ link('Marketplace', 'bi-shop', url_for('admin.marketplace'), ep.startswith('admin.marketplace')) }}
+  {% endif %}
+  {{ link('Workspace', 'bi-geo-alt-fill', url_for('admin.locations_list'), area == 'workspace' and not ep.startswith('admin.lead') and not ep.startswith('admin.marketplace')) }}
   {{ link('People', 'bi-people-fill', url_for('admin.people'), area == 'people') }}
   {{ link('Billing', 'bi-receipt', url_for('admin.invoices_list'), area == 'billing') }}
   {{ link('Reports', 'bi-bar-chart-fill', url_for('admin.reports_home'), ep.startswith('admin.report')) }}

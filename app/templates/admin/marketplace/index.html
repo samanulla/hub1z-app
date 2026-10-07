@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Marketplace{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>{{ operator.name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Marketplace</span></div>
+    <h1>Marketplace</h1>
+    <div class="muted mt-1">Share spare rooms and day passes with guests Hub1z brings you. Nothing is shared unless you list it.</div>
+  </div>
+  <div class="actions">
+    <a class="btn btn-soft" href="{{ url_for('admin.marketplace_bookings') }}"><i class="bi bi-calendar2-check"></i> Bookings{% if counts.get('requested') %} <span class="h-nav-badge">{{ counts.get('requested') }}</span>{% endif %}</a>
+    <a class="btn btn-brand" href="{{ url_for('admin.marketplace_listing_new') }}"><i class="bi bi-plus-lg"></i> New listing</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-8"><div class="h-card"><div class="h-card-body">
+    <h5 class="mb-3">Your marketplace settings</h5>
+    <form method="post" action="{{ url_for('admin.marketplace_settings') }}" class="row g-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="col-12"><div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" name="enabled" value="1" id="mktOn" {{ 'checked' if terms.enabled }}>
+        <label class="form-check-label" for="mktOn">Take part in the Hub1z marketplace</label></div>
+        <div class="form-text">Members and bookings from your own site always stay commission-free. Marketplace guests never take a slot a member could book: you set how much is shared, and a confirmed guest booking is honoured.</div></div>
+      <div class="col-12"><label class="form-label">Ways guests can pay</label>
+        <div class="d-flex flex-wrap gap-4">
+          {% for m in offered %}<div class="form-check"><input class="form-check-input" type="checkbox" name="payment_methods" value="{{ m }}" id="pm-{{ m }}" {{ 'checked' if m in terms.payment_methods }}><label class="form-check-label" for="pm-{{ m }}">{{ method_labels[m] }}</label></div>{% endfor %}
+        </div>
+        <div class="form-text">Guests pay you directly. Hub1z invoices the commission monthly. Online payment is coming later.</div></div>
+      <div class="col-md-5"><label class="form-label">Extra compensation if you cancel (%)</label>
+        <input class="form-control" name="compensation" type="number" min="0" max="100" step="0.5" value="{{ terms.operator_cancel_compensation_pct }}">
+        <div class="form-text">The guest is always refunded in full. You may add a goodwill amount on top; 0 is fine.</div></div>
+      <div class="col-12"><button class="btn btn-brand">Save settings</button></div>
+    </form>
+  </div></div></div>
+  <div class="col-lg-4"><div class="h-card"><div class="h-card-body">
+    <h5 class="mb-3">Status</h5>
+    <p class="mb-2">{% if terms.kyc_approved %}<span class="h-chip sm tint-success">Approved by Hub1z</span>{% else %}<span class="h-chip sm tint-warn">Awaiting Hub1z approval</span>{% endif %}</p>
+    <p class="mb-1"><b>Commission</b>: {{ terms.commission_pct }}% on bookings Hub1z brings in</p>
+    <p class="muted small mb-0">0% on your own members, your site and your links. Listings go live only after Hub1z approves your marketplace access.</p>
+  </div></div></div>
+</div>
+
+<div class="h-card"><div class="h-card-body">
+  <h5 class="mb-3">Listings</h5>
+  <div style="overflow-x:auto"><table class="h-table">
+    <thead><tr><th>Listing</th><th>Price</th><th>Shared</th><th>Booking</th><th>Status</th><th class="r"></th></tr></thead>
+    <tbody>
+    {% for l in listings %}
+    <tr>
+      <td><b>{{ l.title }}</b><div class="faint small">{{ 'Meeting room' if l.resource_type == 'room' else 'Day access' }} · {{ l.location.name }}</div></td>
+      <td>{{ l.price | inr }}<div class="faint small">{{ 'per hour' if l.resource_type == 'room' else 'per day' }} + {{ l.gst_rate_pct }}% GST</div></td>
+      <td>{% if l.resource_type == 'room' %}{{ l.daily_cap_hours_pct }}% of open hours{% else %}{{ l.daily_cap_units }} per day{% endif %}</td>
+      <td>{{ 'Instant' if l.approval_mode == 'instant' else 'Request' }}</td>
+      <td><span class="h-chip sm {{ {'live': 'tint-success', 'paused': 'tint-warn', 'draft': 'tint-neutral', 'unlisted': 'tint-neutral'}[l.status] }}">{{ l.status | title }}</span></td>
+      <td class="r text-nowrap">
+        <a class="btn btn-soft btn-sm" href="{{ url_for('admin.marketplace_listing_edit', listing_id=l.id) }}">Edit</a>
+        {% for st, label in (('live', 'Publish' if l.status in ('draft', 'unlisted') else 'Resume'), ('paused', 'Pause'), ('unlisted', 'Unlist')) if st != l.status and not (st == 'paused' and l.status != 'live') and not (st == 'unlisted' and l.status == 'unlisted') %}
+        <form class="d-inline" method="post" action="{{ url_for('admin.marketplace_listing_status', listing_id=l.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="status" value="{{ st }}"><button class="btn btn-soft btn-sm">{{ label }}</button></form>
+        {% endfor %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-center muted py-4">No listings yet. Nothing is shared.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div></div>
+{% endblock %}

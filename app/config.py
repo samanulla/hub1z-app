@@ -76,6 +76,7 @@ class BaseConfig:
     OPERATOR_TRIAL_DAYS = int(os.getenv("OPERATOR_TRIAL_DAYS", "14"))
     ENTITLEMENTS_SHADOW_ENABLED = _bool("ENTITLEMENTS_SHADOW_ENABLED", False)
     ENTITLEMENTS_ENFORCEMENT_ENABLED = _bool("ENTITLEMENTS_ENFORCEMENT_ENABLED", False)
+    MARKETPLACE_ENABLED = _bool("MARKETPLACE_ENABLED", False)  # global kill switch for the operator marketplace
 
 
 class DevelopmentConfig(BaseConfig):
