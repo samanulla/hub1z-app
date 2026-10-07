@@ -46,8 +46,12 @@ def request_code(email: str, name: str = "", phone: str = "") -> str:
     customer.otp_expires_at = now + CODE_TTL
     customer.otp_attempts = 0
     db.session.commit()
-    mail_service.send("Your Hub1z sign-in code", email, "marketplace_otp", name=customer.full_name, code=code,
-                      ttl_minutes=int(CODE_TTL.total_seconds() // 60), operator_name="Hub1z")
+    try:
+        mail_service.send("Your Hub1z sign-in code", email, "marketplace_otp", name=customer.full_name, code=code,
+                          ttl_minutes=int(CODE_TTL.total_seconds() // 60), operator_name="Hub1z")
+    except Exception:  # noqa: BLE001 - any mail failure should read as a retryable message, not a crash
+        current_app.logger.exception("Could not send marketplace sign-in code")
+        raise SignInError("We couldn't send your code just now. Please try again in a minute.")
     return code
 
 
