@@ -31,6 +31,7 @@ class DayPass(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     status = Column(Enum(DayPassStatus), nullable=False,
                     default=DayPassStatus.ISSUED, index=True)
     checked_in_at = Column(DateTime, nullable=True)
+    booking_source = Column(String(24), nullable=False, default="operator_member", server_default="operator_member")
 
     user = relationship("User", foreign_keys=[user_id])
     location = relationship("Location", foreign_keys=[location_id])
