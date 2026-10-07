@@ -22,7 +22,13 @@
     {% for b in rows %}
     <tr>
       <td><b>{{ b.customer_name }}</b><div class="faint small">{{ b.customer_email }}{% if b.customer_phone %} · {{ b.customer_phone }}{% endif %}</div>
-        {% if b.billing_gstin %}<div class="faint small">{{ b.billing_name }} · GSTIN {{ b.billing_gstin }}</div>{% endif %}</td>
+        {% if b.billing_gstin %}<div class="faint small">{{ b.billing_name }} · GSTIN {{ b.billing_gstin }}</div>{% endif %}
+        {% if b.id_status != 'not_required' %}
+        <div class="small mt-1"><i class="bi bi-person-vcard"></i> ID:
+          <span class="h-chip sm {{ 'tint-success' if b.id_status == 'approved' else 'tint-danger' if b.id_status == 'rejected' else 'tint-warn' }}">{{ {'pending_upload': 'Not uploaded', 'pending_review': 'To review', 'approved': 'Approved', 'rejected': 'Rejected'}[b.id_status] }}</span>
+          {% if b.id_document_key %}<a href="{{ url_for('admin.marketplace_id_document', booking_id=b.id) }}" target="_blank" rel="noopener">View</a>{% endif %}
+          {% if b.id_reject_reason %}<div class="faint">{{ b.id_reject_reason }}</div>{% endif %}</div>
+        {% endif %}</td>
       <td>{{ b.listing.title }}<div class="faint small">{{ b.units }} × · {{ b.guests }} guest{{ 's' if b.guests != 1 }} · code {{ b.code }}</div></td>
       <td>{{ b.start_at | dt_at(b.listing.location, '%d %b, %I:%M %p') }}<div class="faint small">to {{ b.end_at | dt_at(b.listing.location, '%I:%M %p') }}</div></td>
       <td>{{ b.total | inr }}<div class="faint small">{{ method_labels.get(b.payment_method, b.payment_method) }}</div></td>
@@ -34,6 +40,13 @@
         {% elif b.status == 'confirmed' %}{{ act(b.id, 'check_in', 'Check in', 'btn-brand') }}{{ act(b.id, 'no_show', 'No-show') }}{{ act(b.id, 'cancel', 'Cancel') }}
         {% elif b.status == 'checked_in' %}{{ act(b.id, 'complete', 'Complete', 'btn-brand') }}{% endif %}
         {% if b.payment_reference and b.payment_status == 'pending_verification' %}<div class="faint small">Ref: {{ b.payment_reference }}</div>{% endif %}
+        {% if b.id_status == 'pending_review' and b.status in ('requested', 'held', 'confirmed') %}
+        <div class="mt-1">{{ act(b.id, 'approve_id', 'Approve ID', 'btn-brand') }}
+          <form class="d-inline-flex gap-1" method="post" action="{{ url_for('admin.marketplace_booking_action', booking_id=b.id, action='reject_id') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input class="form-control form-control-sm" name="reason" placeholder="Reason" required style="width:130px"><button class="btn btn-soft btn-sm">Reject ID</button></form></div>
+        {% endif %}
+        {% if b.status == 'confirmed' and b.id_status != 'not_required' %}
+        <form class="d-inline-flex gap-1 mt-1" method="post" action="{{ url_for('admin.marketplace_booking_action', booking_id=b.id, action='reject_id_venue') }}" onsubmit="return confirm('Turn this guest away and cancel the booking?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input class="form-control form-control-sm" name="reason" placeholder="Why the ID failed" required style="width:150px"><input class="form-control form-control-sm" name="refund" type="number" min="0" max="100" value="0" title="Refund %" style="width:64px"><button class="btn btn-soft btn-sm">Turn away</button></form>
+        {% endif %}
       </td>
     </tr>
     {% else %}

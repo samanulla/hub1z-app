@@ -27,6 +27,7 @@
       <nav class="s-links" aria-label="Main">
         <a class="{{ 'on' if active == 'features' }}" href="{{ url_for('public_features') }}">Features</a>
         <a class="{{ 'on' if active == 'pricing' }}" href="{{ url_for('public_pricing') }}">Pricing</a>
+        {% if marketplace_link() %}<a href="{{ marketplace_link() }}">Find a workspace</a>{% endif %}
         <a href="{{ url_for('index') }}#how-it-works">How it works</a>
         <a href="{{ url_for('index') }}#faq">FAQ</a>
       </nav>
@@ -63,6 +64,7 @@
             <li><a href="{{ url_for('auth.login') }}">Sign in</a></li>
             <li><a href="{{ url_for('auth.register_operator') }}">Start free trial</a></li>
             <li><a href="{{ url_for('auth.pick_workspace') }}">Find your workspace</a></li>
+            {% if marketplace_link() %}<li><a href="{{ marketplace_link() }}">Book a room or day pass</a></li>{% endif %}
           </ul>
         </div>
         <div>

@@ -1,0 +1,33 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Find a space · Hub1z Spaces{% endblock %}
+{% block content %}
+<div class="m-wrap">
+  <div class="m-head">
+    <h1>Book a room or a day pass</h1>
+    <p>Meeting rooms and hot desks from independent workspaces, with the price shown including GST.</p>
+  </div>
+  <form class="m-filter" method="get">
+    <select name="city" aria-label="City"><option value="">All cities</option>{% for c in cities %}<option value="{{ c }}" {{ 'selected' if c|lower == city|lower }}>{{ c }}</option>{% endfor %}</select>
+    <select name="kind" aria-label="Type">
+      <option value="">Rooms and day passes</option>
+      <option value="room" {{ 'selected' if kind == 'room' }}>Meeting rooms</option>
+      <option value="day_access" {{ 'selected' if kind == 'day_access' }}>Day passes</option>
+    </select>
+    <button class="s-btn primary sm" type="submit">Search</button>
+  </form>
+  <div class="m-grid">
+    {% for l in listings %}
+    <a class="m-card" href="{{ url_for('marketplace.listing', listing_id=l.id) }}">
+      <span class="m-chip">{{ 'Meeting room' if l.kind == 'room' else 'Day pass' }}</span>
+      {% if l.approval_mode == 'request' %}<span class="m-chip warn">On request</span>{% else %}<span class="m-chip ok">Instant</span>{% endif %}
+      <h3>{{ l.title }}</h3>
+      <div class="m-sub">{{ l.seller_name }}</div>
+      <div class="m-sub"><i class="bi bi-geo-alt"></i> {{ l.location_name }}{% if l.city %}, {{ l.city }}{% endif %}</div>
+      <div class="m-price">₹{{ '%.2f'|format(l.price * (1 + l.gst_pct / 100)) }} <small>{{ l.unit }} incl. GST</small></div>
+    </a>
+    {% else %}
+    <div class="m-panel" style="grid-column:1/-1"><b>Nothing to show yet.</b><div class="m-note">No spaces are sharing rooms or passes{% if city or kind %} for that search{% endif %} right now.</div></div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

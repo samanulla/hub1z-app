@@ -28,6 +28,7 @@ def section_navigation():
                         ("Refunds", "admin.refunds"), ("Expenses", "admin.expenses_list"),
                         ("Expense categories", "admin.expense_categories")],
             "reports": [("Reports", "admin.reports_home")],
+            "marketplace": [("Overview & listings", "admin.marketplace"), ("Bookings", "admin.marketplace_bookings")],
             "settings": [],
         }
         if current_user.is_manager or current_user.is_super_admin:
@@ -45,6 +46,8 @@ def section_navigation():
             key = "billing"
         elif endpoint.startswith("admin.report"):
             key = "reports"
+        elif endpoint.startswith("admin.marketplace"):
+            key = "marketplace"
         elif endpoint.startswith(("admin.email_template", "admin.audit")) or endpoint == "admin.settings":
             key = "settings"
         elif endpoint.startswith(("admin.parcel", "admin.reception", "community.", "member.day_pass")):

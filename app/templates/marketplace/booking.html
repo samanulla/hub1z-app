@@ -1,0 +1,88 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Booking {{ b.code }} · Hub1z Spaces{% endblock %}
+{% block content %}
+<div class="m-wrap">
+  <a class="m-note" href="{{ url_for('marketplace.bookings') }}"><i class="bi bi-arrow-left"></i> My bookings</a>
+  <div class="m-head" style="margin-top:14px">
+    <h1>{{ b.title }}</h1>
+    <p>{% include "marketplace/_status.html" %} &nbsp; Booking code <b>{{ b.code }}</b></p>
+  </div>
+  <div class="m-two">
+    <div>
+      {% if b.reveal %}
+      <div class="m-panel" style="border-color:#bfe6cc"><h2><i class="bi bi-geo-alt-fill"></i> Where to go</h2>
+        <dl class="m-dl"><dt>Address</dt><dd>{{ b.address }}</dd>
+          {% if b.access_instructions %}<dt>Access</dt><dd style="white-space:pre-line">{{ b.access_instructions }}</dd>{% endif %}
+          <dt>Show</dt><dd>Booking code <b>{{ b.code }}</b>{% if b.id_required %} and your photo ID{% endif %}</dd></dl>
+      </div>
+      {% elif b.status in ('requested', 'held', 'confirmed') %}
+      <div class="m-panel"><h2><i class="bi bi-lock"></i> Address and access details</h2>
+        <p class="m-note" style="margin:0">{% if b.id_required and b.id_status != 'approved' and b.status == 'confirmed' %}Shown once the space has approved your ID.{% else %}Shown once your booking is confirmed{% if b.payment_method != 'pay_at_venue' %} and paid{% endif %}{% if b.id_required %}, and your ID is approved{% endif %}.{% endif %}</p></div>
+      {% endif %}
+
+      {% if b.status == 'held' and b.pay_payee %}
+      <div class="m-panel"><h2>Pay {{ b.pay_payee }}</h2>
+        <p class="m-note">Pay <b>₹{{ '%.2f'|format(b.total) }}</b> to the space using the details below, then enter your payment reference.</p>
+        <div class="m-row" style="align-items:center">
+          <dl class="m-dl" style="grid-template-columns:90px 1fr">
+            {% if b.pay_upi_id %}<dt>UPI ID</dt><dd>{{ b.pay_upi_id }}</dd>{% endif %}
+            {% if b.pay_bank %}<dt>Bank</dt><dd>{{ b.pay_bank }}</dd>{% endif %}
+            {% if b.pay_instructions %}<dt>Note</dt><dd>{{ b.pay_instructions }}</dd>{% endif %}
+          </dl>
+          {% if b.pay_vpa and b.payment_method == 'manual_upi' %}<img class="m-qr" src="{{ url_for('marketplace.booking_upi', code=b.code) }}" alt="UPI QR code">{% endif %}
+        </div>
+        {% if b.payment_status == 'unpaid' %}
+        <form method="post" action="{{ url_for('marketplace.booking_pay', code=b.code) }}" style="margin-top:14px">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label class="m-label" for="ref">Payment reference (UTR / transaction ID)</label>
+          <input class="m-field" id="ref" name="reference" maxlength="120" required>
+          <button class="s-btn primary sm" style="margin-top:12px" type="submit">I have paid</button>
+        </form>
+        {% else %}<p class="m-note" style="margin-top:14px"><i class="bi bi-hourglass-split"></i> Reference <b>{{ b.payment_reference }}</b> sent. The space is checking it.</p>{% endif %}
+      </div>
+      {% endif %}
+
+      {% if b.id_required and b.status in ('requested', 'held', 'confirmed') %}
+      <div class="m-panel"><h2>Photo ID</h2>
+        {% if b.id_status == 'approved' %}<p class="m-note" style="margin:0"><i class="bi bi-check-circle-fill" style="color:#0e7a3b"></i> The space has approved your ID. Bring the same ID with you; it is checked again at the door.</p>
+        {% else %}
+          {% if b.id_status == 'pending_review' %}<p class="m-note">Your ID is with the space for review. You can upload a different file to replace it.</p>
+          {% elif b.id_status == 'rejected' %}<p style="color:#b42318">Your ID was not accepted: {{ b.id_reject_reason }}. Please upload a valid ID.</p>
+          {% else %}<p class="m-note">This space asks for a photo ID. Upload it now so they can approve it before you arrive. It is checked again at the door.</p>{% endif %}
+          <form method="post" enctype="multipart/form-data" action="{{ url_for('marketplace.booking_id', code=b.code) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input class="m-field" type="file" name="id_file" accept=".jpg,.jpeg,.png,.pdf" required style="padding-top:9px">
+            <div class="m-note" style="margin-top:6px">JPG, PNG or PDF, up to 5 MB. Only the space you booked can see it, and it is deleted once your booking is over.</div>
+            <button class="s-btn primary sm" style="margin-top:12px" type="submit">Upload ID</button>
+          </form>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if b.house_rules %}<div class="m-panel"><h2>House rules</h2><p style="margin:0;white-space:pre-line">{{ b.house_rules }}</p></div>{% endif %}
+    </div>
+
+    <div>
+      <div class="m-panel"><h2>Details</h2>
+        <dl class="m-dl" style="grid-template-columns:110px 1fr">
+          <dt>Space</dt><dd>{{ b.seller_name }}<br>{{ b.location_name }}{% if b.city %}, {{ b.city }}{% endif %}</dd>
+          <dt>When</dt><dd>{{ b.start_at | dt_at(b.timezone, '%a %d %b %Y') }}<br>{{ b.start_at | dt_at(b.timezone, '%I:%M %p') }} to {{ b.end_at | dt_at(b.timezone, '%I:%M %p') }}</dd>
+          <dt>Guests</dt><dd>{{ b.guests }}{% if b.kind == 'day_access' %} · {{ b.units }} pass{{ 'es' if b.units != 1 }}{% endif %}</dd>
+          <dt>Price</dt><dd>₹{{ '%.2f'|format(b.subtotal) }} + ₹{{ '%.2f'|format(b.gst_amount) }} GST<br><b>₹{{ '%.2f'|format(b.total) }}</b></dd>
+          <dt>Payment</dt><dd>{{ b.payment_status.replace('_', ' ')|capitalize }}</dd>
+          {% if b.seller_contact %}<dt>Contact</dt><dd>{{ b.seller_contact }}</dd>{% endif %}
+        </dl>
+      </div>
+      {% if b.status in ('requested', 'held', 'confirmed') %}
+      <div class="m-panel"><h2>Need to cancel?</h2>
+        <p class="m-note">{{ b.cancellation_text }}{% if b.status == 'confirmed' %} If you cancel now you would get <b>{{ b.refund_if_cancelled_pct }}%</b> back.{% endif %}</p>
+        <form method="post" action="{{ url_for('marketplace.booking_cancel', code=b.code) }}" onsubmit="return confirm('Cancel this booking?')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="s-btn ghost sm" type="submit">Cancel booking</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

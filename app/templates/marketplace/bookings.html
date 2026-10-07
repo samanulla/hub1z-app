@@ -1,0 +1,24 @@
+{% extends "marketplace/base.html" %}
+{% block title %}My bookings · Hub1z Spaces{% endblock %}
+{% block content %}
+<div class="m-wrap">
+  <div class="m-head"><h1>My bookings</h1><p>Everything you have booked through Hub1z Spaces.</p></div>
+  {% if rows %}
+  <table class="m-table">
+    <thead><tr><th>Booking</th><th>When</th><th>Total</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for b in rows %}
+    <tr>
+      <td><a href="{{ url_for('marketplace.booking', code=b.code) }}"><b>{{ b.title }}</b></a><div class="m-note">{{ b.seller_name }} · {{ b.code }}</div></td>
+      <td>{{ b.start_at | dt_at(b.timezone, '%d %b %Y, %I:%M %p') }}</td>
+      <td>₹{{ '%.2f'|format(b.total) }}</td>
+      <td>{% include "marketplace/_status.html" %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="m-panel"><b>No bookings yet.</b> <a href="{{ url_for('marketplace.home') }}">Find a space</a></div>
+  {% endif %}
+</div>
+{% endblock %}

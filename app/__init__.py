@@ -80,6 +80,7 @@ def _register_blueprints(app: Flask) -> None:
     from .blueprints.checkin import checkin_bp
     from .blueprints.pwa import pwa_bp
     from .blueprints.notifications import notifications_bp
+    from .blueprints.marketplace import marketplace_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(notifications_bp, url_prefix="/notifications")
@@ -92,6 +93,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(community_bp, url_prefix="/hub")
     app.register_blueprint(checkin_bp, url_prefix="/checkin")
     app.register_blueprint(pwa_bp)
+    app.register_blueprint(marketplace_bp, url_prefix="/marketplace")
     if app.config.get("DEBUG"):
         from .blueprints.ui_preview import ui_preview_bp
         app.register_blueprint(ui_preview_bp, url_prefix="/ui-preview")
@@ -123,6 +125,9 @@ def _register_context(app: Flask) -> None:
     from .services.nav import nav_badges, section_navigation
     from .services.pricing_page import trial_days
     app.jinja_env.globals["nav_badges"] = nav_badges
+    from .services.marketplace_public import marketplace_url
+    app.jinja_env.globals["marketplace_link"] = (
+        lambda path="": marketplace_url(path) if app.config.get("MARKETPLACE_ENABLED") else None)
     app.jinja_env.globals["section_navigation"] = section_navigation
     from .services.notifications import summary as notification_summary
     app.jinja_env.globals["notification_summary"] = notification_summary
@@ -226,9 +231,11 @@ def _register_root_routes(app: Flask) -> None:
 
     @app.route("/")
     def index():
+        from flask import g
+        if getattr(g, "marketplace_host", False):
+            return redirect(url_for("marketplace.home"))
         if current_user.is_authenticated:
             return redirect(url_for("auth.post_login_redirect"))
-        from flask import g
         if getattr(g, "operator", None):
             return render_template("public/landing.html", **operator_public_data())
         # No operator resolved (the platform's own apex domain) — a coworking

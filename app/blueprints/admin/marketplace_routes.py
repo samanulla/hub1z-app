@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+import os
 
-from flask import abort, current_app, flash, g, redirect, render_template, request, url_for
+from flask import (abort, current_app, flash, g, redirect, render_template, request, send_from_directory,
+                   url_for)
 from flask_wtf import FlaskForm
 from sqlalchemy import func
 from wtforms import (BooleanField, DecimalField, IntegerField, SelectField, SelectMultipleField, StringField,
@@ -16,6 +18,7 @@ from ...extensions import db
 from ...models import ConferenceRoom, Location, MarketplaceBooking, MarketplaceListing, OperatorMarketplaceTerms
 from ...models.marketplace import CANCELLATION_PRESETS, PAYMENT_METHODS
 from ...services import marketplace as mk
+from ...services.storage import storage_service
 from ...utils.decorators import manager_or_super_required
 
 DAYS = [(0, "Mon"), (1, "Tue"), (2, "Wed"), (3, "Thu"), (4, "Fri"), (5, "Sat"), (6, "Sun")]
@@ -290,6 +293,22 @@ def register_marketplace_routes(bp):
         return render_template("admin/marketplace/bookings.html", rows=rows, status=status,
                                method_labels=METHOD_LABELS)
 
+    @bp.route("/marketplace/bookings/<int:booking_id>/id-document")
+    @manager_or_super_required
+    def marketplace_id_document(booking_id):
+        _gate()
+        booking = _own_booking(booking_id)
+        if not booking.id_document_key:
+            abort(404)
+        if current_app.config.get("STORAGE_BACKEND", "local") == "local":
+            response = send_from_directory(os.path.abspath(current_app.config["LOCAL_STORAGE_DIR"]),
+                                           booking.id_document_key, download_name=booking.id_document_name)
+        else:
+            response = redirect(storage_service.signed_url(booking.id_document_key, ttl_seconds=300, scope="operator",
+                                                           filename=booking.id_document_name))
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
     @bp.route("/marketplace/bookings/<int:booking_id>/<action>", methods=["POST"])
     @manager_or_super_required
     def marketplace_booking_action(booking_id, action):
@@ -318,6 +337,19 @@ def register_marketplace_routes(bp):
             elif action == "complete":
                 mk.complete(booking)
                 flash("Booking completed.", "success")
+            elif action == "approve_id":
+                mk.review_id(booking, True)
+                flash("ID approved. The guest can now see the access details.", "success")
+            elif action == "reject_id":
+                mk.review_id(booking, False, reason)
+                flash("ID rejected. The guest was asked to upload a valid one.", "success")
+            elif action == "reject_id_venue":
+                try:
+                    refund = int(request.form.get("refund") or 0)
+                except ValueError:
+                    refund = 0
+                pct = mk.reject_id_at_venue(booking, reason or "", refund)
+                flash(f"Guest turned away; booking cancelled with a {pct}% refund.", "success")
             else:
                 abort(404)
         except mk.MarketplaceError as e:

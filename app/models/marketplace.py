@@ -31,6 +31,7 @@ BOOKING_STATUSES = ("requested", "held", "confirmed", "checked_in", "completed",
                     "expired", "cancelled_customer", "cancelled_operator", "no_show")
 PAYMENT_STATUSES = ("unpaid", "pending_verification", "paid", "part_refunded", "refunded")
 PAYMENT_METHODS = ("manual_upi", "bank_transfer", "pay_at_venue", "razorpay")
+ID_STATUSES = ("not_required", "pending_upload", "pending_review", "approved", "rejected")
 SETTLEMENT_MODES = ("operator_collects", "platform_collects")
 LEDGER_ENTRY_TYPES = ("accrual", "reversal", "adjustment")
 # Statuses that still occupy inventory.
@@ -113,6 +114,9 @@ class MarketplaceCustomer(db.Model, PkMixin, TimestampMixin):
     reliability_strikes = Column(Integer, nullable=False, default=0)   # internal to Hub1z, never shown to operators
     consented_at = Column(DateTime)
     auth_version = Column(Integer, nullable=False, default=0)
+    otp_hash = Column(String(64))
+    otp_expires_at = Column(DateTime)
+    otp_attempts = Column(Integer, nullable=False, default=0)
 
 
 class MarketplaceBooking(db.Model, PkMixin, TimestampMixin, OperatorScoped):
@@ -122,6 +126,7 @@ class MarketplaceBooking(db.Model, PkMixin, TimestampMixin, OperatorScoped):
         CheckConstraint(_in("source", BOOKING_SOURCES), name="ck_mkt_booking_source"),
         CheckConstraint(_in("status", BOOKING_STATUSES), name="ck_mkt_booking_status"),
         CheckConstraint(_in("payment_status", PAYMENT_STATUSES), name="ck_mkt_booking_payment_status"),
+        CheckConstraint(_in("id_status", ID_STATUSES), name="ck_mkt_booking_id_status"),
         CheckConstraint(_in("settlement_mode", SETTLEMENT_MODES), name="ck_mkt_booking_settlement"),
         UniqueConstraint("customer_id", "idempotency_key", name="uq_mkt_booking_idempotency"),
         Index("ix_mkt_booking_slot", "listing_id", "start_at", "end_at"),
@@ -154,6 +159,12 @@ class MarketplaceBooking(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     billing_gstin = Column(String(20))
     allow_membership_contact = Column(Boolean, nullable=False, default=False)
 
+    # Photo ID the guest uploads for the operator to approve before arrival (when the listing asks for one).
+    id_status = Column(String(20), nullable=False, default="not_required")
+    id_document_key = Column(String(300))
+    id_document_name = Column(String(200))
+    id_reviewed_at = Column(DateTime)
+    id_reject_reason = Column(String(300))
     subtotal = Column(Numeric(10, 2), nullable=False, default=0)
     gst_amount = Column(Numeric(10, 2), nullable=False, default=0)
     total = Column(Numeric(10, 2), nullable=False, default=0)

@@ -61,6 +61,18 @@ def to_local(location: Location, value: datetime) -> datetime:
     return value.replace(tzinfo=ZoneInfo("UTC")).astimezone(_tz(location))
 
 
+def local_to_utc(location: Location, day: date, at: time) -> datetime:
+    return datetime.combine(day, at, tzinfo=_tz(location)).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+
+
+def is_member_of(operator_id: int, email: str) -> bool:
+    """True when this email already has an active account at the operator (they should book as a member)."""
+    from ..models import User
+    return db.session.query(User.query.execution_options(skip_operator_filter=True).filter(
+        User.operator_id == operator_id, func.lower(User.email) == email.lower().strip(),
+        User.is_active.is_(True)).exists()).scalar()
+
+
 def local_day_bounds_utc(location: Location, day: date) -> tuple[datetime, datetime]:
     tz = _tz(location)
 
@@ -254,6 +266,7 @@ def create_booking(*, listing: MarketplaceListing, customer: MarketplaceCustomer
         start_at=start, end_at=end, units=units, guests=guests,
         customer_name=customer.full_name, customer_email=customer.email, customer_phone=customer.phone,
         billing_name=billing_name, billing_gstin=billing_gstin, allow_membership_contact=allow_membership_contact,
+        id_status="pending_upload" if (listing.guest_rules or {}).get("id_required") else "not_required",
         subtotal=amounts["subtotal"], gst_amount=amounts["gst"], total=amounts["total"],
         commission_pct=terms.commission_pct, cancellation_preset=listing.cancellation_preset,
         status="requested", expires_at=now + REQUEST_WINDOW)
@@ -307,6 +320,7 @@ def decline(booking: MarketplaceBooking, reason: str | None = None) -> None:
     booking.status = "declined"
     booking.cancel_reason = (reason or "")[:300] or None
     booking.expires_at = None
+    _purge_id(booking)
     db.session.commit()
 
 
@@ -329,9 +343,11 @@ def confirm_payment(booking: MarketplaceBooking, now: datetime | None = None) ->
 
 
 def access_revealed(booking: MarketplaceBooking) -> bool:
-    """Address and access instructions are shown only once confirmed and paid (or pay at venue)."""
+    """Address and access instructions are shown only once confirmed and paid (or pay at venue), and, when the
+    listing asks for ID, once the operator has approved it."""
     return (booking.status in ("confirmed", "checked_in", "completed")
-            and (booking.payment_status == "paid" or booking.payment_method == "pay_at_venue"))
+            and (booking.payment_status == "paid" or booking.payment_method == "pay_at_venue")
+            and booking.id_status in ("not_required", "approved"))
 
 
 # ----------------------------------------------------------- cancellation --
@@ -345,18 +361,22 @@ def refund_pct(booking: MarketplaceBooking, by_operator: bool, now: datetime | N
 
 
 def cancel(booking: MarketplaceBooking, *, by_operator: bool, reason: str | None = None,
-           now: datetime | None = None) -> int:
+           now: datetime | None = None, refund_override: int | None = None) -> int:
     """Cancel an upcoming booking and return the refund percentage; commission reverses in proportion."""
     now = now or datetime.utcnow()
     if booking.status not in ACTIVE_BOOKING_STATUSES or booking.status == "checked_in":
         raise MarketplaceError("This booking can't be cancelled.")
-    pct = refund_pct(booking, by_operator, now) if booking.status == "confirmed" else 100
+    if refund_override is not None:
+        pct = max(0, min(100, int(refund_override)))
+    else:
+        pct = refund_pct(booking, by_operator, now) if booking.status == "confirmed" else 100
     was_paid = booking.payment_status in ("paid", "pending_verification")
     booking.status = "cancelled_operator" if by_operator else "cancelled_customer"
     booking.cancelled_at = now
     booking.cancel_reason = (reason or "")[:300] or None
     booking.expires_at = None
     _release_slot(booking)
+    _purge_id(booking)
     if was_paid and booking.payment_status == "paid":
         booking.payment_status = "refunded" if pct == 100 else "part_refunded"
     elif booking.payment_status == "pending_verification":
@@ -387,6 +407,7 @@ def mark_no_show(booking: MarketplaceBooking, now: datetime | None = None) -> No
         raise MarketplaceError("A no-show can only be recorded after the start time.")
     booking.status = "no_show"
     booking.customer.reliability_strikes += 1
+    _purge_id(booking)
     db.session.commit()
 
 
@@ -394,6 +415,7 @@ def complete(booking: MarketplaceBooking) -> None:
     if booking.status not in ("confirmed", "checked_in"):
         raise MarketplaceError("This booking can't be completed.")
     booking.status = "completed"
+    _purge_id(booking)
     db.session.commit()
 
 
@@ -407,8 +429,75 @@ def release_expired(now: datetime | None = None) -> int:
         booking.status = "expired"
         booking.expires_at = None
         _release_slot(booking)
+        _purge_id(booking)
     db.session.commit()
     return len(rows)
+
+# ---------------------------------------------------------- guest ID check --
+
+ID_EXTENSIONS = {"jpg", "jpeg", "png", "pdf"}
+ID_MAX_BYTES = 5 * 1024 * 1024
+
+
+def _purge_id(booking: MarketplaceBooking) -> None:
+    """The ID image is only kept while the booking is live."""
+    if booking.id_document_key:
+        from .storage import storage_service
+        try:
+            storage_service.delete(booking.id_document_key, scope="operator")
+        except Exception:  # noqa: BLE001 - a missing file must not block the booking lifecycle
+            current_app.logger.warning("Could not delete marketplace ID %s", booking.id_document_key)
+        booking.id_document_key = None
+
+
+def upload_id(booking: MarketplaceBooking, file_storage) -> None:
+    """Guest uploads a photo ID for the operator to review."""
+    if booking.id_status == "not_required" or booking.status not in ("requested", "held", "confirmed"):
+        raise MarketplaceError("No ID is needed for this booking.")
+    if booking.id_status == "approved":
+        raise MarketplaceError("Your ID has already been approved.")
+    name = (getattr(file_storage, "filename", "") or "").strip()
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    if ext not in ID_EXTENSIONS:
+        raise MarketplaceError("Upload a JPG, PNG or PDF.")
+    data = file_storage.stream.read(ID_MAX_BYTES + 1)
+    if not data or len(data) > ID_MAX_BYTES:
+        raise MarketplaceError("The file must be under 5 MB.")
+    import io
+    from .storage import storage_service
+    stored = storage_service.upload(namespace=f"operators/{booking.operator_id}/marketplace-ids", filename=f"id.{ext}",
+                                    stream=io.BytesIO(data), content_type=file_storage.mimetype, scope="operator")
+    _purge_id(booking)
+    booking.id_document_key = stored.key
+    booking.id_document_name = f"ID-{booking.code}.{ext}"
+    booking.id_status = "pending_review"
+    booking.id_reject_reason = None
+    db.session.commit()
+
+
+def review_id(booking: MarketplaceBooking, approve: bool, reason: str | None = None) -> None:
+    """Operator approves or rejects the uploaded ID before the guest arrives."""
+    if booking.id_status != "pending_review":
+        raise MarketplaceError("There is no ID waiting for review.")
+    if not approve and not (reason or "").strip():
+        raise MarketplaceError("Tell the guest why the ID was not accepted.")
+    booking.id_status = "approved" if approve else "rejected"
+    booking.id_reviewed_at = datetime.utcnow()
+    booking.id_reject_reason = None if approve else reason.strip()[:300]
+    db.session.commit()
+
+
+def reject_id_at_venue(booking: MarketplaceBooking, reason: str, refund_pct_value: int = 0) -> int:
+    """The ID doesn't check out when the guest arrives: the booking is cancelled, refund as the operator decides."""
+    if booking.status != "confirmed" or booking.id_status == "not_required":
+        raise MarketplaceError("This booking can't be turned away for ID.")
+    if not (reason or "").strip():
+        raise MarketplaceError("Record why the ID was not accepted.")
+    booking.id_status = "rejected"
+    booking.id_reviewed_at = datetime.utcnow()
+    booking.id_reject_reason = reason.strip()[:300]
+    return cancel(booking, by_operator=True, reason=f"ID not accepted at the space: {reason.strip()}",
+                  refund_override=refund_pct_value)
 
 
 # ----------------------------------------------------- listing lifecycle --
