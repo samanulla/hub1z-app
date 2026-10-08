@@ -24,7 +24,7 @@ SOURCE_OPERATOR_SITE = "operator_site"
 SOURCE_OPERATOR_MEMBER = "operator_member"
 BOOKING_SOURCES = (SOURCE_MARKETPLACE, SOURCE_OPERATOR_SITE, SOURCE_OPERATOR_MEMBER)
 
-RESOURCE_TYPES = ("room", "day_access")          # VO is an enquiry (Lead), never bookable
+RESOURCE_TYPES = ("room", "day_access", "virtual_office")   # virtual office is an enquiry, never instantly bookable
 LISTING_STATUSES = ("draft", "live", "paused", "unlisted")
 APPROVAL_MODES = ("instant", "request")
 BOOKING_STATUSES = ("requested", "held", "confirmed", "checked_in", "completed", "declined",
@@ -98,6 +98,35 @@ class MarketplaceListing(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     location = relationship("Location")
     room = relationship("ConferenceRoom")
+
+
+class MarketplaceListingPhoto(db.Model, PkMixin, TimestampMixin, OperatorScoped):
+    __tablename__ = "marketplace_listing_photos"
+
+    listing_id = Column(Integer, ForeignKey("marketplace_listings.id", ondelete="CASCADE"), nullable=False, index=True)
+    storage_key = Column(String(300), nullable=False)
+    content_type = Column(String(60), nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+
+
+class MarketplacePartnerApplication(db.Model, PkMixin, TimestampMixin):
+    """A workspace not yet on Hub1z asking to list on the marketplace. Platform-level, so not operator scoped."""
+    __tablename__ = "marketplace_partner_applications"
+
+    business_name = Column(String(200), nullable=False)
+    contact_name = Column(String(150), nullable=False)
+    email = Column(String(255), nullable=False, index=True)
+    phone = Column(String(30))
+    address_line1 = Column(String(255), nullable=False)
+    city = Column(String(80), nullable=False)
+    state = Column(String(80))
+    postal_code = Column(String(20))
+    gstin = Column(String(20))
+    pan = Column(String(20))
+    upi_id = Column(String(120))
+    status = Column(String(12), nullable=False, default="pending")   # pending | approved | rejected
+    lead_id = Column(Integer, ForeignKey("leads.id", ondelete="SET NULL"))
+    operator_id = Column(Integer, ForeignKey("operators.id", ondelete="SET NULL"))
 
 
 class MarketplaceCustomer(db.Model, PkMixin, TimestampMixin):

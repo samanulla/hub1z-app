@@ -83,8 +83,8 @@ def _signin(client, email="guest@example.com", name="Gita Guest"):
     return client
 
 
-def _book(client, listing_id, method="pay_at_venue", **extra):
-    data = {"date": _day(), "start": "10:00", "hours": "2", "guests": "2", "payment_method": method,
+def _book(client, listing_id, method="pay_at_venue", date_offset=3, **extra):
+    data = {"date": _day(date_offset), "start": "10:00", "hours": "2", "guests": "2", "payment_method": method,
             "agree": "1", "key": os.urandom(6).hex(), **extra}
     return client.post(f"/marketplace/l/{listing_id}/book", data=data, headers={"Host": SPACES})
 

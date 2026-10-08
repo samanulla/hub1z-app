@@ -126,6 +126,8 @@ def _register_context(app: Flask) -> None:
     from .services.pricing_page import trial_days
     app.jinja_env.globals["nav_badges"] = nav_badges
     from .services.marketplace_public import marketplace_url
+    from .services.marketplace_partner import is_marketplace_partner
+    app.jinja_env.globals["is_marketplace_partner"] = is_marketplace_partner
     app.jinja_env.globals["marketplace_link"] = (
         lambda path="": marketplace_url(path) if app.config.get("MARKETPLACE_ENABLED") else None)
     app.jinja_env.globals["section_navigation"] = section_navigation

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Marketplace commission{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>{{ operator.name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><a href="{{ url_for('admin.marketplace') }}">Marketplace</a></div>
+    <h1>Commission</h1>
+    <div class="muted mt-1">Hub1z charges {{ terms.commission_pct }}% only on bookings it brings you. Your own members, site and links are always free. Hub1z raises one GST invoice a month; it appears under Billing, Hub1z invoices.</div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-brand"><i class="bi bi-calendar-check"></i></span><div><div class="label">Bookings this month</div><div class="value">{{ current.bookings }}</div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-info"><i class="bi bi-cash-stack"></i></span><div><div class="label">Booking value</div><div class="value">{{ current.gross | inr }}</div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-warn"><i class="bi bi-percent"></i></span><div><div class="label">Commission this month</div><div class="value">{{ current.commission | inr }}</div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="h-card h-kpi"><span class="chip-ico tint-danger"><i class="bi bi-hourglass-split"></i></span><div><div class="label">Not invoiced yet</div><div class="value">{{ pending | inr }}</div></div></div></div>
+</div>
+
+<div class="h-card mb-4"><div class="h-card-body">
+  <h5 class="mb-3">{{ current.month.strftime('%B %Y') }}</h5>
+  <div style="overflow-x:auto"><table class="h-table">
+    <thead><tr><th>Date</th><th>Booking</th><th>Entry</th><th class="r">Booking value</th><th class="r">Commission</th><th>Invoice</th></tr></thead>
+    <tbody>
+    {% for r in current.rows %}
+    <tr><td>{{ r.entry.created_at.strftime('%d %b, %H:%M') }}</td><td>{{ r.code }}</td>
+      <td>{{ r.entry.entry_type | capitalize }}<div class="faint small">{{ r.entry.note }}</div></td>
+      <td class="r">{{ r.entry.gross_amount | inr }}</td><td class="r">{{ r.entry.amount | inr }}</td><td>{{ r.entry.invoiced_in or 'Not yet' }}</td></tr>
+    {% else %}<tr><td colspan="6" class="text-center muted py-4">No commission this month.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</div></div>
+
+<div class="h-card"><div class="h-card-body">
+  <h5 class="mb-3">Previous months</h5>
+  <table class="h-table">
+    <thead><tr><th>Month</th><th class="r">Bookings</th><th class="r">Booking value</th><th class="r">Commission</th><th>Invoices</th></tr></thead>
+    <tbody>{% for m in history %}
+    <tr><td><a href="{{ url_for('admin.marketplace_commission', month=m.month.strftime('%Y-%m')) }}">{{ m.month.strftime('%B %Y') }}</a></td><td class="r">{{ m.bookings }}</td><td class="r">{{ m.gross | inr }}</td><td class="r">{{ m.commission | inr }}</td><td>{{ m.invoices | join(', ') or '-' }}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+</div></div>
+{% endblock %}

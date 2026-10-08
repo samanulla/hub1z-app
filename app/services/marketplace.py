@@ -125,6 +125,8 @@ def validate_request(listing: MarketplaceListing, start: datetime, end: datetime
     now = now or datetime.utcnow()
     if not listing_is_bookable(listing):
         raise MarketplaceError("This listing is not available for booking.")
+    if listing.resource_type == "virtual_office":
+        raise MarketplaceError("Virtual office plans are arranged by enquiry.")
     if end <= start:
         raise MarketplaceError("End time must be after the start time.")
     if units < 1 or guests < 1:

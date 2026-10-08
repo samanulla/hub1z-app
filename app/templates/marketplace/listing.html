@@ -4,23 +4,30 @@
 <div class="m-wrap">
   <a class="m-note" href="{{ url_for('marketplace.home') }}"><i class="bi bi-arrow-left"></i> All spaces</a>
   <div class="m-head" style="margin-top:14px">
-    <span class="m-chip">{{ 'Meeting room' if item.kind == 'room' else 'Day pass' }}</span>
+    <span class="m-chip">{{ {'room': 'Meeting room', 'day_access': 'Day pass', 'virtual_office': 'Virtual office'}[item.kind] }}</span>
     <h1>{{ item.title }}</h1>
-    <p>{{ item.seller_name }} · {{ item.location_name }}{% if item.city %}, {{ item.city }}{% endif %}{% if item.state %}, {{ item.state }}{% endif %}</p>
+    <p>{{ item.seller_name }} · {{ item.location_name }}{% if item.city %}, {{ item.city }}{% endif %}{% if item.state %}, {{ item.state }}{% endif %} · <a href="{{ item.area_map_url }}" target="_blank" rel="noopener"><i class="bi bi-map"></i> View area on map</a></p>
   </div>
+  {% if item.photo_ids %}
+  <div class="m-gallery">{% for pid in item.photo_ids %}<a href="{{ url_for('marketplace.photo', photo_id=pid) }}" target="_blank" rel="noopener"><img src="{{ url_for('marketplace.photo', photo_id=pid) }}" alt="{{ item.title }} photo {{ loop.index }}" loading="lazy"></a>{% endfor %}</div>
+  {% endif %}
   <div class="m-two">
     <div>
       {% if item.description %}<div class="m-panel"><h2>About this space</h2><p style="margin:0;white-space:pre-line">{{ item.description }}</p></div>{% endif %}
       <div class="m-panel"><h2>Good to know</h2>
         <dl class="m-dl">
           <dt>Available</dt><dd>{{ item.open_text }}</dd>
+          {% if item.kind != 'virtual_office' %}
           <dt>Booking</dt><dd>{{ 'Confirmed instantly' if item.approval_mode == 'instant' else 'The space confirms your request, usually within a day' }}</dd>
           <dt>Notice</dt><dd>Book at least {{ item.min_lead_hours }} hour{{ 's' if item.min_lead_hours != 1 }} ahead{% if item.kind == 'room' %}, up to {{ item.max_length_hours }} hours{% endif %}</dd>
+          {% else %}
+          <dt>How it works</dt><dd>Send an enquiry. The space will check your documents (ID, address proof and business details) before agreeing your plan and issuing the address letter.</dd>
+          {% endif %}
           {% if item.max_guests %}<dt>Guests</dt><dd>Up to {{ item.max_guests }}</dd>{% endif %}
           {% if item.id_required %}<dt>ID</dt><dd>A photo ID is needed. You upload it after booking and the space approves it before you arrive; it is checked again at the door.</dd>{% endif %}
           <dt>Cancellation</dt><dd>{{ item.cancellation_text }}</dd>
           {% if item.house_rules %}<dt>House rules</dt><dd style="white-space:pre-line">{{ item.house_rules }}</dd>{% endif %}
-          <dt>Address</dt><dd>The exact address and access details are shared once your booking is confirmed and paid.</dd>
+          <dt>Address</dt><dd>{% if item.kind == 'virtual_office' %}The business address is shared when your plan is agreed.{% else %}The exact address, access details and directions are shared once your booking is confirmed and paid.{% endif %}</dd>
         </dl>
       </div>
       <div class="m-panel"><h2>Provided by</h2>
@@ -31,6 +38,19 @@
       </div>
     </div>
     <div class="m-panel">
+      {% if item.kind == 'virtual_office' %}
+      <div class="m-price" style="margin-top:0">From ₹{{ '%.2f'|format(item.price * (1 + item.gst_pct / 100)) }} <small>per month incl. {{ item.gst_pct|int }}% GST</small></div>
+      <form method="post" action="{{ url_for('marketplace.enquire', listing_id=item.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="m-label" for="qn">Your name</label><input class="m-field" id="qn" name="name" maxlength="160" required>
+        <label class="m-label" for="qe">Email</label><input class="m-field" id="qe" type="email" name="email" required>
+        <label class="m-label" for="qp">Phone</label><input class="m-field" id="qp" name="phone" maxlength="40">
+        <label class="m-label" for="qc">Business name</label><input class="m-field" id="qc" name="company" maxlength="200">
+        <label class="m-label" for="qm">Anything we should know?</label><textarea class="m-field" id="qm" name="message" rows="3" maxlength="1000"></textarea>
+        <div class="m-note" style="margin-top:10px">Your details are shared with {{ item.seller_name }} so they can reply.</div>
+        <button class="s-btn primary block" style="margin-top:16px" type="submit">Send enquiry</button>
+      </form>
+      {% else %}
       <div class="m-price" style="margin-top:0">₹{{ '%.2f'|format(item.price * (1 + item.gst_pct / 100)) }} <small>{{ item.unit }} incl. {{ item.gst_pct|int }}% GST</small></div>
       <form method="post" action="{{ url_for('marketplace.book', listing_id=item.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -62,6 +82,7 @@
         <button class="s-btn primary block" style="margin-top:18px" type="submit">{{ 'Book now' if item.approval_mode == 'instant' else 'Request booking' }}</button>
         {% if not customer %}<div class="m-note" style="margin-top:10px">You will sign in with an email code first.</div>{% endif %}
       </form>
+      {% endif %}
     </div>
   </div>
 </div>

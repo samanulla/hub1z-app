@@ -2,6 +2,6 @@
 <p>You've been invited to bring <strong>{{ operator.name }}</strong> onto {{ app_name }} as a workspace operator.</p>
 <p><a href="{{ accept_url }}" style="background:#0f766e;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">Accept invitation</a></p>
 <p>Or copy this URL:<br><code>{{ accept_url }}</code></p>
-<p>The link is valid for {{ ttl_days }} days. Your workspace is ready to use on a free trial. No platform approval is required.</p>
+<p>The link is valid for {{ ttl_days }} days. {% if operator.plan_tier == "marketplace_partner" %}Your marketplace listing account is ready. Add your rooms and photos, then publish when you are ready.{% else %}Your workspace is ready to use on a free trial. No platform approval is required.{% endif %}</p>
 <p>If you weren't expecting this, you can safely ignore it.</p>
 <p>— The {{ app_name }} team</p>

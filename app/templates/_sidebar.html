@@ -42,6 +42,9 @@
     {% if current_user.has_platform_permission('operators') %}
     {{ link('Invite operator', 'bi-person-plus-fill', url_for('platform.operator_invite'), ep == 'platform.operator_invite') }}
     {% endif %}
+    {% if config.get('MARKETPLACE_ENABLED') and current_user.has_platform_permission('operators') %}
+      {{ link('Marketplace', 'bi-shop', url_for('platform.marketplace'), ep.startswith('platform.marketplace')) }}
+    {% endif %}
   {% endif %}
   {% if current_user.has_platform_permission('billing') %}
     {{ group('Billing') }}
@@ -81,10 +84,14 @@
     {{ link('Marketplace', 'bi-shop', url_for('admin.marketplace'), ep.startswith('admin.marketplace')) }}
   {% endif %}
   {{ link('Workspace', 'bi-geo-alt-fill', url_for('admin.locations_list'), area == 'workspace' and not ep.startswith('admin.lead') and not ep.startswith('admin.marketplace')) }}
+  {% if is_marketplace_partner(operator) %}
+    {{ link('Hub1z invoices', 'bi-receipt', url_for('admin.hub1z_billing'), ep.startswith('admin.hub1z')) }}
+  {% else %}
   {{ link('People', 'bi-people-fill', url_for('admin.people'), area == 'people') }}
   {{ link('Billing', 'bi-receipt', url_for('admin.invoices_list'), area == 'billing') }}
   {{ link('Reports', 'bi-bar-chart-fill', url_for('admin.reports_home'), ep.startswith('admin.report')) }}
   {{ link('Services', 'bi-chat-square', url_for('community.announcements'), area == 'services', badges.get('parcels')) }}
+  {% endif %}
   {% if current_user.is_super_admin or current_user.is_platform_owner %}
     {{ link('Settings', 'bi-gear-fill', url_for('admin.settings'), area == 'settings') }}
   {% else %}

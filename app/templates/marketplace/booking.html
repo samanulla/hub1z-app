@@ -12,6 +12,7 @@
       {% if b.reveal %}
       <div class="m-panel" style="border-color:#bfe6cc"><h2><i class="bi bi-geo-alt-fill"></i> Where to go</h2>
         <dl class="m-dl"><dt>Address</dt><dd>{{ b.address }}</dd>
+          {% if b.maps_url %}<dt>Directions</dt><dd><a class="s-btn ghost sm" href="{{ b.maps_url }}" target="_blank" rel="noopener"><i class="bi bi-sign-turn-right"></i> Open in Google Maps</a></dd>{% endif %}
           {% if b.access_instructions %}<dt>Access</dt><dd style="white-space:pre-line">{{ b.access_instructions }}</dd>{% endif %}
           <dt>Show</dt><dd>Booking code <b>{{ b.code }}</b>{% if b.id_required %} and your photo ID{% endif %}</dd></dl>
       </div>

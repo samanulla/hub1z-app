@@ -26,6 +26,7 @@
       <nav class="s-links" aria-label="Main">
         <a href="{{ url_for('marketplace.home') }}">Find a space</a>
         {% if customer %}<a href="{{ url_for('marketplace.bookings') }}">My bookings</a>{% endif %}
+        <a href="{{ url_for('marketplace.list_your_space') }}">List your space</a>
       </nav>
       <div class="s-nav-cta">
         {% if customer %}

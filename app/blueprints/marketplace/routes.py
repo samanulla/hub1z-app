@@ -2,19 +2,22 @@
 from __future__ import annotations
 
 import re
+import os
 import secrets
 from contextlib import contextmanager
 from datetime import date, time, timedelta
 
 from flask import (Blueprint, Response, abort, current_app, flash, g, redirect, render_template, request, session,
-                   url_for)
+                   send_from_directory, url_for)
 
 from ...extensions import db, limiter
 from ...models import Operator
 from ...services import marketplace as mk
 from ...services import marketplace_auth as auth
+from ...services import marketplace_leads
 from ...services import marketplace_public as pub
 from ...services import upi
+from ...services.storage import storage_service
 
 marketplace_bp = Blueprint("marketplace", __name__, template_folder="../../templates")
 
@@ -257,3 +260,61 @@ def booking_upi(code):
     if not uri:
         abort(404)
     return Response(upi.qr_png(uri), mimetype="image/png", headers={"Cache-Control": "no-store"})
+
+
+@marketplace_bp.route("/photo/<int:photo_id>")
+def photo(photo_id):
+    found = pub.public_photo(photo_id)
+    if found is None:
+        abort(404)
+    key, content_type = found
+    if current_app.config.get("STORAGE_BACKEND", "local") == "local":
+        response = send_from_directory(os.path.abspath(current_app.config["LOCAL_STORAGE_DIR"]), key,
+                                       mimetype=content_type)
+    else:
+        response = redirect(storage_service.signed_url(key, ttl_seconds=3600, scope="operator"))
+    response.headers["Cache-Control"] = "public, max-age=600"
+    return response
+
+
+@marketplace_bp.route("/l/<int:listing_id>/enquire", methods=["POST"])
+@limiter.limit("5 per minute; 20 per hour", methods=["POST"])
+def enquire(listing_id):
+    row = pub.listing_for_booking(listing_id)
+    if row is None:
+        abort(404)
+    f = request.form
+    with trusted():
+        try:
+            marketplace_leads.vo_enquiry(row, name=f.get("name", ""), email=f.get("email", ""),
+                                         phone=f.get("phone", ""), company=f.get("company", ""),
+                                         message=f.get("message", ""))
+        except mk.MarketplaceError as e:
+            flash(str(e), "danger")
+        else:
+            flash("Thanks. The space will contact you about the next steps.", "success")
+    return redirect(url_for("marketplace.listing", listing_id=listing_id))
+
+
+@marketplace_bp.route("/list-your-space", methods=["GET", "POST"])
+@limiter.limit("5 per hour", methods=["POST"])
+def list_your_space():
+    if request.method == "POST":
+        f = request.form
+        gstin = (f.get("gstin") or "").strip().upper()
+        if gstin and not GSTIN.match(gstin):
+            flash("That GSTIN doesn't look right.", "danger")
+        elif f.get("agree") != "1":
+            flash("Please accept the partner terms to continue.", "danger")
+        else:
+            try:
+                marketplace_leads.partner_application(
+                    business_name=f.get("business_name", ""), contact_name=f.get("contact_name", ""),
+                    email=f.get("email", ""), phone=f.get("phone", ""), address_line1=f.get("address_line1", ""),
+                    city=f.get("city", ""), state=f.get("state", ""), postal_code=f.get("postal_code", ""),
+                    gstin=gstin, pan=f.get("pan", ""), upi_id=f.get("upi_id", ""))
+            except mk.MarketplaceError as e:
+                flash(str(e), "danger")
+            else:
+                return render_template("marketplace/partner_thanks.html")
+    return render_template("marketplace/list_your_space.html")

@@ -23,6 +23,7 @@ def register_cli(app: Flask) -> None:
     app.cli.add_command(credits_cycle_cmd)
     app.cli.add_command(release_no_shows_cmd)
     app.cli.add_command(marketplace_approve_cmd)
+    app.cli.add_command(marketplace_commission_cmd)
     app.cli.add_command(update_platform_owner_email_cmd)
     app.cli.add_command(set_platform_owner_password_cmd)
     app.cli.add_command(seed_manifest_tiers_cmd)
@@ -66,6 +67,18 @@ def marketplace_approve_cmd(slug: str, commission: str, revoke: bool) -> None:
     click.echo(f"{operator.name}: marketplace {'approval withdrawn' if revoke else f'approved at {commission}%'}.")
 
 
+@click.command("marketplace-commission-invoices")
+@click.option("--month", default=None, help="Commission month as YYYY-MM; defaults to last month.")
+@with_appcontext
+def marketplace_commission_cmd(month: str | None) -> None:
+    """Raise the GST invoice for marketplace commission accrued up to the end of a month. Safe to repeat."""
+    from datetime import datetime
+    from .services import marketplace_commission as commission
+    target = datetime.strptime(f"{month}-01", "%Y-%m-%d").date() if month else commission.previous_month()
+    made = commission.generate_invoices(target)
+    click.echo(f"Raised {len(made)} commission invoice(s) for {target:%B %Y}.")
+
+
 @click.command("release-no-shows")
 @with_appcontext
 def release_no_shows_cmd() -> None:
@@ -97,6 +110,8 @@ def run_scheduled_jobs_cmd(month: str | None) -> None:
     no_shows = release_no_shows()
     from .services.marketplace import release_expired
     release_expired()
+    from .services.marketplace_commission import generate_invoices as raise_commission, previous_month
+    raise_commission(previous_month())
     from .services.operator_billing import run_jobs as run_operator_billing
     operator_invoices = run_operator_billing()
     from .services.alerts import run_alert_emails

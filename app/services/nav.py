@@ -28,7 +28,7 @@ def section_navigation():
                         ("Refunds", "admin.refunds"), ("Expenses", "admin.expenses_list"),
                         ("Expense categories", "admin.expense_categories")],
             "reports": [("Reports", "admin.reports_home")],
-            "marketplace": [("Overview & listings", "admin.marketplace"), ("Bookings", "admin.marketplace_bookings")],
+            "marketplace": [("Overview & listings", "admin.marketplace"), ("Bookings", "admin.marketplace_bookings"), ("Commission", "admin.marketplace_commission")],
             "settings": [],
         }
         if current_user.is_manager or current_user.is_super_admin:

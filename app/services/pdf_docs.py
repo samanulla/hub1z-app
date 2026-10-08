@@ -142,7 +142,8 @@ def platform_invoice_context(inv) -> dict:
     if inv.payments:
         rows.extend([("Amount received", rs(payment_total(inv))), ("Balance due", rs(balance(inv)))])
     return dict(
-        issuer=_hub1z_issuer(), logo=hub1z_logo(), title="Invoice for your Hub1z subscription",
+        issuer=_hub1z_issuer(), logo=hub1z_logo(),
+        title="Invoice for Hub1z marketplace commission" if inv.kind == "commission" else "Invoice for your Hub1z subscription",
         meta=[("Invoice no.", inv.number), ("Due", inv.due_date.strftime("%d %b %Y")), ("Status", inv.status.value.title())],
         party_label="Billed to", party=[inv.operator.company_legal_name or inv.operator.name] if inv.operator else [],
         rows=rows,

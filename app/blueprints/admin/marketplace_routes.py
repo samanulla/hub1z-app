@@ -15,9 +15,12 @@ from wtforms.validators import DataRequired, Length, NumberRange, Optional
 from wtforms import widgets
 
 from ...extensions import db
-from ...models import ConferenceRoom, Location, MarketplaceBooking, MarketplaceListing, OperatorMarketplaceTerms
+from ...models import (ConferenceRoom, Location, MarketplaceBooking, MarketplaceListing, MarketplaceListingPhoto,
+                       OperatorMarketplaceTerms)
 from ...models.marketplace import CANCELLATION_PRESETS, PAYMENT_METHODS
 from ...services import marketplace as mk
+from ...services import marketplace_commission as commission
+from ...services import marketplace_photos
 from ...services.storage import storage_service
 from ...utils.decorators import manager_or_super_required
 
@@ -34,7 +37,8 @@ class _Checks(SelectMultipleField):
 
 class ListingForm(FlaskForm):
     resource_type = SelectField("What to share", choices=[("room", "Meeting room (hourly)"),
-                                                          ("day_access", "Hot desk / day pass (per day)")])
+                                                          ("day_access", "Hot desk / day pass (per day)"),
+                                                          ("virtual_office", "Virtual office (enquiries only)")])
     room_id = SelectField("Room", coerce=int, default=0)
     location_id = SelectField("Location", coerce=int, default=0)
     title = StringField("Listing title", validators=[DataRequired(), Length(max=160)])
@@ -58,6 +62,7 @@ class ListingForm(FlaskForm):
     id_required = BooleanField("Photo ID checked at the space")
     house_rules = TextAreaField("House rules", validators=[Optional(), Length(max=2000)])
     show_description = BooleanField("Show the description publicly", default=True)
+    show_photos = BooleanField("Show photos publicly", default=True)
     access_instructions = TextAreaField(
         "Access instructions", validators=[Optional(), Length(max=2000)],
         description="Shown to the guest only after the booking is confirmed and paid (or pay at the space).")
@@ -70,10 +75,11 @@ class ListingForm(FlaskForm):
         if self.resource_type.data == "room" and not self.room_id.data:
             self.room_id.errors.append("Choose a room.")
             ok = False
-        if self.resource_type.data == "day_access":
+        if self.resource_type.data in ("day_access", "virtual_office"):
             if not self.location_id.data:
                 self.location_id.errors.append("Choose a location.")
                 ok = False
+        if self.resource_type.data == "day_access":
             if not self.daily_cap_units.data:
                 self.daily_cap_units.errors.append("Set how many passes you will share each day.")
                 ok = False
@@ -134,7 +140,9 @@ def _apply(form: ListingForm, listing: MarketplaceListing) -> None:
     listing.max_length_hours = form.max_length_hours.data
     listing.guest_rules = {"max_guests": form.max_guests.data, "id_required": bool(form.id_required.data),
                            "house_rules": (form.house_rules.data or "").strip()}
-    listing.visibility = {"description": bool(form.show_description.data)}
+    listing.visibility = {"description": bool(form.show_description.data), "photos": bool(form.show_photos.data)}
+    if listing.resource_type == "virtual_office":
+        listing.approval_mode = "request"
     listing.access_instructions = (form.access_instructions.data or "").strip() or None
     listing.cancellation_preset = form.cancellation_preset.data
 
@@ -150,11 +158,16 @@ def _form_from(listing: MarketplaceListing) -> ListingForm:
         "max_guests": rules.get("max_guests"), "id_required": rules.get("id_required", False),
         "house_rules": rules.get("house_rules", ""),
         "show_description": (listing.visibility or {}).get("description", True),
+        "show_photos": (listing.visibility or {}).get("photos", True),
         "room_id": listing.room_id or 0, "location_id": listing.location_id})
     return form
 
 
 def register_marketplace_routes(bp):
+
+    def _photos(listing):
+        return (MarketplaceListingPhoto.query.filter_by(listing_id=listing.id, operator_id=g.operator_id)
+                .order_by(MarketplaceListingPhoto.sort_order).all())
 
     def _gate():
         if not current_app.config.get("MARKETPLACE_ENABLED"):
@@ -234,7 +247,8 @@ def register_marketplace_routes(bp):
             db.session.commit()
             flash("Listing saved as a draft. Nothing is public until you publish it.", "success")
             return redirect(url_for("admin.marketplace"))
-        return render_template("admin/marketplace/listing_form.html", form=form, title="New listing", listing=None)
+        return render_template("admin/marketplace/listing_form.html", form=form, title="New listing", listing=None,
+                               photos=[])
 
     @bp.route("/marketplace/listings/<int:listing_id>/edit", methods=["GET", "POST"])
     @manager_or_super_required
@@ -253,7 +267,7 @@ def register_marketplace_routes(bp):
             flash("Listing updated. Existing bookings keep the terms they were made under.", "success")
             return redirect(url_for("admin.marketplace"))
         return render_template("admin/marketplace/listing_form.html", form=form, title="Edit listing",
-                               listing=listing)
+                               listing=listing, photos=_photos(listing))
 
     @bp.route("/marketplace/listings/<int:listing_id>/status", methods=["POST"])
     @manager_or_super_required
@@ -278,6 +292,62 @@ def register_marketplace_routes(bp):
                    "unlisted": "Listing removed. Undecided requests were declined.",
                    "draft": "Listing moved back to draft."}[status], "success")
         return redirect(url_for("admin.marketplace"))
+
+    @bp.route("/marketplace/listings/<int:listing_id>/photos", methods=["POST"])
+    @manager_or_super_required
+    def marketplace_photo_upload(listing_id):
+        _gate()
+        listing = _own_listing(listing_id)
+        added = 0
+        for upload in request.files.getlist("photos"):
+            if not upload or not upload.filename:
+                continue
+            try:
+                marketplace_photos.add_photo(listing, upload)
+                added += 1
+            except mk.MarketplaceError as e:
+                flash(f"{upload.filename}: {e}", "warning")
+                break
+        if added:
+            flash(f"{added} photo{'s' if added != 1 else ''} added.", "success")
+        return redirect(url_for("admin.marketplace_listing_edit", listing_id=listing.id))
+
+    @bp.route("/marketplace/photos/<int:photo_id>")
+    @manager_or_super_required
+    def marketplace_photo_view(photo_id):
+        _gate()
+        photo = MarketplaceListingPhoto.query.filter_by(id=photo_id, operator_id=g.operator_id).first()
+        if photo is None:
+            abort(404)
+        if current_app.config.get("STORAGE_BACKEND", "local") == "local":
+            return send_from_directory(os.path.abspath(current_app.config["LOCAL_STORAGE_DIR"]), photo.storage_key,
+                                       mimetype=photo.content_type)
+        return redirect(storage_service.signed_url(photo.storage_key, ttl_seconds=300, scope="operator"))
+
+    @bp.route("/marketplace/photos/<int:photo_id>/delete", methods=["POST"])
+    @manager_or_super_required
+    def marketplace_photo_delete(photo_id):
+        _gate()
+        photo = MarketplaceListingPhoto.query.filter_by(id=photo_id, operator_id=g.operator_id).first()
+        if photo is None:
+            abort(404)
+        listing_id = photo.listing_id
+        marketplace_photos.delete_photo(photo)
+        flash("Photo removed.", "success")
+        return redirect(url_for("admin.marketplace_listing_edit", listing_id=listing_id))
+
+    @bp.route("/marketplace/commission")
+    @manager_or_super_required
+    def marketplace_commission():
+        _gate()
+        terms = _terms()
+        try:
+            month = date.fromisoformat((request.args.get("month") or "") + "-01")
+        except ValueError:
+            month = commission.month_start(date.today())
+        return render_template("admin/marketplace/commission.html", terms=terms,
+                               current=commission.statement(g.operator_id, month),
+                               history=commission.history(g.operator_id), pending=commission.pending_total(g.operator_id))
 
     @bp.route("/marketplace/bookings")
     @manager_or_super_required

@@ -38,4 +38,7 @@ textarea.m-field { height: auto; padding: 10px 14px; }
 .m-foot a { color: var(--s-ink-2); }
 .m-check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; margin-top: 12px; color: var(--s-ink-2); }
 .m-qr { width: 180px; height: 180px; border: 1px solid var(--s-line); border-radius: 12px; }
+.m-thumb { width: 100%; height: 150px; object-fit: cover; border-radius: 10px; margin-bottom: 12px; display: block; }
+.m-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.m-gallery img { width: 100%; height: 170px; object-fit: cover; border-radius: 12px; display: block; }
 @media (max-width: 800px) { .m-two { grid-template-columns: 1fr; } .m-row { grid-template-columns: 1fr; } .m-dl { grid-template-columns: 1fr; } }

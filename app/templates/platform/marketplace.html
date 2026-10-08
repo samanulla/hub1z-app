@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Marketplace{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>Platform</span><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Marketplace</span></div>
+    <h1>Marketplace</h1>
+    <div class="muted mt-1">Approve workspaces for the public marketplace, set each commission rate (8-12% for operators on Hub1z, 12-15% for free listings) and raise the monthly commission invoices.</div>
+  </div>
+</div>
+
+<div class="h-card mb-4"><div class="h-card-body">
+  <h5 class="mb-3">Partner applications</h5>
+  <div style="overflow-x:auto"><table class="h-table">
+    <thead><tr><th>Business</th><th>Contact</th><th>Where</th><th>Tax</th><th>Status</th><th class="r"></th></tr></thead>
+    <tbody>
+    {% for a in applications %}
+    <tr>
+      <td><b>{{ a.business_name }}</b><div class="faint small">{{ a.created_at.strftime('%d %b %Y') }}</div></td>
+      <td>{{ a.contact_name }}<div class="faint small">{{ a.email }}{% if a.phone %} · {{ a.phone }}{% endif %}</div></td>
+      <td>{{ a.address_line1 }}<div class="faint small">{{ a.city }}{% if a.state %}, {{ a.state }}{% endif %} {{ a.postal_code or '' }}</div></td>
+      <td>GSTIN {{ a.gstin or '-' }}<div class="faint small">PAN {{ a.pan or '-' }} · UPI {{ a.upi_id or '-' }}</div></td>
+      <td><span class="h-chip sm {{ 'tint-warn' if a.status == 'pending' else 'tint-success' if a.status == 'approved' else 'tint-neutral' }}">{{ a.status | capitalize }}</span></td>
+      <td class="r text-nowrap">
+        {% if a.status == 'pending' %}
+        <form class="d-inline-flex gap-1" method="post" action="{{ url_for('platform.marketplace_application', application_id=a.id, action='approve') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input class="form-control form-control-sm" name="commission_pct" type="number" step="0.5" min="0" max="30" value="12" style="width:70px" title="Commission %"><button class="btn btn-brand btn-sm">Approve and invite</button></form>
+        <form class="d-inline" method="post" action="{{ url_for('platform.marketplace_application', application_id=a.id, action='reject') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-soft btn-sm">Decline</button></form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}<tr><td colspan="6" class="text-center muted py-4">No applications yet.</td></tr>{% endfor %}
+    </tbody>
+  </table></div>
+</div></div>
+
+<div class="h-card mb-4"><div class="h-card-body">
+  <h5 class="mb-3">Workspaces</h5>
+  <div style="overflow-x:auto"><table class="h-table">
+    <thead><tr><th>Workspace</th><th>Type</th><th>Opted in</th><th class="r">Not invoiced</th><th>Approval and commission</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><b>{{ r.operator.name }}</b><div class="faint small">{{ r.operator.slug }}</div></td>
+      <td>{{ 'Marketplace partner' if r.partner else 'Hub1z workspace' }}</td>
+      <td>{{ 'Yes' if r.terms and r.terms.enabled else 'No' }}</td>
+      <td class="r">{{ r.pending | inr }}</td>
+      <td><form class="d-inline-flex gap-2 align-items-center" method="post" action="{{ url_for('platform.marketplace_operator', operator_id=r.operator.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="approved" value="1" id="ap{{ r.operator.id }}" {{ 'checked' if r.terms and r.terms.kyc_approved }}><label class="form-check-label" for="ap{{ r.operator.id }}">Approved</label></div>
+        <input class="form-control form-control-sm" name="commission_pct" type="number" step="0.5" min="0" max="30" value="{{ r.terms.commission_pct if r.terms else (12 if r.partner else 10) }}" style="width:76px" title="Commission %">
+        <button class="btn btn-soft btn-sm">Save</button></form></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div></div>
+
+<div class="h-card"><div class="h-card-body">
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <h5 class="mb-0">Commission invoices</h5>
+    {% if current_user.has_platform_permission('billing') %}
+    <form class="d-inline-flex gap-2" method="post" action="{{ url_for('platform.marketplace_invoices') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input class="form-control form-control-sm" type="month" name="month" value="{{ month.strftime('%Y-%m') }}"><button class="btn btn-brand btn-sm">Raise invoices up to this month</button></form>
+    {% endif %}
+  </div>
+  <div class="muted small mb-2">Invoices are also raised automatically each month. Anything already invoiced is skipped.</div>
+  <table class="h-table">
+    <thead><tr><th>Invoice</th><th>Workspace</th><th>Period</th><th class="r">Total incl. GST</th><th>Status</th></tr></thead>
+    <tbody>{% for i in invoices %}
+    <tr><td>{{ i.number }}</td><td>{{ i.operator.name }}</td><td>{{ i.period_start.strftime('%b %Y') }}</td><td class="r">{{ i.amount | inr }}</td><td>{{ i.status.value | capitalize }}</td></tr>
+    {% else %}<tr><td colspan="5" class="text-center muted py-4">None yet.</td></tr>{% endfor %}</tbody>
+  </table>
+</div></div>
+{% endblock %}

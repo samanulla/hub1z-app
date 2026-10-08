@@ -51,10 +51,10 @@
     <tbody>
     {% for l in listings %}
     <tr>
-      <td><b>{{ l.title }}</b><div class="faint small">{{ 'Meeting room' if l.resource_type == 'room' else 'Day access' }} · {{ l.location.name }}</div></td>
-      <td>{{ l.price | inr }}<div class="faint small">{{ 'per hour' if l.resource_type == 'room' else 'per day' }} + {{ l.gst_rate_pct }}% GST</div></td>
-      <td>{% if l.resource_type == 'room' %}{{ l.daily_cap_hours_pct }}% of open hours{% else %}{{ l.daily_cap_units }} per day{% endif %}</td>
-      <td>{{ 'Instant' if l.approval_mode == 'instant' else 'Request' }}</td>
+      <td><b>{{ l.title }}</b><div class="faint small">{{ 'Meeting room' if l.resource_type == 'room' else 'Virtual office' if l.resource_type == 'virtual_office' else 'Day access' }} · {{ l.location.name }}</div></td>
+      <td>{{ l.price | inr }}<div class="faint small">{{ {'room': 'per hour', 'day_access': 'per day', 'virtual_office': 'per month'}[l.resource_type] }} + {{ l.gst_rate_pct }}% GST</div></td>
+      <td>{% if l.resource_type == 'room' %}{{ l.daily_cap_hours_pct }}% of open hours{% elif l.resource_type == 'virtual_office' %}Enquiries{% else %}{{ l.daily_cap_units }} per day{% endif %}</td>
+      <td>{{ 'Enquiry' if l.resource_type == 'virtual_office' else 'Instant' if l.approval_mode == 'instant' else 'Request' }}</td>
       <td><span class="h-chip sm {{ {'live': 'tint-success', 'paused': 'tint-warn', 'draft': 'tint-neutral', 'unlisted': 'tint-neutral'}[l.status] }}">{{ l.status | title }}</span></td>
       <td class="r text-nowrap">
         <a class="btn btn-soft btn-sm" href="{{ url_for('admin.marketplace_listing_edit', listing_id=l.id) }}">Edit</a>

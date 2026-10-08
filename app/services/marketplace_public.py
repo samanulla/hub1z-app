@@ -9,12 +9,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
+from urllib.parse import quote_plus
 
 from flask import current_app, request
 
 from ..extensions import db
 from ..models import (
-    Location, MarketplaceBooking, MarketplaceListing, Operator, OperatorMarketplaceTerms,
+    Location, MarketplaceBooking, MarketplaceListing, MarketplaceListingPhoto, Operator, OperatorMarketplaceTerms,
 )
 from ..models.marketplace import CANCELLATION_PRESETS
 from ..models.operator import OperatorStatus
@@ -48,6 +49,8 @@ class PublicListing:
     house_rules: str
     cancellation_text: str
     payment_methods: list[str] = field(default_factory=list)
+    photo_ids: list[int] = field(default_factory=list)
+    area_map_url: str = ""
     access_start: str = "09:00"
     access_end: str = "18:00"
 
@@ -74,11 +77,17 @@ def _project(listing, location, operator, terms) -> PublicListing:
     rules = listing.guest_rules or {}
     visible = (listing.visibility or {}).get("description", True)
     window = (listing.availability_windows or [{}])[0]
+    photo_ids = []
+    if (listing.visibility or {}).get("photos", True):
+        photo_ids = [pid for (pid,) in db.session.query(MarketplaceListingPhoto.id).filter(
+            MarketplaceListingPhoto.listing_id == listing.id).order_by(MarketplaceListingPhoto.sort_order)
+            .execution_options(**READ).all()]
+    unit = {"room": "per hour", "day_access": "per day", "virtual_office": "per month"}[listing.resource_type]
     return PublicListing(
         id=listing.id, title=listing.title, kind=listing.resource_type,
         description=(listing.description or "") if visible else "",
         price=listing.price, gst_pct=listing.gst_rate_pct,
-        unit="per hour" if listing.resource_type == "room" else "per day",
+        unit=unit,
         approval_mode=listing.approval_mode,
         seller_name=operator.company_legal_name or operator.name, seller_gstin=operator.gstin or "",
         seller_contact=operator.support_email or "",
@@ -88,6 +97,9 @@ def _project(listing, location, operator, terms) -> PublicListing:
         id_required=bool(rules.get("id_required")), house_rules=rules.get("house_rules", ""),
         cancellation_text=_cancellation_text(listing.cancellation_preset),
         payment_methods=list(listing.payment_methods or terms.payment_methods or []),
+        photo_ids=photo_ids,
+        area_map_url="https://www.google.com/maps/search/?api=1&query=" + quote_plus(
+            ", ".join(p for p in (location.name, location.city, location.state) if p)),
         access_start=window.get("from", "09:00"), access_end=window.get("to", "18:00"))
 
 
@@ -106,7 +118,7 @@ def search(city: str = "", kind: str = "") -> list[PublicListing]:
     q = _base_query()
     if city:
         q = q.filter(Location.city.ilike(city.strip()))
-    if kind in ("room", "day_access"):
+    if kind in ("room", "day_access", "virtual_office"):
         q = q.filter(MarketplaceListing.resource_type == kind)
     rows = q.order_by(Location.city, MarketplaceListing.price).limit(60).all()
     return [_project(*row) for row in rows]
@@ -165,6 +177,7 @@ class GuestBooking:
     payment_reference: str
     timezone: str
     refund_if_cancelled_pct: int
+    maps_url: str = ""
 
 
 def _guest(booking, listing, location, operator) -> GuestBooking:
@@ -190,7 +203,9 @@ def _guest(booking, listing, location, operator) -> GuestBooking:
         pay_vpa=pay.get("vpa"), pay_upi_id=pay.get("upi_id") or "", pay_bank=pay.get("bank") or "",
         pay_payee=pay.get("payee") or "", pay_instructions=pay.get("instructions") or "",
         payment_reference=booking.payment_reference or "", timezone=location.timezone or "UTC",
-        refund_if_cancelled_pct=mk.refund_pct(booking, by_operator=False))
+        refund_if_cancelled_pct=mk.refund_pct(booking, by_operator=False),
+        maps_url=("https://www.google.com/maps/search/?api=1&query=" + quote_plus(f"{location.name}, {address}")
+                  if address else ""))
 
 
 def _guest_query(customer_id: int):
@@ -227,3 +242,13 @@ def marketplace_url(path: str = "") -> str:
         scheme = request.scheme if request else "http"
         port = request.host.partition(":")[2] if request else ""
     return f"{scheme}://{host}{':' + port if port else ''}/marketplace{path}"
+
+
+def public_photo(photo_id: int):
+    """Storage key and type of a photo, only if its listing is publicly visible and shows photos."""
+    row = (_base_query().join(MarketplaceListingPhoto, MarketplaceListingPhoto.listing_id == MarketplaceListing.id)
+           .filter(MarketplaceListingPhoto.id == photo_id)
+           .add_columns(MarketplaceListingPhoto.storage_key, MarketplaceListingPhoto.content_type).first())
+    if row is None or not (row[0].visibility or {}).get("photos", True):
+        return None
+    return row.storage_key, row.content_type
