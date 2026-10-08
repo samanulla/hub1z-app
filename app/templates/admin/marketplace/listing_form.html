@@ -52,17 +52,42 @@
     {{ field(form.access_instructions) }}
   </div></div>
 
+  {% set cur_kind = listing.resource_type if listing else (form.resource_type.data or 'room') %}
+  <div class="h-card mb-3"><div class="h-card-body">
+    <h5 class="mb-1">Amenities</h5>
+    <div class="muted small mb-3">Tell guests what comes with this listing. Mark each as included, or available to buy at the space (for example drinks or printing). Guests see these before they book.</div>
+    <table class="h-table" id="amenityTable">
+      <thead><tr><th>Amenity</th><th class="text-center">Not offered</th><th class="text-center">Included</th><th class="text-center">Available to buy</th></tr></thead>
+      <tbody>
+      {% for key, label, icon, kinds in amenity_catalog %}
+      <tr data-kinds="{{ kinds | join(' ') }}" {% if listing and cur_kind not in kinds %}style="display:none"{% endif %}>
+        <td><i class="bi {{ icon }}"></i> {{ label }}</td>
+        {% set chosen = amenity_state.get(key, '') %}
+        <td class="text-center"><input type="radio" name="amenity_{{ key }}" value="" {{ 'checked' if chosen not in ('included', 'paid') }}></td>
+        <td class="text-center"><input type="radio" name="amenity_{{ key }}" value="included" {{ 'checked' if chosen == 'included' }}></td>
+        <td class="text-center"><input type="radio" name="amenity_{{ key }}" value="paid" {{ 'checked' if chosen == 'paid' }}></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <label class="form-label mt-3" for="amenity_other">Anything else guests should know about</label>
+    <input class="form-control" id="amenity_other" name="amenity_other" maxlength="200" value="{{ amenity_other }}" placeholder="e.g. Complimentary whiteboard markers, ergonomic chairs">
+  </div></div>
+
   <button class="btn btn-brand" type="submit">Save</button>
   <a class="btn btn-link" href="{{ url_for('admin.marketplace') }}">Cancel</a>
 </form>
 {% if listing %}
 <div class="h-card mt-4"><div class="h-card-body">
   <h5 class="mb-1">Photos</h5>
-  <div class="muted small mb-3">Up to 6 photos (JPG, PNG or WebP, 3 MB each). Guests see them on the listing before they book, so show the room and the building entrance, not private areas.</div>
+  <div class="muted small mb-3">Up to 6 photos (JPG, PNG or WebP, 3 MB each). The cover photo is the picture on the search page; all photos show once a guest opens the listing. Show the room and the building entrance, not private areas.</div>
   <div class="d-flex flex-wrap gap-3 mb-3">
     {% for p in photos %}
     <div style="width:150px"><img src="{{ url_for('admin.marketplace_photo_view', photo_id=p.id) }}" alt="" style="width:150px;height:100px;object-fit:cover;border-radius:10px">
-      <form method="post" action="{{ url_for('admin.marketplace_photo_delete', photo_id=p.id) }}" class="mt-1"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-soft btn-sm">Remove</button></form></div>
+      <div class="d-flex gap-1 mt-1 align-items-center">
+        {% if loop.first %}<span class="h-chip sm tint-success">Cover</span>{% else %}<form method="post" action="{{ url_for('admin.marketplace_photo_cover', photo_id=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-soft btn-sm">Make cover</button></form>{% endif %}
+        <form method="post" action="{{ url_for('admin.marketplace_photo_delete', photo_id=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-soft btn-sm">Remove</button></form>
+      </div></div>
     {% else %}<div class="muted">No photos yet.</div>{% endfor %}
   </div>
   {% if photos|length < 6 %}
@@ -86,6 +111,9 @@
     document.getElementById('capHours').style.display = room ? '' : 'none';
     document.getElementById('locationPick').style.display = room ? 'none' : '';
     document.getElementById('capUnits').style.display = day ? '' : 'none';
+    document.querySelectorAll('#amenityTable tbody tr').forEach(function (row) {
+      row.style.display = row.dataset.kinds.split(' ').indexOf(type.value) >= 0 ? '' : 'none';
+    });
   }
   type.addEventListener('change', sync); sync();
 })();

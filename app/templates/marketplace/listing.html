@@ -9,11 +9,34 @@
     <p>{{ item.seller_name }} · {{ item.location_name }}{% if item.city %}, {{ item.city }}{% endif %}{% if item.state %}, {{ item.state }}{% endif %} · <a href="{{ item.area_map_url }}" target="_blank" rel="noopener"><i class="bi bi-map"></i> View area on map</a></p>
   </div>
   {% if item.photo_ids %}
-  <div class="m-gallery">{% for pid in item.photo_ids %}<a href="{{ url_for('marketplace.photo', photo_id=pid) }}" target="_blank" rel="noopener"><img src="{{ url_for('marketplace.photo', photo_id=pid) }}" alt="{{ item.title }} photo {{ loop.index }}" loading="lazy"></a>{% endfor %}</div>
+  <div class="m-hero">
+    <img id="mainPhoto" src="{{ url_for('marketplace.photo', photo_id=item.photo_ids[0]) }}" alt="{{ item.title }}">
+    {% if item.photo_ids|length > 1 %}<div class="m-thumbs">{% for pid in item.photo_ids %}<button type="button" class="{{ 'on' if loop.first }}" data-src="{{ url_for('marketplace.photo', photo_id=pid) }}" aria-label="Photo {{ loop.index }}"><img src="{{ url_for('marketplace.photo', photo_id=pid) }}" alt="" loading="lazy"></button>{% endfor %}</div>{% endif %}
+  </div>
+  <script>
+    (function () {
+      var main = document.getElementById('mainPhoto');
+      document.querySelectorAll('.m-thumbs button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          main.src = b.dataset.src;
+          document.querySelectorAll('.m-thumbs button').forEach(function (o) { o.classList.remove('on'); });
+          b.classList.add('on');
+        });
+      });
+    })();
+  </script>
   {% endif %}
   <div class="m-two">
     <div>
       {% if item.description %}<div class="m-panel"><h2>About this space</h2><p style="margin:0;white-space:pre-line">{{ item.description }}</p></div>{% endif %}
+      {% set am = item.amenities %}
+      {% if am and (am.included or am.paid or am.other) %}
+      <div class="m-panel"><h2>Amenities</h2>
+        {% if am.included %}<div class="m-amen">{% for a in am.included %}<span><i class="bi {{ a.icon }}"></i> {{ a.label }}</span>{% endfor %}</div>{% endif %}
+        {% if am.paid %}<div class="m-note" style="margin:14px 0 8px"><b>Available to buy at the space</b></div><div class="m-amen paid">{% for a in am.paid %}<span><i class="bi {{ a.icon }}"></i> {{ a.label }}</span>{% endfor %}</div>{% endif %}
+        {% if am.other %}<p class="m-note" style="margin:14px 0 0">{{ am.other }}</p>{% endif %}
+      </div>
+      {% endif %}
       <div class="m-panel"><h2>Good to know</h2>
         <dl class="m-dl">
           <dt>Available</dt><dd>{{ item.open_text }}</dd>

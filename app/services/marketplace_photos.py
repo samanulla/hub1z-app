@@ -46,6 +46,16 @@ def add_photo(listing: MarketplaceListing, file_storage) -> MarketplaceListingPh
     return photo
 
 
+def make_cover(photo: MarketplaceListingPhoto) -> None:
+    """The cover is the first photo: it is the picture on search cards; the rest show on the listing page."""
+    siblings = (MarketplaceListingPhoto.query.filter_by(listing_id=photo.listing_id)
+                .order_by(MarketplaceListingPhoto.sort_order, MarketplaceListingPhoto.id).all())
+    ordered = [photo] + [p for p in siblings if p.id != photo.id]
+    for index, item in enumerate(ordered):
+        item.sort_order = index
+    db.session.commit()
+
+
 def delete_photo(photo: MarketplaceListingPhoto) -> None:
     from .storage import storage_service
     try:

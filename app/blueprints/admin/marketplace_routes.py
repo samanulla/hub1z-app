@@ -19,6 +19,7 @@ from ...models import (ConferenceRoom, Location, MarketplaceBooking, Marketplace
                        OperatorMarketplaceTerms)
 from ...models.marketplace import CANCELLATION_PRESETS, PAYMENT_METHODS
 from ...services import marketplace as mk
+from ...services import marketplace_amenities as amenity_lib
 from ...services import marketplace_commission as commission
 from ...services import marketplace_photos
 from ...services.storage import storage_service
@@ -144,6 +145,7 @@ def _apply(form: ListingForm, listing: MarketplaceListing) -> None:
     if listing.resource_type == "virtual_office":
         listing.approval_mode = "request"
     listing.access_instructions = (form.access_instructions.data or "").strip() or None
+    listing.amenities = amenity_lib.parse(request.form, listing.resource_type)
     listing.cancellation_preset = form.cancellation_preset.data
 
 
@@ -161,6 +163,17 @@ def _form_from(listing: MarketplaceListing) -> ListingForm:
         "show_photos": (listing.visibility or {}).get("photos", True),
         "room_id": listing.room_id or 0, "location_id": listing.location_id})
     return form
+
+
+def _amenity_context(listing=None) -> dict:
+    """Catalog rows plus the current choice for each, from the submitted form when there is one."""
+    if request.method == "POST":
+        state = {k: request.form.get(f"amenity_{k}", "") for k, *_ in amenity_lib.CATALOG}
+        other = request.form.get("amenity_other", "")
+    else:
+        saved = (listing.amenities or {}) if listing else {}
+        state, other = dict(saved.get("items", {})), saved.get("other", "")
+    return {"amenity_catalog": amenity_lib.CATALOG, "amenity_state": state, "amenity_other": other}
 
 
 def register_marketplace_routes(bp):
@@ -248,7 +261,7 @@ def register_marketplace_routes(bp):
             flash("Listing saved as a draft. Nothing is public until you publish it.", "success")
             return redirect(url_for("admin.marketplace"))
         return render_template("admin/marketplace/listing_form.html", form=form, title="New listing", listing=None,
-                               photos=[])
+                               photos=[], **_amenity_context())
 
     @bp.route("/marketplace/listings/<int:listing_id>/edit", methods=["GET", "POST"])
     @manager_or_super_required
@@ -267,7 +280,7 @@ def register_marketplace_routes(bp):
             flash("Listing updated. Existing bookings keep the terms they were made under.", "success")
             return redirect(url_for("admin.marketplace"))
         return render_template("admin/marketplace/listing_form.html", form=form, title="Edit listing",
-                               listing=listing, photos=_photos(listing))
+                               listing=listing, photos=_photos(listing), **_amenity_context(listing))
 
     @bp.route("/marketplace/listings/<int:listing_id>/status", methods=["POST"])
     @manager_or_super_required
@@ -323,6 +336,17 @@ def register_marketplace_routes(bp):
             return send_from_directory(os.path.abspath(current_app.config["LOCAL_STORAGE_DIR"]), photo.storage_key,
                                        mimetype=photo.content_type)
         return redirect(storage_service.signed_url(photo.storage_key, ttl_seconds=300, scope="operator"))
+
+    @bp.route("/marketplace/photos/<int:photo_id>/cover", methods=["POST"])
+    @manager_or_super_required
+    def marketplace_photo_cover(photo_id):
+        _gate()
+        photo = MarketplaceListingPhoto.query.filter_by(id=photo_id, operator_id=g.operator_id).first()
+        if photo is None:
+            abort(404)
+        marketplace_photos.make_cover(photo)
+        flash("Cover photo updated. It is the picture shown on the search page.", "success")
+        return redirect(url_for("admin.marketplace_listing_edit", listing_id=photo.listing_id))
 
     @bp.route("/marketplace/photos/<int:photo_id>/delete", methods=["POST"])
     @manager_or_super_required

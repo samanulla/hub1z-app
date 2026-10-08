@@ -68,6 +68,17 @@ textarea.m-field { height: auto; padding: 10px 14px; }
 .m-tile-cta { border-top: 1px solid var(--s-line); padding: 14px; text-align: center; }
 .m-book { display: inline-block; background: var(--s-brand); color: #fff; font-weight: 700; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; padding: 9px 22px; border-radius: 6px; }
 .m-tile:hover .m-book { background: var(--s-brand-600); }
+.m-hero { margin-bottom: 24px; }
+.m-hero > img { width: 100%; max-height: 420px; object-fit: cover; border-radius: 16px; display: block; background: #e9ebf5; }
+.m-thumbs { display: flex; gap: 10px; margin-top: 10px; overflow-x: auto; }
+.m-thumbs button { border: 2px solid transparent; border-radius: 10px; padding: 0; background: none; cursor: pointer; flex: 0 0 auto; opacity: .75; }
+.m-thumbs button.on { border-color: var(--s-brand); opacity: 1; }
+.m-thumbs img { width: 96px; height: 68px; object-fit: cover; border-radius: 8px; display: block; }
+.m-amen { display: flex; flex-wrap: wrap; gap: 10px 22px; font-size: 14.5px; }
+.m-amen span { display: inline-flex; align-items: center; gap: 8px; }
+.m-amen i { color: var(--s-brand-600); font-size: 17px; }
+.m-amen.paid i { color: var(--s-accent); }
+.m-tile-amen { display: flex; gap: 10px; padding-top: 10px; color: var(--s-ink-3); font-size: 16px; }
 .m-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px; }
 .m-gallery img { width: 100%; height: 170px; object-fit: cover; border-radius: 12px; display: block; }
 @media (max-width: 800px) { .m-two { grid-template-columns: 1fr; } .m-row { grid-template-columns: 1fr; } .m-dl { grid-template-columns: 1fr; } }

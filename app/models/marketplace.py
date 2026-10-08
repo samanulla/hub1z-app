@@ -90,6 +90,7 @@ class MarketplaceListing(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     visibility = Column(JSON, nullable=False, default=dict)   # which details/photos are public
     guest_rules = Column(JSON, nullable=False, default=dict)  # id_required, max_guests, house_rules
+    amenities = Column(JSON, nullable=False, default=dict)    # {"items": {"wifi": "included", "printer": "paid"}, "other": "..."}
     access_instructions = Column(Text)                        # revealed only after confirmed AND (paid OR pay_at_venue)
     cancellation_preset = Column(String(20), nullable=False, default="flexible")
     payment_methods = Column(JSON)                            # null = operator default

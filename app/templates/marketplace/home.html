@@ -37,6 +37,7 @@
           <div><small>Available days</small><span class="m-days">{% for ch in letters %}<i class="{{ 'on' if loop.index0 in l.open_days }}">{{ ch }}</i>{% endfor %}</span></div>
         </div>
         <div class="m-tile-sub">{{ l.seller_name }}<br><i class="bi bi-geo-alt"></i> {{ l.location_name }}{% if l.locality %}, {{ l.locality }}{% endif %}{% if l.city %}, {{ l.city }}{% endif %}</div>
+        {% if l.amenities.included %}<div class="m-tile-amen">{% for a in l.amenities.included[:5] %}<i class="bi {{ a.icon }}" title="{{ a.label }}"></i>{% endfor %}{% if l.amenities.included|length > 5 %}<small>+{{ l.amenities.included|length - 5 }}</small>{% endif %}</div>{% endif %}
         <div class="m-tile-price">{% if l.kind == 'virtual_office' %}From {% endif %}₹{{ '%.0f'|format(l.price * (1 + l.gst_pct / 100)) }} <small>{{ l.unit }}</small></div>
       </div>
       <div class="m-tile-cta"><span class="m-book">{{ 'Enquire' if l.kind == 'virtual_office' else 'Book now' if l.approval_mode == 'instant' else 'Request' }}</span></div>

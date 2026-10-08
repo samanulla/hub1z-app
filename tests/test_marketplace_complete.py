@@ -230,3 +230,48 @@ def test_search_cards_show_hours_open_days_locality_and_filter_by_locality():
     assert 'class="">S' in page and "Book now" in page
     assert "Demo Boardroom" in c.get("/marketplace/?locality=adyar", headers={"Host": SPACES}).data.decode()
     assert "Demo Boardroom" not in c.get("/marketplace/?locality=Velachery", headers={"Host": SPACES}).data.decode()
+
+
+def test_operator_sets_amenities_and_guests_see_them_inside_the_listing():
+    app, ids = _world()
+    owner = _owner(app)
+    h = {"Host": DEMO}
+    form = {"resource_type": "room", "title": "Demo Boardroom", "approval_mode": "instant", "price": "500",
+            "gst_rate_pct": "18", "daily_cap_hours_pct": "100", "min_lead_hours": "2", "max_length_hours": "8",
+            "cancellation_preset": "flexible", "amenity_wifi": "included", "amenity_water": "included",
+            "amenity_snacks_drinks": "paid", "amenity_printer": "paid", "amenity_lockers": "included",
+            "amenity_other": "Complimentary markers"}
+    assert owner.post(f"/admin/marketplace/listings/{ids['live']}/edit", data=form, headers=h).status_code == 302
+    with app.app_context():
+        saved = db.session.get(MarketplaceListing, ids["live"]).amenities
+        assert saved["items"] == {"wifi": "included", "water": "included", "snacks_drinks": "paid", "printer": "paid"}
+        assert saved["other"] == "Complimentary markers"      # lockers does not apply to rooms, so it is dropped
+    edit = owner.get(f"/admin/marketplace/listings/{ids['live']}/edit", headers=h).data.decode()
+    assert "High-speed Wi-Fi" in edit and 'name="amenity_snacks_drinks" value="paid" checked' in edit
+    c = app.test_client()
+    detail = c.get(f"/marketplace/l/{ids['live']}", headers={"Host": SPACES}).data.decode()
+    assert "Amenities" in detail and "High-speed Wi-Fi" in detail and "Available to buy at the space" in detail
+    assert "Printing and scanning" in detail and "Complimentary markers" in detail and "Lockers" not in detail
+    assert "bi-wifi" in c.get("/marketplace/", headers={"Host": SPACES}).data.decode()
+
+
+def test_cover_photo_is_the_search_thumbnail_and_the_rest_show_inside():
+    app, ids = _world()
+    owner = _owner(app)
+    h = {"Host": DEMO}
+    for name in ("one.png", "two.png"):
+        owner.post(f"/admin/marketplace/listings/{ids['live']}/photos", headers=h, content_type="multipart/form-data",
+                   data={"photos": (io.BytesIO(PNG), name)})
+    with app.app_context():
+        first, second = [p.id for p in MarketplaceListingPhoto.query.execution_options(
+            skip_operator_filter=True).order_by(MarketplaceListingPhoto.sort_order).all()]
+    c = app.test_client()
+    home = c.get("/marketplace/", headers={"Host": SPACES}).data.decode()
+    assert f"/marketplace/photo/{first}" in home and f"/marketplace/photo/{second}" not in home
+    detail = c.get(f"/marketplace/l/{ids['live']}", headers={"Host": SPACES}).data.decode()
+    assert f"/marketplace/photo/{first}" in detail and f"/marketplace/photo/{second}" in detail
+    assert owner.post(f"/admin/marketplace/photos/{second}/cover", headers=h).status_code == 302
+    home = c.get("/marketplace/", headers={"Host": SPACES}).data.decode()
+    assert f"/marketplace/photo/{second}" in home and f"/marketplace/photo/{first}" not in home
+    other = _owner(app, OTHER, "owner@otherspace.com")
+    assert other.post(f"/admin/marketplace/photos/{first}/cover", headers={"Host": OTHER}).status_code == 404

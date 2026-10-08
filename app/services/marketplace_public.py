@@ -20,6 +20,7 @@ from ..models import (
 from ..models.marketplace import CANCELLATION_PRESETS
 from ..models.operator import OperatorStatus
 from . import marketplace as mk
+from . import marketplace_amenities as amenity_lib
 
 READ = {"marketplace_read": True, "skip_operator_filter": True}
 DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -54,6 +55,7 @@ class PublicListing:
     locality: str = ""
     open_days: list[int] = field(default_factory=lambda: list(range(7)))
     time_text: str = ""
+    amenities: dict = field(default_factory=dict)
     access_start: str = "09:00"
     access_end: str = "18:00"
 
@@ -104,7 +106,8 @@ def _project(listing, location, operator, terms) -> PublicListing:
         area_map_url="https://www.google.com/maps/search/?api=1&query=" + quote_plus(
             ", ".join(p for p in (location.name, location.city, location.state) if p)),
         access_start=window.get("from", "09:00"), access_end=window.get("to", "18:00"),
-        locality=location.locality or "", open_days=_open_days(listing), time_text=_time_text(listing))
+        locality=location.locality or "", open_days=_open_days(listing), time_text=_time_text(listing),
+        amenities=amenity_lib.display(listing.amenities))
 
 
 def _open_days(listing: MarketplaceListing) -> list[int]:
