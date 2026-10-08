@@ -51,6 +51,9 @@ class PublicListing:
     payment_methods: list[str] = field(default_factory=list)
     photo_ids: list[int] = field(default_factory=list)
     area_map_url: str = ""
+    locality: str = ""
+    open_days: list[int] = field(default_factory=lambda: list(range(7)))
+    time_text: str = ""
     access_start: str = "09:00"
     access_end: str = "18:00"
 
@@ -100,7 +103,25 @@ def _project(listing, location, operator, terms) -> PublicListing:
         photo_ids=photo_ids,
         area_map_url="https://www.google.com/maps/search/?api=1&query=" + quote_plus(
             ", ".join(p for p in (location.name, location.city, location.state) if p)),
-        access_start=window.get("from", "09:00"), access_end=window.get("to", "18:00"))
+        access_start=window.get("from", "09:00"), access_end=window.get("to", "18:00"),
+        locality=location.locality or "", open_days=_open_days(listing), time_text=_time_text(listing))
+
+
+def _open_days(listing: MarketplaceListing) -> list[int]:
+    days = {d for w in (listing.availability_windows or []) for d in w.get("days", range(7))}
+    return sorted(days) if days else list(range(7))
+
+
+def _clock(value: str) -> str:
+    hour, minute = (int(p) for p in value.split(":"))
+    return f"{hour % 12 or 12:02d}:{minute:02d} {'AM' if hour < 12 else 'PM'}"
+
+
+def _time_text(listing: MarketplaceListing) -> str:
+    windows = listing.availability_windows or []
+    if not windows:
+        return "All day"
+    return f"{_clock(windows[0].get('from', '00:00'))} - {_clock(windows[0].get('to', '23:59'))}"
 
 
 def _base_query():
@@ -114,14 +135,23 @@ def _base_query():
             .execution_options(**READ))
 
 
-def search(city: str = "", kind: str = "") -> list[PublicListing]:
+def search(city: str = "", kind: str = "", locality: str = "") -> list[PublicListing]:
     q = _base_query()
     if city:
         q = q.filter(Location.city.ilike(city.strip()))
+    if locality:
+        q = q.filter(Location.locality.ilike(locality.strip()))
     if kind in ("room", "day_access", "virtual_office"):
         q = q.filter(MarketplaceListing.resource_type == kind)
     rows = q.order_by(Location.city, MarketplaceListing.price).limit(60).all()
     return [_project(*row) for row in rows]
+
+
+def localities(city: str = "") -> list[str]:
+    q = _base_query().with_entities(Location.locality).distinct().order_by(Location.locality)
+    if city:
+        q = q.filter(Location.city.ilike(city.strip()))
+    return [name for (name,) in q.all() if name]
 
 
 def cities() -> list[str]:

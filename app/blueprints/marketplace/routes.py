@@ -63,8 +63,9 @@ def _safe_next(target: str | None) -> str:
 def home():
     city = (request.args.get("city") or "").strip()
     kind = request.args.get("kind", "")
-    return render_template("marketplace/home.html", listings=pub.search(city, kind), cities=pub.cities(),
-                           city=city, kind=kind)
+    locality = (request.args.get("locality") or "").strip()
+    return render_template("marketplace/home.html", listings=pub.search(city, kind, locality), cities=pub.cities(),
+                           localities=pub.localities(city), city=city, kind=kind, locality=locality)
 
 
 @marketplace_bp.route("/l/<int:listing_id>")

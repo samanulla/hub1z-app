@@ -1,35 +1,48 @@
 {% extends "marketplace/base.html" %}
 {% block title %}Find a space · Hub1z Spaces{% endblock %}
 {% block content %}
+{% set letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] %}
 <div class="m-wrap">
-  <div class="m-head">
-    <h1>Book a room or a day pass</h1>
-    <p>Meeting rooms and hot desks from independent workspaces, with the price shown including GST.</p>
+  <div class="m-crumbs"><a href="{{ url_for('index') }}">Home</a> <i class="bi bi-chevron-right"></i> <span>Spaces</span></div>
+  <div class="m-headrow">
+    <div class="m-head" style="margin:0">
+      <h1>Rooms, day passes and virtual offices</h1>
+      <p style="margin:6px 0 0">Prices include GST. You pay the space directly.</p>
+    </div>
+    <form class="m-filter" method="get">
+      <span class="m-filter-label">Filter by</span>
+      <select name="city" aria-label="City" onchange="this.form.submit()"><option value="">City</option>{% for c in cities %}<option value="{{ c }}" {{ 'selected' if c|lower == city|lower }}>{{ c }}</option>{% endfor %}</select>
+      <select name="locality" aria-label="Locality" onchange="this.form.submit()"><option value="">Locality</option>{% for n in localities %}<option value="{{ n }}" {{ 'selected' if n|lower == locality|lower }}>{{ n }}</option>{% endfor %}</select>
+      <select name="kind" aria-label="Type" onchange="this.form.submit()">
+        <option value="">Type</option>
+        <option value="room" {{ 'selected' if kind == 'room' }}>Meeting rooms</option>
+        <option value="day_access" {{ 'selected' if kind == 'day_access' }}>Day passes</option>
+        <option value="virtual_office" {{ 'selected' if kind == 'virtual_office' }}>Virtual offices</option>
+      </select>
+      <noscript><button class="s-btn primary sm" type="submit">Search</button></noscript>
+    </form>
   </div>
-  <form class="m-filter" method="get">
-    <select name="city" aria-label="City"><option value="">All cities</option>{% for c in cities %}<option value="{{ c }}" {{ 'selected' if c|lower == city|lower }}>{{ c }}</option>{% endfor %}</select>
-    <select name="kind" aria-label="Type">
-      <option value="">Rooms and day passes</option>
-      <option value="room" {{ 'selected' if kind == 'room' }}>Meeting rooms</option>
-      <option value="day_access" {{ 'selected' if kind == 'day_access' }}>Day passes</option>
-      <option value="virtual_office" {{ 'selected' if kind == 'virtual_office' }}>Virtual offices</option>
-    </select>
-    <button class="s-btn primary sm" type="submit">Search</button>
-  </form>
-  <div class="m-grid">
+  <div class="m-tiles">
     {% for l in listings %}
-    <a class="m-card" href="{{ url_for('marketplace.listing', listing_id=l.id) }}">
-      {% if l.photo_ids %}<img class="m-thumb" src="{{ url_for('marketplace.photo', photo_id=l.photo_ids[0]) }}" alt="" loading="lazy">{% endif %}
-      <span class="m-chip">{{ {'room': 'Meeting room', 'day_access': 'Day pass', 'virtual_office': 'Virtual office'}[l.kind] }}</span>
-      {% if l.kind == 'virtual_office' %}<span class="m-chip warn">Enquire</span>
-      {% elif l.approval_mode == 'request' %}<span class="m-chip warn">On request</span>{% else %}<span class="m-chip ok">Instant</span>{% endif %}
-      <h3>{{ l.title }}</h3>
-      <div class="m-sub">{{ l.seller_name }}</div>
-      <div class="m-sub"><i class="bi bi-geo-alt"></i> {{ l.location_name }}{% if l.city %}, {{ l.city }}{% endif %}</div>
-      <div class="m-price">₹{{ '%.2f'|format(l.price * (1 + l.gst_pct / 100)) }} <small>{{ l.unit }} incl. GST</small></div>
+    <a class="m-tile" href="{{ url_for('marketplace.listing', listing_id=l.id) }}">
+      <div class="m-tile-img">
+        {% if l.photo_ids %}<img src="{{ url_for('marketplace.photo', photo_id=l.photo_ids[0]) }}" alt="" loading="lazy">
+        {% else %}<div class="m-tile-ph"><i class="bi {{ {'room': 'bi-easel2', 'day_access': 'bi-laptop', 'virtual_office': 'bi-building'}[l.kind] }}"></i></div>{% endif %}
+        <span class="m-tile-kind">{{ {'room': 'Meeting room', 'day_access': 'Day pass', 'virtual_office': 'Virtual office'}[l.kind] }}</span>
+        <span class="m-tile-name">{{ l.title }}</span>
+      </div>
+      <div class="m-tile-body">
+        <div class="m-tile-meta">
+          <div><small>Available time</small><b>{{ l.time_text }}</b></div>
+          <div><small>Available days</small><span class="m-days">{% for ch in letters %}<i class="{{ 'on' if loop.index0 in l.open_days }}">{{ ch }}</i>{% endfor %}</span></div>
+        </div>
+        <div class="m-tile-sub">{{ l.seller_name }}<br><i class="bi bi-geo-alt"></i> {{ l.location_name }}{% if l.locality %}, {{ l.locality }}{% endif %}{% if l.city %}, {{ l.city }}{% endif %}</div>
+        <div class="m-tile-price">{% if l.kind == 'virtual_office' %}From {% endif %}₹{{ '%.0f'|format(l.price * (1 + l.gst_pct / 100)) }} <small>{{ l.unit }}</small></div>
+      </div>
+      <div class="m-tile-cta"><span class="m-book">{{ 'Enquire' if l.kind == 'virtual_office' else 'Book now' if l.approval_mode == 'instant' else 'Request' }}</span></div>
     </a>
     {% else %}
-    <div class="m-panel" style="grid-column:1/-1"><b>Nothing to show yet.</b><div class="m-note">No spaces are sharing rooms or passes{% if city or kind %} for that search{% endif %} right now.</div></div>
+    <div class="m-panel" style="grid-column:1/-1"><b>Nothing to show yet.</b><div class="m-note">No spaces are sharing rooms or passes{% if city or kind or locality %} for that search{% endif %} right now.</div></div>
     {% endfor %}
   </div>
 </div>

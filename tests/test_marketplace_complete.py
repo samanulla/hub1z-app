@@ -215,3 +215,18 @@ def test_external_workspace_applies_is_approved_and_gets_a_limited_workspace():
     page = partner.get("/admin/marketplace", headers={"Host": host}).data.decode()
     assert "Marketplace" in page and "/admin/people" not in page and "/admin/reports" not in page
     assert "Hub1z invoices" in page and "trial" not in page.lower()
+
+
+def test_search_cards_show_hours_open_days_locality_and_filter_by_locality():
+    app, ids = _world()
+    with app.app_context():
+        row = db.session.get(MarketplaceListing, ids["live"])
+        row.availability_windows = [{"days": [0, 1, 2, 3, 4], "from": "08:00", "to": "20:00"}]
+        row.location.locality = "Adyar"
+        db.session.commit()
+    c = app.test_client()
+    page = c.get("/marketplace/", headers={"Host": SPACES}).data.decode()
+    assert "08:00 AM - 08:00 PM" in page and "Adyar" in page and 'class="on">M' in page
+    assert 'class="">S' in page and "Book now" in page
+    assert "Demo Boardroom" in c.get("/marketplace/?locality=adyar", headers={"Host": SPACES}).data.decode()
+    assert "Demo Boardroom" not in c.get("/marketplace/?locality=Velachery", headers={"Host": SPACES}).data.decode()

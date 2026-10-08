@@ -33,6 +33,8 @@ class LocationForm(FlaskForm):
                        description="A short, friendly code for this location — handy once you run more than one, e.g. 'ADYAR', 'BLR-01'.")
     address_line1 = StringField("Address", validators=[DataRequired(), Length(max=255)])
     address_line2 = StringField("Address line 2", validators=[Optional(), Length(max=255)])
+    locality = StringField("Area / locality", validators=[Optional(), Length(max=80)],
+                           description="The neighbourhood guests search by on the marketplace, e.g. Adyar or Whitefield.")
     city = StringField("City", validators=[DataRequired(), Length(max=80)])
     state = StringField("State", validators=[Optional(), Length(max=80)])
     country = StringField("Country", validators=[DataRequired(), Length(max=80)], default="US")
