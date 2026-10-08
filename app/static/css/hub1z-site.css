@@ -15,9 +15,9 @@
 
 /* ------------------------------------------------------------------ nav */
 .s-nav { position: sticky; top: 0; z-index: 50; background: rgba(255, 255, 255, .88); backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px); border-bottom: 1px solid rgba(230, 232, 240, .8); }
-.s-nav-in { height: 112px; display: flex; align-items: center; gap: 32px; }
+.s-nav-in { height: 76px; display: flex; align-items: center; gap: 32px; }
 .s-logo { display: inline-flex; align-items: center; flex: 0 0 auto; }
-.s-logo img { height: 88px; width: auto; display: block; }
+.s-logo img { height: 36px; width: 36px; display: block; }
 .s-links { display: flex; gap: 28px; margin-left: 12px; }
 .s-mobile-only { display: none !important; }
 .s-links a { font-size: 15px; font-weight: 500; color: var(--s-ink-2); padding: 6px 0; border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; }
@@ -54,6 +54,8 @@
 .s-head p { color: var(--s-ink-2); font-size: 18px; margin-top: 16px; }
 .s-flash { padding: 12px 16px; text-align: center; font-size: 14.5px; background: var(--s-brand-50); color: var(--s-brand-600); }
 .s-flash.danger { background: #fdecec; color: #b42318; }
+.s-hero-brand { margin: 0 0 24px; }
+.s-hero-brand img { display: block; width: auto; height: 142px; max-width: 100%; }
 
 /* ----------------------------------------------------------------- hero */
 .s-hero {
@@ -246,7 +248,7 @@ a.s-card { display: block; }
 }
 @media (max-width: 860px) {
   .s-burger { display: inline-flex; margin-left: 8px; }
-  .s-links { display: none; position: absolute; left: 0; right: 0; top: 112px; background: #fff; flex-direction: column; gap: 0; margin: 0; padding: 8px 28px 18px; border-bottom: 1px solid var(--s-line); box-shadow: 0 18px 30px -20px rgba(21, 26, 45, .3); }
+  .s-links { display: none; position: absolute; left: 0; right: 0; top: 76px; background: #fff; flex-direction: column; gap: 0; margin: 0; padding: 8px 28px 18px; border-bottom: 1px solid var(--s-line); box-shadow: 0 18px 30px -20px rgba(21, 26, 45, .3); }
   .s-nav.open .s-links { display: flex; }
   .s-links a { padding: 14px 0; border-bottom: 1px solid var(--s-line); }
   .s-nav-in { gap: 12px; }
@@ -254,8 +256,8 @@ a.s-card { display: block; }
   .s-links .s-mobile-only { display: block !important; }
 }
 @media (max-width: 480px) {
-  .s-logo img { height: 76px; }
   .s-nav-cta .primary { display: none; }
+  .s-hero-brand img { height: 112px; }
 }
 @media (max-width: 640px) {
   .s-section { padding: 64px 0; }

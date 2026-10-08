@@ -42,7 +42,7 @@
     <header class="h-top">
       {% if authed %}
         <button class="h-burger" type="button" data-h-toggle="side" aria-label="Menu"><i class="bi bi-list"></i></button>
-        {% set header_name = current_user.company.name if current_user.company else (operator.name if operator else app_name) %}
+        {% set header_name = 'Platform' if current_user.is_platform_staff else (current_user.company.name if current_user.company else (operator.name if operator else app_name)) %}
         <div class="h-org" title="{{ header_name }}">{{ header_name }}</div>
       {% else %}
         <a class="h-brand on-light" href="{{ url_for('index') }}">
