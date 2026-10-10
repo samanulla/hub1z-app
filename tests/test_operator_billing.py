@@ -235,8 +235,10 @@ def test_customers_have_no_banner_or_plan_picker(scenario, role):
     assert client.get("/admin/hub1z-billing/plans", headers=headers).status_code == 403
 
 
-def test_owner_selection_and_platform_payment_routes(scenario):
+def test_owner_selection_and_platform_payment_routes(scenario, monkeypatch):
     from app.models import UserRole
+    from app.services import owner_details
+    monkeypatch.setattr(owner_details, "status", lambda operator: {"complete": True})
     app, operator = scenario
     owner = _user(operator, UserRole.SUPER_ADMIN, "owner@hub1z.com")
     platform = _user(None, UserRole.PLATFORM_OWNER, "platform@hub1z.com")
