@@ -6,7 +6,7 @@ from flask_login import current_user
 
 from ...extensions import db
 from ...models import SystemSettings, Location, UserRole, Seat, User, Document
-from ...services import audit_service
+from ...services import audit_service, owner_details
 from ...utils.decorators import super_admin_required
 from .forms import SystemSettingsForm, OperatorSettingsForm
 from ..profile_forms import PROFILE_GROUPS, save_details
@@ -67,7 +67,8 @@ def register_settings_routes(bp):
                       "staff": User.query.filter(User.role.in_([UserRole.SUPER_ADMIN, UserRole.MANAGER, UserRole.LOCATION_MANAGER])).count()}
             documents = Document.query.filter_by(owner_type="operator", operator_id=operator.id).all()
             return render_template("admin/operator_settings.html", form=form, operator=operator,
-                                   profile_groups=PROFILE_GROUPS, counts=counts, documents=documents)
+                                   profile_groups=PROFILE_GROUPS, counts=counts, documents=documents,
+                                   owner_status=owner_details.status(operator))
 
         s = SystemSettings.get()
         form = SystemSettingsForm(obj=s)

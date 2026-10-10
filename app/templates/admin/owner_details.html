@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}Owner details{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>{{ operator.name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><a href="{{ url_for('admin.settings') }}">Operator profile</a><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Owner details</span></div>
+    <h1>Owner details</h1>
+    <div class="muted mt-1">In many businesses the person who signs up is not the owner. Tell us who owns the business and, if you are acting for them, how you are authorised. We ask for this before a paid plan so invoices and agreements are with the right people.</div>
+  </div>
+</div>
+
+<div class="h-card mb-4"><div class="h-card-body">
+  {% if status.complete %}
+  <div class="d-flex align-items-center gap-3"><span class="h-chip tint-success">Complete</span><span>Your owner details are ready for a paid plan. You can update them any time.</span></div>
+  {% else %}
+  <div class="d-flex align-items-start gap-3"><span class="h-chip tint-warn">Needed before a paid plan</span>
+    <div><b>Still to do</b><ul class="mb-0 mt-1">{% for item in status.missing %}<li>{{ item }}</li>{% endfor %}</ul></div></div>
+  {% endif %}
+</div></div>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+  {{ form.hidden_tag() }}
+
+  <div class="h-card mb-4"><div class="h-card-body">
+    <h5 class="mb-1"><span class="h-chip sm tint-brand me-2">1</span>Who is setting up this account?</h5>
+    <div class="muted small mb-3">This tells us whether the owner is also the person signed in.</div>
+    {% for value, label in form.owner_setup_role.choices %}
+    <div class="form-check mb-2"><input class="form-check-input" type="radio" name="owner_setup_role" id="role-{{ value }}" value="{{ value }}" {{ 'checked' if form.owner_setup_role.data == value }}><label class="form-check-label" for="role-{{ value }}">{{ label }}</label></div>
+    {% endfor %}
+    {% for e in form.owner_setup_role.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+    <div id="repRole" class="mt-3" style="max-width:420px">{{ field(form.rep_designation) }}</div>
+  </div></div>
+
+  <div class="h-card mb-4"><div class="h-card-body">
+    <h5 class="mb-1"><span class="h-chip sm tint-brand me-2">2</span>Business owner or director</h5>
+    <div class="muted small mb-3">If you are the owner, enter your own details.</div>
+    <div class="row">
+      <div class="col-md-6">{{ field(form.owner_name) }}</div>
+      <div class="col-md-6">{{ field(form.owner_designation) }}</div>
+      <div class="col-md-4">{{ field(form.owner_mobile) }}</div>
+      <div class="col-md-4">{{ field(form.owner_email) }}</div>
+      <div class="col-md-4">{{ field(form.owner_pan) }}</div>
+    </div>
+  </div></div>
+
+  <div class="h-card mb-4" id="repAuthority"><div class="h-card-body">
+    <h5 class="mb-1"><span class="h-chip sm tint-brand me-2">3</span>Authority to act for the owner</h5>
+    <div class="muted small mb-3">Only needed if you are a representative. Upload a letter on the business letterhead, signed by the owner or director, authorising you to manage this account.</div>
+    {{ field(form.rep_declaration) }}
+    {% if status.docs.get('authorisation_letter') %}<div class="small mb-2"><i class="bi bi-paperclip"></i> On file: <a href="{{ url_for('admin.document_download', doc_id=status.docs['authorisation_letter'].id) }}">{{ status.docs['authorisation_letter'].filename }}</a></div>{% endif %}
+    {{ field(form.auth_file) }}
+  </div></div>
+
+  <div class="h-card mb-4"><div class="h-card-body">
+    <h5 class="mb-1"><span class="h-chip sm tint-brand me-2">4</span>Owner KYC documents</h5>
+    <div class="muted small mb-3">PDF, PNG or JPG. Stored privately and visible only to your owner account and Hub1z. For Aadhaar, upload a copy with the number masked.</div>
+    <div class="row">
+      <div class="col-md-6">
+        {% if status.docs.get('owner_pan_card') %}<div class="small mb-1"><i class="bi bi-check-circle-fill text-success"></i> On file: <a href="{{ url_for('admin.document_download', doc_id=status.docs['owner_pan_card'].id) }}">{{ status.docs['owner_pan_card'].filename }}</a></div>{% endif %}
+        {{ field(form.pan_file) }}
+      </div>
+      <div class="col-md-6">
+        {% if status.docs.get('owner_id_proof') %}<div class="small mb-1"><i class="bi bi-check-circle-fill text-success"></i> On file: <a href="{{ url_for('admin.document_download', doc_id=status.docs['owner_id_proof'].id) }}">{{ status.docs['owner_id_proof'].filename }}</a></div>{% endif %}
+        {{ field(form.id_file) }}
+        <div class="form-text" style="margin-top:-12px">{{ labels['owner_id_proof'] }}</div>
+      </div>
+    </div>
+  </div></div>
+
+  <button class="btn btn-brand" type="submit">Save owner details</button>
+  <a class="btn btn-link" href="{{ url_for('admin.settings') }}">Back to Operator profile</a>
+</form>
+
+<script>
+(function () {
+  var radios = document.querySelectorAll('input[name="owner_setup_role"]');
+  function sync() {
+    var rep = document.querySelector('input[name="owner_setup_role"]:checked');
+    var isRep = rep && rep.value === 'representative';
+    document.getElementById('repRole').style.display = isRep ? '' : 'none';
+    document.getElementById('repAuthority').style.display = isRep ? '' : 'none';
+  }
+  radios.forEach(function (r) { r.addEventListener('change', sync); });
+  sync();
+})();
+</script>
+{% endblock %}

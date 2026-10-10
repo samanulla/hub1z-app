@@ -1,0 +1,24 @@
+Hi {{ user.full_name }},
+
+Congratulations. {{ operator.name }} is now on {{ tier_name }}.
+
+Thank you for choosing Hub1z to run your space. Your payment is confirmed and everything in your plan is unlocked.
+
+YOUR PLAN: {{ tier_name }} ({{ cycle_label }})
+{% if period_end %}PAID THROUGH: {{ period_end }}
+{% endif %}{% if invoice_number %}INVOICE: {{ invoice_number }}{% if invoice_amount %} ({{ invoice_amount }}){% endif %}
+{% endif %}WORKSPACE: {{ login_url }}
+{% if plan_highlights %}
+NOW INCLUDED
+{% for line in plan_highlights %}- {{ line }}
+{% endfor %}{% endif %}
+MAKE THE MOST OF IT
+1. Invite your whole team and set who can see which location.
+2. Turn on meeting-room credits and agreements for your companies.
+3. Check your GST and invoice settings so month-end billing runs by itself.
+4. Keep your owner details and documents up to date in Settings, Operator profile.
+{% if higher_tiers %}
+Whenever you need more room: {{ higher_tiers[0].name }} {% if higher_tiers[0].blurb %}{{ higher_tiers[0].blurb }}{% else %}has room for more locations, people and storage{% endif %}. You can change plan any time under Settings, Hub1z plans.
+{% endif %}
+Thank you for building with us,
+The Hub1z team

@@ -1,13 +1,19 @@
 Hi {{ user.full_name }},
 
-You've been invited to bring {{ operator.name }} onto {{ app_name }} as a coworking-space operator.
+Your Hub1z workspace for {{ operator.name }} has been created. Two quick steps and you are in.
 
-Click the link below to set your password and start setting up your workspace. The link is valid for {{ ttl_days }} days.
+YOUR WORKSPACE ADDRESS
+{{ operator.primary_domain }}
+This is where you and your team sign in, and where your members will book. It is reserved for you.
 
+STEP 1. SET YOUR PASSWORD
+Sign-in email: {{ user.email }}
+Open this link and choose a password of at least 8 characters. It works for {{ ttl_days }} days:
 {{ accept_url }}
 
-{% if operator.plan_tier == "marketplace_partner" %}Your marketplace listing account is ready. Add your rooms and photos, then publish when you are ready.{% else %}Your workspace is ready to use on a free trial. No platform approval is required.{% endif %}
+STEP 2. SIGN IN TO YOUR WORKSPACE
+After you set the password you land on {{ operator.primary_domain }}. Bookmark it: that address is always your sign-in page.
 
-If you weren't expecting this invitation, you can safely ignore it.
+{% if operator.plan_tier == 'marketplace_partner' %}Your marketplace listing account is ready. Add your rooms and photos, then publish when you are ready.{% else %}Your workspace starts on a free trial. No card is needed.{% endif %} If you were not expecting this invitation, you can ignore this email.
 
-— The {{ app_name }} team
+The Hub1z team

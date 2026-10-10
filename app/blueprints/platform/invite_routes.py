@@ -12,7 +12,7 @@ from flask_login import logout_user
 
 from ...extensions import db
 from ...models import Operator, OperatorStatus, User, UserRole
-from ...services import audit_service, mail_service
+from ...services import audit_service, mail_service, operator_emails
 from ...services.operator_billing import start_trial
 from ...services.marketplace_partner import is_marketplace_partner
 from ...services.operator_urls import workspace_url
@@ -97,6 +97,7 @@ def register_invite_routes(bp):
             if user.operator.trial_ends_at is None and not is_marketplace_partner(user.operator):
                 start_trial(user.operator)
             db.session.commit()
+            operator_emails.send_welcome(user.operator, user)
             logout_user()
             return redirect(workspace_url(user.operator, "/auth/login"))
         return render_template("platform/operator_accept_invite.html", form=form, user=user)

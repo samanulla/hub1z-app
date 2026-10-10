@@ -1,0 +1,31 @@
+{% extends "emails/_frame.html" %}
+{% from "emails/_steps.html" import flow %}
+{% block body %}
+<p>Hi {{ user.full_name }},</p>
+<p>Thank you for signing up. <strong>{{ operator.name }}</strong> is now live on Hub1z.</p>
+
+<div style="background:#f6f7fb;border:1px solid #e6e8f0;border-radius:12px;padding:16px 18px;margin:18px 0">
+  <table role="presentation" style="width:100%;border-collapse:collapse;font-size:14.5px">
+    <tr><td style="color:#8b93a7;padding:3px 0;width:150px">Your plan</td><td><strong>{{ plan_label }}</strong>{% if trial_tier_name %} <span style="color:#4a5268">with everything in {{ trial_tier_name }}</span>{% endif %}</td></tr>
+    {% if trial_ends %}<tr><td style="color:#8b93a7;padding:3px 0">Free until</td><td><strong>{{ trial_ends }}</strong> ({{ trial_days }} days, no card needed)</td></tr>{% endif %}
+    <tr><td style="color:#8b93a7;padding:3px 0">Workspace address</td><td><strong>{{ operator.primary_domain }}</strong></td></tr>
+    <tr><td style="color:#8b93a7;padding:3px 0">Sign in</td><td><a href="{{ login_url }}" style="color:#5b5bd6">{{ login_url }}</a></td></tr>
+  </table>
+</div>
+
+<p style="margin:20px 0 8px"><strong>What to do first</strong></p>
+{{ flow([
+  ('🪪', 'Add who owns the business', 'Under Settings, Operator profile, tell us the owner or director and, if you are setting this up on their behalf, upload their authorisation. Needed before a paid plan.'),
+  ('🏢', 'Add your location, floors, seats and meeting rooms', 'Describe the space members will book.'),
+  ('💳', 'Set up how members pay you', 'Add your UPI ID and GST details so every invoice carries a QR code and the right tax split.'),
+  ('👥', 'Invite your team and first members', 'Bring in staff, members or companies.'),
+  ('🚀', 'Share your booking page', operator.primary_domain),
+]) }}
+
+<p style="margin:22px 0 0"><a href="{{ login_url }}" style="background:#5b5bd6;color:#ffffff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block">Open my workspace</a></p>
+
+{% if higher_tiers %}
+<p style="margin:26px 0 0;font-size:13px;color:#8b93a7">When you grow: {{ higher_tiers[0].name }} {% if higher_tiers[0].blurb %}{{ higher_tiers[0].blurb }}{% else %}has room for more locations, people and storage{% endif %}{% if higher_tiers|length > 1 %}, and {{ higher_tiers[1].name }} suits larger operations{% endif %}. You can compare plans any time under Settings, Hub1z plans.</p>
+{% endif %}
+<p style="margin:18px 0 0">Welcome aboard,<br>The Hub1z team</p>
+{% endblock %}

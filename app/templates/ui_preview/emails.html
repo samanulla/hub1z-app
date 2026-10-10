@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Operator emails · hub1z preview</title>
+  <style>
+    body { margin: 0; background: #eef0f6; font-family: Inter, Arial, sans-serif; color: #151a2d; }
+    .top { padding: 28px 32px 8px; max-width: 880px; margin: 0 auto; }
+    .top h1 { margin: 0 0 6px; font-size: 26px; }
+    .top p { margin: 0; color: #4a5268; }
+    nav { max-width: 880px; margin: 14px auto 0; padding: 0 32px; display: flex; gap: 10px; flex-wrap: wrap; }
+    nav a { background: #fff; border: 1px solid #dfe2ee; border-radius: 99px; padding: 6px 14px; font-size: 13.5px; color: #4a4ac2; text-decoration: none; }
+    .mail { max-width: 880px; margin: 24px auto; background: #fff; border: 1px solid #dfe2ee; border-radius: 14px; overflow: hidden; }
+    .head { padding: 16px 24px; background: #f6f7fb; border-bottom: 1px solid #dfe2ee; font-size: 14px; }
+    .head b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #8b93a7; margin-bottom: 6px; }
+    .head div { margin-top: 3px; }
+    .body { padding: 8px 24px 28px; }
+    details { padding: 0 24px 18px; }
+    pre { white-space: pre-wrap; background: #f6f7fb; border-radius: 10px; padding: 14px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="top"><h1>Operator emails</h1><p>Made-up sample data, shown on screen only. Nothing is sent from this page.</p></div>
+  <nav>{% for e in emails %}<a href="#{{ e.key }}">{{ e.title }}</a>{% endfor %}</nav>
+  {% for e in emails %}
+  <section class="mail" id="{{ e.key }}">
+    <div class="head"><b>{{ e.title }}</b><div><strong>Subject:</strong> {{ e.subject }}</div><div><strong>To:</strong> {{ e.to }}</div></div>
+    <div class="body">{{ e.html | safe }}</div>
+    <details><summary>Plain-text version</summary><pre>{{ e.text }}</pre></details>
+  </section>
+  {% endfor %}
+</body>
+</html>
