@@ -40,6 +40,9 @@ def _room_category_choices(operator_id: int) -> list[tuple[int, str]]:
 @admin_bp.route("/")
 @admin_required
 def dashboard():
+    from ...services.marketplace_partner import is_marketplace_partner
+    if is_marketplace_partner(getattr(g, "operator", None)):
+        return redirect(url_for("admin.marketplace"))
     # Seat/ConferenceRoom/SeatBooking/RoomBooking have no operator_id of their
     # own (scoped only via Location), so the ambient auto-scoping listener
     # doesn't filter them — these joins scope them explicitly.

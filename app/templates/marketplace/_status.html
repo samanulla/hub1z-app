@@ -1,0 +1,4 @@
+{% if b.status in ('confirmed', 'checked_in', 'completed') %}<span class="m-chip ok">{{ b.status.replace('_', ' ')|capitalize }}</span>
+{% elif b.status == 'requested' %}<span class="m-chip warn">Waiting for the space</span>
+{% elif b.status == 'held' %}<span class="m-chip warn">{{ 'Payment being checked' if b.payment_status == 'pending_verification' else 'Payment due' }}</span>
+{% else %}<span class="m-chip off">{{ b.status.replace('_', ' ')|capitalize }}</span>{% endif %}

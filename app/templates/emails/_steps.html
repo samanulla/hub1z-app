@@ -1,0 +1,17 @@
+{# steps: list of (icon, title, text); rendered as a vertical flow with arrows between steps #}
+{% macro flow(steps) %}
+<table role="presentation" style="width:100%;border-collapse:collapse;margin:6px 0 0">
+{% for icon, title, text in steps %}
+  <tr>
+    <td style="width:48px;vertical-align:top;text-align:center">
+      <div style="width:40px;height:40px;line-height:40px;border-radius:20px;background:#eeeefc;font-size:20px;text-align:center">{{ icon }}</div>
+      {% if not loop.last %}<div style="color:#5b5bd6;font-size:20px;line-height:22px;font-weight:700">&#8595;</div>{% endif %}
+    </td>
+    <td style="vertical-align:top;padding:0 0 {{ 4 if loop.last else 2 }}px 8px">
+      <div style="font-weight:700;color:#151a2d;padding-top:8px">{{ title }}</div>
+      <div style="font-size:14px;color:#4a5268;padding-bottom:10px">{{ text }}</div>
+    </td>
+  </tr>
+{% endfor %}
+</table>
+{% endmacro %}

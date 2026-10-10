@@ -250,6 +250,9 @@ def register_operator():
         start_trial(t)
         db.session.commit()
 
+        from ...services import operator_emails
+        operator_emails.send_welcome(t, admin)
+
         flash(f"Welcome! Your {trial_days}-day free trial has started — "
              f"explore everything, and we'll be in touch to get you fully set up.", "success")
         from ...services.operator_urls import workspace_url

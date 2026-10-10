@@ -1,0 +1,5 @@
+Hi {{ name }},
+
+Your Hub1z sign-in code is {{ code }}. It is valid for {{ ttl_minutes }} minutes.
+
+If you didn't ask for this, you can ignore this email.

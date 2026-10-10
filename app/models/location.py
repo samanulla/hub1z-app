@@ -21,6 +21,7 @@ class Location(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     code = Column(String(20), nullable=False)
     address_line1 = Column(String(255), nullable=False)
     address_line2 = Column(String(255))
+    locality = Column(String(80))   # area shown on the public marketplace, e.g. "Adyar"
     city = Column(String(80), nullable=False)
     state = Column(String(80))
     country = Column(String(80), nullable=False, default="US")

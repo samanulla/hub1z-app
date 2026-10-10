@@ -1,0 +1,112 @@
+{% extends "marketplace/base.html" %}
+{% block title %}{{ item.title }} · Hub1z Spaces{% endblock %}
+{% block content %}
+<div class="m-wrap">
+  <a class="m-note" href="{{ url_for('marketplace.home') }}"><i class="bi bi-arrow-left"></i> All spaces</a>
+  <div class="m-head" style="margin-top:14px">
+    <span class="m-chip">{{ {'room': 'Meeting room', 'day_access': 'Day pass', 'virtual_office': 'Virtual office'}[item.kind] }}</span>
+    <h1>{{ item.title }}</h1>
+    <p>{{ item.seller_name }} · {{ item.location_name }}{% if item.city %}, {{ item.city }}{% endif %}{% if item.state %}, {{ item.state }}{% endif %} · <a href="{{ item.area_map_url }}" target="_blank" rel="noopener"><i class="bi bi-map"></i> View area on map</a></p>
+  </div>
+  {% if item.photo_ids %}
+  <div class="m-hero">
+    <img id="mainPhoto" src="{{ url_for('marketplace.photo', photo_id=item.photo_ids[0]) }}" alt="{{ item.title }}">
+    {% if item.photo_ids|length > 1 %}<div class="m-thumbs">{% for pid in item.photo_ids %}<button type="button" class="{{ 'on' if loop.first }}" data-src="{{ url_for('marketplace.photo', photo_id=pid) }}" aria-label="Photo {{ loop.index }}"><img src="{{ url_for('marketplace.photo', photo_id=pid) }}" alt="" loading="lazy"></button>{% endfor %}</div>{% endif %}
+  </div>
+  <script>
+    (function () {
+      var main = document.getElementById('mainPhoto');
+      document.querySelectorAll('.m-thumbs button').forEach(function (b) {
+        b.addEventListener('click', function () {
+          main.src = b.dataset.src;
+          document.querySelectorAll('.m-thumbs button').forEach(function (o) { o.classList.remove('on'); });
+          b.classList.add('on');
+        });
+      });
+    })();
+  </script>
+  {% endif %}
+  <div class="m-two">
+    <div>
+      {% if item.description %}<div class="m-panel"><h2>About this space</h2><p style="margin:0;white-space:pre-line">{{ item.description }}</p></div>{% endif %}
+      {% set am = item.amenities %}
+      {% if am and (am.included or am.paid or am.other) %}
+      <div class="m-panel"><h2>Amenities</h2>
+        {% if am.included %}<div class="m-amen">{% for a in am.included %}<span><i class="bi {{ a.icon }}"></i> {{ a.label }}</span>{% endfor %}</div>{% endif %}
+        {% if am.paid %}<div class="m-note" style="margin:14px 0 8px"><b>Available to buy at the space</b></div><div class="m-amen paid">{% for a in am.paid %}<span><i class="bi {{ a.icon }}"></i> {{ a.label }}</span>{% endfor %}</div>{% endif %}
+        {% if am.other %}<p class="m-note" style="margin:14px 0 0">{{ am.other }}</p>{% endif %}
+      </div>
+      {% endif %}
+      <div class="m-panel"><h2>Good to know</h2>
+        <dl class="m-dl">
+          <dt>Available</dt><dd>{{ item.open_text }}</dd>
+          {% if item.kind != 'virtual_office' %}
+          <dt>Booking</dt><dd>{{ 'Confirmed instantly' if item.approval_mode == 'instant' else 'The space confirms your request, usually within a day' }}</dd>
+          <dt>Notice</dt><dd>Book at least {{ item.min_lead_hours }} hour{{ 's' if item.min_lead_hours != 1 }} ahead{% if item.kind == 'room' %}, up to {{ item.max_length_hours }} hours{% endif %}</dd>
+          {% else %}
+          <dt>How it works</dt><dd>Send an enquiry. The space will check your documents (ID, address proof and business details) before agreeing your plan and issuing the address letter.</dd>
+          {% endif %}
+          {% if item.max_guests %}<dt>Guests</dt><dd>Up to {{ item.max_guests }}</dd>{% endif %}
+          {% if item.id_required %}<dt>ID</dt><dd>A photo ID is needed. You upload it after booking and the space approves it before you arrive; it is checked again at the door.</dd>{% endif %}
+          <dt>Cancellation</dt><dd>{{ item.cancellation_text }}</dd>
+          {% if item.house_rules %}<dt>House rules</dt><dd style="white-space:pre-line">{{ item.house_rules }}</dd>{% endif %}
+          <dt>Address</dt><dd>{% if item.kind == 'virtual_office' %}The business address is shared when your plan is agreed.{% else %}The exact address, access details and directions are shared once your booking is confirmed and paid.{% endif %}</dd>
+        </dl>
+      </div>
+      <div class="m-panel"><h2>Provided by</h2>
+        <dl class="m-dl"><dt>Operator</dt><dd>{{ item.seller_name }}</dd>
+          {% if item.seller_gstin %}<dt>GSTIN</dt><dd>{{ item.seller_gstin }}</dd>{% endif %}
+          <dt>Location</dt><dd>{{ item.location_name }}{% if item.city %}, {{ item.city }}{% endif %}</dd>
+          {% if item.seller_contact %}<dt>Contact</dt><dd>{{ item.seller_contact }}</dd>{% endif %}</dl>
+      </div>
+    </div>
+    <div class="m-panel">
+      {% if item.kind == 'virtual_office' %}
+      <div class="m-price" style="margin-top:0">From ₹{{ '%.2f'|format(item.price * (1 + item.gst_pct / 100)) }} <small>per month incl. {{ item.gst_pct|int }}% GST</small></div>
+      <form method="post" action="{{ url_for('marketplace.enquire', listing_id=item.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="m-label" for="qn">Your name</label><input class="m-field" id="qn" name="name" maxlength="160" required>
+        <label class="m-label" for="qe">Email</label><input class="m-field" id="qe" type="email" name="email" required>
+        <label class="m-label" for="qp">Phone</label><input class="m-field" id="qp" name="phone" maxlength="40">
+        <label class="m-label" for="qc">Business name</label><input class="m-field" id="qc" name="company" maxlength="200">
+        <label class="m-label" for="qm">Anything we should know?</label><textarea class="m-field" id="qm" name="message" rows="3" maxlength="1000"></textarea>
+        <div class="m-note" style="margin-top:10px">Your details are shared with {{ item.seller_name }} so they can reply.</div>
+        <button class="s-btn primary block" style="margin-top:16px" type="submit">Send enquiry</button>
+      </form>
+      {% else %}
+      <div class="m-price" style="margin-top:0">₹{{ '%.2f'|format(item.price * (1 + item.gst_pct / 100)) }} <small>{{ item.unit }} incl. {{ item.gst_pct|int }}% GST</small></div>
+      <form method="post" action="{{ url_for('marketplace.book', listing_id=item.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="key" value="{{ key }}">
+        <label class="m-label" for="date">Date</label>
+        <input class="m-field" type="date" id="date" name="date" min="{{ today }}" required>
+        {% if item.kind == 'room' %}
+        <div class="m-row">
+          <div><label class="m-label" for="start">Start time</label><input class="m-field" type="time" id="start" name="start" step="900" required></div>
+          <div><label class="m-label" for="hours">Hours</label><input class="m-field" type="number" id="hours" name="hours" min="0.5" max="{{ item.max_length_hours }}" step="0.5" value="1" required></div>
+        </div>
+        {% else %}
+        <label class="m-label" for="units">Passes</label>
+        <input class="m-field" type="number" id="units" name="units" min="1" max="20" value="1" required>
+        <div class="m-note" style="margin-top:6px">Access {{ item.access_start }} to {{ item.access_end }}.</div>
+        {% endif %}
+        <label class="m-label" for="guests">Guests</label>
+        <input class="m-field" type="number" id="guests" name="guests" min="1" {% if item.max_guests %}max="{{ item.max_guests }}"{% endif %} value="1" required>
+        <label class="m-label" for="pm">How you will pay</label>
+        <select class="m-field" id="pm" name="payment_method" required>
+          {% for m in item.payment_methods %}<option value="{{ m }}">{{ {'manual_upi': 'UPI to the space', 'bank_transfer': 'Bank transfer to the space', 'pay_at_venue': 'Pay at the space', 'razorpay': 'Online'}[m] }}</option>{% endfor %}
+        </select>
+        <details style="margin-top:12px"><summary class="m-note" style="cursor:pointer">Need a GST invoice? Add your business details</summary>
+          <label class="m-label" for="bn">Business name</label><input class="m-field" id="bn" name="billing_name" maxlength="200">
+          <label class="m-label" for="bg">GSTIN</label><input class="m-field" id="bg" name="billing_gstin" maxlength="15" style="text-transform:uppercase">
+        </details>
+        <label class="m-check"><input type="checkbox" name="agree" value="1" required> <span>I agree to the booking terms and that my name, email and phone are shared with {{ item.seller_name }} for this booking. I am 18 or over.</span></label>
+        <label class="m-check"><input type="checkbox" name="membership_contact" value="1"> <span>{{ item.seller_name }} may contact me about membership (optional).</span></label>
+        <button class="s-btn primary block" style="margin-top:18px" type="submit">{{ 'Book now' if item.approval_mode == 'instant' else 'Request booking' }}</button>
+        {% if not customer %}<div class="m-note" style="margin-top:10px">You will sign in with an email code first.</div>{% endif %}
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

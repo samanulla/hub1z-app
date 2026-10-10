@@ -30,7 +30,7 @@ def _manual_open(obj, previous=False):
 def enforce_quotas(session, flush_context, instances):
     increments = defaultdict(lambda: defaultdict(int))
     for obj in set(session.new) | set(session.dirty):
-        if isinstance(obj, Operator) and obj in session.new:
+        if isinstance(obj, Operator) and obj in session.new and obj.plan_tier != "marketplace_partner":
             from flask import has_request_context
             if has_request_context():
                 from .pricing_page import trial_days

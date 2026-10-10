@@ -98,6 +98,8 @@ def storage_limit_mb(operator):
 
 def billing_banner(operator, user):
     from flask import session
+    if operator is not None and operator.plan_tier == "marketplace_partner":
+        return None
     if (not user.is_authenticated or not operator or user.operator_id != operator.id
             or user.role not in (UserRole.SUPER_ADMIN, UserRole.MANAGER, UserRole.LOCATION_MANAGER)
             or session.get("billing_banner_dismissed")):

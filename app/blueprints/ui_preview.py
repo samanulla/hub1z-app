@@ -164,3 +164,9 @@ def leads():
     data = PLATFORM_LEADS if persona == "platform" else OPERATOR_LEADS
     board = {stage: [l for l in data["leads"] if l[0] == stage] for stage, _ in data["stages"]}
     return render_template("ui_preview/leads.html", data=data, board=board, **_shell(persona, "leads"))
+
+
+@ui_preview_bp.route("/emails")
+def emails():
+    from ..services import operator_emails
+    return render_template("ui_preview/emails.html", emails=operator_emails.sample_emails())

@@ -1,0 +1,49 @@
+{# Public marketplace shell: same look as the Hub1z site, with its own guest sign-in. #}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{% block title %}Hub1z Spaces{% endblock %}</title>
+  {% include "_head_icons.html" %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/hub1z-site.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/hub1z-market.css') }}" rel="stylesheet">
+</head>
+<body class="s-site m-site">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}<div class="s-flash {{ 'danger' if cat == 'danger' else '' }}">{{ msg }}</div>{% endfor %}
+  {% endwith %}
+  <header class="s-nav">
+    <div class="s-wrap s-nav-in">
+      <a class="s-logo" href="{{ url_for('marketplace.home') }}" aria-label="Hub1z Spaces">
+        <img src="{{ url_for('static', filename='img/brand/hub1z-logo.svg') }}" alt="Hub1z"><span class="m-logo-tag">Spaces</span>
+      </a>
+      <nav class="s-links" aria-label="Main">
+        <a href="{{ url_for('marketplace.home') }}">Find a space</a>
+        {% if customer %}<a href="{{ url_for('marketplace.bookings') }}">My bookings</a>{% endif %}
+        <a href="{{ url_for('marketplace.list_your_space') }}">List your space</a>
+      </nav>
+      <div class="s-nav-cta">
+        {% if customer %}
+          <span class="m-who">{{ customer.full_name.split(' ')[0] }}</span>
+          <form method="post" action="{{ url_for('marketplace.logout') }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="s-btn text sm" type="submit">Sign out</button></form>
+        {% else %}
+          <a class="s-btn primary sm" href="{{ url_for('marketplace.login') }}">Sign in</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+  <main>{% block content %}{% endblock %}</main>
+  <footer class="m-foot">
+    <div class="s-wrap">
+      <span>Spaces by Hub1z. Rooms and passes are provided by independent workspace operators.</span>
+      <a href="mailto:support@{{ config.PLATFORM_BASE_DOMAIN }}">Help &amp; complaints: support@{{ config.PLATFORM_BASE_DOMAIN }}</a>
+    </div>
+  </footer>
+</body>
+</html>

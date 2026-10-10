@@ -44,6 +44,10 @@ from .attendance import AttendanceRecord
 from .parcel import Parcel, AlertNotice
 from .notification import Notification
 from .daypass import DayPass, DayPassStatus
+from .marketplace import (
+    OperatorMarketplaceTerms, MarketplaceListing, MarketplaceCustomer, MarketplaceBooking,
+    CommissionLedgerEntry, MarketplaceListingPhoto, MarketplacePartnerApplication,
+)
 from .booking_addons import (
     RoomWaitlist, WaitlistStatus,
     RecurringRoomBooking, RecurrencePattern,

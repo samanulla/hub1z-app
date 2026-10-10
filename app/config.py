@@ -76,6 +76,9 @@ class BaseConfig:
     OPERATOR_TRIAL_DAYS = int(os.getenv("OPERATOR_TRIAL_DAYS", "14"))
     ENTITLEMENTS_SHADOW_ENABLED = _bool("ENTITLEMENTS_SHADOW_ENABLED", False)
     ENTITLEMENTS_ENFORCEMENT_ENABLED = _bool("ENTITLEMENTS_ENFORCEMENT_ENABLED", False)
+    MARKETPLACE_ENABLED = _bool("MARKETPLACE_ENABLED", False)  # global kill switch for the operator marketplace
+    MARKETPLACE_HOST = os.getenv("MARKETPLACE_HOST", "")  # default: spaces.<PLATFORM_BASE_DOMAIN>
+    MARKETPLACE_SHOW_DEV_CODE = _bool("MARKETPLACE_SHOW_DEV_CODE", False)  # local development only
 
 
 class DevelopmentConfig(BaseConfig):

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Marketplace bookings{% endblock %}
+
+{% block content %}
+{% macro act(bid, name, label, cls='btn-soft') %}<form class="d-inline" method="post" action="{{ url_for('admin.marketplace_booking_action', booking_id=bid, action=name) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn {{ cls }} btn-sm">{{ label }}</button></form>{% endmacro %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>{{ operator.name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><a href="{{ url_for('admin.marketplace') }}">Marketplace</a></div>
+    <h1>Marketplace bookings</h1>
+    <div class="muted mt-1">Guests are shown with only the details they gave for each booking.</div>
+  </div>
+</div>
+<div class="h-card"><div class="h-card-body">
+  <div class="h-pills mb-3">
+    {% for key, label in [('open', 'Upcoming'), ('requests', 'Requests'), ('past', 'Past'), ('all', 'All')] %}
+    <a class="h-pill {{ 'active' if status == key }}" href="{{ url_for('admin.marketplace_bookings', status=key) }}">{{ label }}</a>
+    {% endfor %}
+  </div>
+  <div style="overflow-x:auto"><table class="h-table">
+    <thead><tr><th>Guest</th><th>Listing</th><th>When</th><th>Amount</th><th>Status</th><th class="r"></th></tr></thead>
+    <tbody>
+    {% for b in rows %}
+    <tr>
+      <td><b>{{ b.customer_name }}</b><div class="faint small">{{ b.customer_email }}{% if b.customer_phone %} · {{ b.customer_phone }}{% endif %}</div>
+        {% if b.billing_gstin %}<div class="faint small">{{ b.billing_name }} · GSTIN {{ b.billing_gstin }}</div>{% endif %}
+        {% if b.id_status != 'not_required' %}
+        <div class="small mt-1"><i class="bi bi-person-vcard"></i> ID:
+          <span class="h-chip sm {{ 'tint-success' if b.id_status == 'approved' else 'tint-danger' if b.id_status == 'rejected' else 'tint-warn' }}">{{ {'pending_upload': 'Not uploaded', 'pending_review': 'To review', 'approved': 'Approved', 'rejected': 'Rejected'}[b.id_status] }}</span>
+          {% if b.id_document_key %}<a href="{{ url_for('admin.marketplace_id_document', booking_id=b.id) }}" target="_blank" rel="noopener">View</a>{% endif %}
+          {% if b.id_reject_reason %}<div class="faint">{{ b.id_reject_reason }}</div>{% endif %}</div>
+        {% endif %}</td>
+      <td>{{ b.listing.title }}<div class="faint small">{{ b.units }} × · {{ b.guests }} guest{{ 's' if b.guests != 1 }} · code {{ b.code }}</div></td>
+      <td>{{ b.start_at | dt_at(b.listing.location, '%d %b, %I:%M %p') }}<div class="faint small">to {{ b.end_at | dt_at(b.listing.location, '%I:%M %p') }}</div></td>
+      <td>{{ b.total | inr }}<div class="faint small">{{ method_labels.get(b.payment_method, b.payment_method) }}</div></td>
+      <td><span class="h-chip sm {{ 'tint-success' if b.status in ('confirmed', 'checked_in', 'completed') else 'tint-warn' if b.status in ('requested', 'held') else 'tint-neutral' }}">{{ b.status.replace('_', ' ') | capitalize }}</span>
+        <div class="faint small">Payment: {{ b.payment_status.replace('_', ' ') }}</div></td>
+      <td class="r text-nowrap">
+        {% if b.status == 'requested' %}{{ act(b.id, 'approve', 'Approve', 'btn-brand') }}{{ act(b.id, 'decline', 'Decline') }}
+        {% elif b.status == 'held' %}{% if b.payment_status in ('unpaid', 'pending_verification') %}{{ act(b.id, 'confirm_payment', 'Payment received', 'btn-brand') }}{% endif %}{{ act(b.id, 'cancel', 'Cancel') }}
+        {% elif b.status == 'confirmed' %}{{ act(b.id, 'check_in', 'Check in', 'btn-brand') }}{{ act(b.id, 'no_show', 'No-show') }}{{ act(b.id, 'cancel', 'Cancel') }}
+        {% elif b.status == 'checked_in' %}{{ act(b.id, 'complete', 'Complete', 'btn-brand') }}{% endif %}
+        {% if b.payment_reference and b.payment_status == 'pending_verification' %}<div class="faint small">Ref: {{ b.payment_reference }}</div>{% endif %}
+        {% if b.id_status == 'pending_review' and b.status in ('requested', 'held', 'confirmed') %}
+        <div class="mt-1">{{ act(b.id, 'approve_id', 'Approve ID', 'btn-brand') }}
+          <form class="d-inline-flex gap-1" method="post" action="{{ url_for('admin.marketplace_booking_action', booking_id=b.id, action='reject_id') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input class="form-control form-control-sm" name="reason" placeholder="Reason" required style="width:130px"><button class="btn btn-soft btn-sm">Reject ID</button></form></div>
+        {% endif %}
+        {% if b.status == 'confirmed' and b.id_status != 'not_required' %}
+        <form class="d-inline-flex gap-1 mt-1" method="post" action="{{ url_for('admin.marketplace_booking_action', booking_id=b.id, action='reject_id_venue') }}" onsubmit="return confirm('Turn this guest away and cancel the booking?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input class="form-control form-control-sm" name="reason" placeholder="Why the ID failed" required style="width:150px"><input class="form-control form-control-sm" name="refund" type="number" min="0" max="100" value="0" title="Refund %" style="width:64px"><button class="btn btn-soft btn-sm">Turn away</button></form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="text-center muted py-4">No bookings here.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</div></div>
+{% endblock %}

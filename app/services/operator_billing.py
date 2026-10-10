@@ -271,6 +271,8 @@ def _activate(invoice, today=None):
     terms = invoice.activation["terms"]
     if invoice.kind == "renewal" and invoice.period_start > today:
         return
+    first_payment = (invoice.kind in ("plan", "upgrade")
+                     and (operator.status == OperatorStatus.TRIAL or subscription.status == "trial"))
     subscription.tier_id = terms["tier_id"]
     subscription.status = "active"
     subscription.billing_cycle = invoice.activation["cycle"]
@@ -283,6 +285,10 @@ def _activate(invoice, today=None):
     operator.plan_tier = terms["tier_key"]
     if operator.status == OperatorStatus.TRIAL:
         operator.status = OperatorStatus.ACTIVE
+    if first_payment:
+        from . import operator_emails
+        operator_emails.queue_upgrade(operator, db.session.get(PricingTier, terms["tier_id"]),
+                                      invoice.activation["cycle"], invoice)
     if invoice.kind != "renewal":
         return
     renewing = {entry["module_id"]: entry for entry in invoice.activation.get("addons", [])}

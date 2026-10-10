@@ -1,0 +1,20 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Sign in · Hub1z Spaces{% endblock %}
+{% block content %}
+<div class="m-narrow">
+  <div class="m-panel">
+    <h2>Sign in or create an account</h2>
+    <p class="m-note">We email you a 6-digit code. No password needed.</p>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="m-label" for="email">Email</label>
+      <input class="m-field" type="email" id="email" name="email" required autofocus autocomplete="email">
+      <label class="m-label" for="name">Your name <span class="m-note">(first time only)</span></label>
+      <input class="m-field" id="name" name="name" maxlength="150" autocomplete="name">
+      <label class="m-label" for="phone">Phone <span class="m-note">(optional, shared with the space you book)</span></label>
+      <input class="m-field" id="phone" name="phone" maxlength="30" autocomplete="tel">
+      <button class="s-btn primary block" style="margin-top:18px" type="submit">Email me a code</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

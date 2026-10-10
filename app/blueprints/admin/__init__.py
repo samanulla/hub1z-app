@@ -14,6 +14,8 @@ from .attendance_routes import register_attendance_routes
 from .hub1z_billing_routes import register_hub1z_billing_routes
 from .parcel_routes import register_parcel_routes
 from .alert_routes import register_alert_routes
+from .marketplace_routes import register_marketplace_routes
+from .owner_routes import register_owner_routes
 from ..lead_routes import register_lead_routes
 from ...utils.decorators import admin_required
 
@@ -32,6 +34,8 @@ register_attendance_routes(admin_bp)
 register_hub1z_billing_routes(admin_bp)
 register_parcel_routes(admin_bp)
 register_alert_routes(admin_bp)
+register_marketplace_routes(admin_bp)
+register_owner_routes(admin_bp)
 register_lead_routes(admin_bp, "operator", admin_required)
 
 __all__ = ["admin_bp"]

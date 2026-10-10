@@ -4,6 +4,13 @@
 
 {% block content %}
 <h3>Operator profile</h3>
+<div class="card mb-3"><div class="card-body d-flex flex-wrap align-items-center gap-3">
+  <i class="bi bi-person-vcard fs-3" style="color:var(--h-brand)"></i>
+  <div class="flex-grow-1"><b>Owner details and authority</b>
+    <div class="small text-muted">Who owns the business, how you are authorised if you are a representative, and the owner's KYC documents. Needed before a paid plan.</div></div>
+  {% if owner_status.complete %}<span class="h-chip tint-success">Complete</span>{% else %}<span class="h-chip tint-warn">{{ owner_status.missing|length }} to do</span>{% endif %}
+  <a class="btn btn-brand btn-sm" href="{{ url_for('admin.owner_details_page') }}">{{ 'Review' if owner_status.complete else 'Add owner details' }}</a>
+</div></div>
 <div class="card"><div class="card-body">
   <form method="post" novalidate>
     {{ form.hidden_tag() }}

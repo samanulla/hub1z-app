@@ -22,6 +22,8 @@ def register_cli(app: Flask) -> None:
     app.cli.add_command(run_scheduled_jobs_cmd)
     app.cli.add_command(credits_cycle_cmd)
     app.cli.add_command(release_no_shows_cmd)
+    app.cli.add_command(marketplace_approve_cmd)
+    app.cli.add_command(marketplace_commission_cmd)
     app.cli.add_command(update_platform_owner_email_cmd)
     app.cli.add_command(set_platform_owner_password_cmd)
     app.cli.add_command(seed_manifest_tiers_cmd)
@@ -39,15 +41,56 @@ def credits_cycle_cmd(on: str | None) -> None:
                f"{r['expired']} lot(s) expired.")
 
 
+@click.command("marketplace-approve")
+@click.argument("slug")
+@click.option("--commission", default="10", show_default=True, help="Commission % on marketplace bookings.")
+@click.option("--revoke", is_flag=True, help="Withdraw approval instead.")
+@with_appcontext
+def marketplace_approve_cmd(slug: str, commission: str, revoke: bool) -> None:
+    """Approve (or revoke) an operator for the marketplace and set its commission rate."""
+    from datetime import datetime
+    from decimal import Decimal
+    from .models import Operator, OperatorMarketplaceTerms
+    operator = Operator.query.execution_options(skip_operator_filter=True).filter_by(slug=slug).first()
+    if operator is None:
+        raise click.ClickException(f"No operator with slug '{slug}'.")
+    terms = (OperatorMarketplaceTerms.query.execution_options(skip_operator_filter=True)
+             .filter_by(operator_id=operator.id).first())
+    if terms is None:
+        terms = OperatorMarketplaceTerms(operator_id=operator.id)
+        db.session.add(terms)
+    terms.kyc_approved = not revoke
+    if not revoke:
+        terms.commission_pct = Decimal(commission)
+        terms.effective_from = datetime.utcnow()
+    db.session.commit()
+    click.echo(f"{operator.name}: marketplace {'approval withdrawn' if revoke else f'approved at {commission}%'}.")
+
+
+@click.command("marketplace-commission-invoices")
+@click.option("--month", default=None, help="Commission month as YYYY-MM; defaults to last month.")
+@with_appcontext
+def marketplace_commission_cmd(month: str | None) -> None:
+    """Raise the GST invoice for marketplace commission accrued up to the end of a month. Safe to repeat."""
+    from datetime import datetime
+    from .services import marketplace_commission as commission
+    target = datetime.strptime(f"{month}-01", "%Y-%m-%d").date() if month else commission.previous_month()
+    made = commission.generate_invoices(target)
+    click.echo(f"Raised {len(made)} commission invoice(s) for {target:%B %Y}.")
+
+
 @click.command("release-no-shows")
 @with_appcontext
 def release_no_shows_cmd() -> None:
     """Free rooms nobody checked in to and close finished meetings. Run every few minutes."""
     from .services.booking_service import release_no_shows
     r = release_no_shows()
+    from .services.marketplace import release_expired
+    expired = release_expired()
     from .services.notifications import run_jobs
     run_jobs()
-    click.echo(f"Released {r['released']} no-show room booking(s); completed {r['completed']}.")
+    click.echo(f"Released {r['released']} no-show room booking(s); completed {r['completed']}; "
+               f"expired {expired} marketplace hold(s).")
 
 
 @click.command("run-scheduled-jobs")
@@ -65,6 +108,10 @@ def run_scheduled_jobs_cmd(month: str | None) -> None:
     invoices = run_monthly_billing(target_month)
     credits = credit_service.run_all_cycles()
     no_shows = release_no_shows()
+    from .services.marketplace import release_expired
+    release_expired()
+    from .services.marketplace_commission import generate_invoices as raise_commission, previous_month
+    raise_commission(previous_month())
     from .services.operator_billing import run_jobs as run_operator_billing
     operator_invoices = run_operator_billing()
     from .services.alerts import run_alert_emails

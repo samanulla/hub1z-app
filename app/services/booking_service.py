@@ -139,6 +139,7 @@ def create_seat_booking(*, user: User, seat: Seat, start: datetime, end: datetim
     if seat.operator_id and user.operator_id and seat.operator_id != user.operator_id:
         raise BookingError("Seat does not belong to your workspace.")
     _validate_location_hours(seat.location, start, end)
+    db.session.query(Seat.id).filter(Seat.id == seat.id).with_for_update().first()
     if check_seat_conflict(seat.id, start, end, booker=user):
         raise BookingError("Seat is unavailable for the selected time.")
 

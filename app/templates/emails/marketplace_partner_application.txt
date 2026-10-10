@@ -1,0 +1,8 @@
+New marketplace partner application
+
+{{ application.business_name }}
+Contact: {{ application.contact_name }} ({{ application.email }}{% if application.phone %}, {{ application.phone }}{% endif %})
+Address: {{ application.address_line1 }}, {{ application.city }}
+GSTIN: {{ application.gstin or 'not given' }}
+
+Review it under Platform > Marketplace.

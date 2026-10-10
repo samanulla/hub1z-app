@@ -31,6 +31,10 @@ from ..models.operator import Operator, OperatorScoped
 
 _scoped_classes_cache: list[type] | None = None
 
+
+def marketplace_host(app: Flask) -> str:
+    return (app.config.get("MARKETPLACE_HOST") or f"spaces.{app.config.get('PLATFORM_BASE_DOMAIN') or 'hub1z.com'}").lower()
+
 # Areas that only make sense inside one operator's workspace.
 _OPERATOR_BLUEPRINTS = {"admin", "company", "member", "book", "community", "api", "checkin"}
 
@@ -76,6 +80,10 @@ def install(app: Flask) -> None:
 
         host = (request.host or "").split(":")[0].lower()
         base = (app.config.get("PLATFORM_BASE_DOMAIN") or "hub1z.com").lower()
+        if app.config.get("MARKETPLACE_ENABLED") and host == marketplace_host(app):
+            # Public marketplace: no tenant. Its blueprint may only read tenant data through explicit allowlisted queries.
+            g.operator, g.operator_id, g.marketplace_host = None, None, True
+            return
         t = Operator.resolve(host)
         if t is None and host in ("localhost", "127.0.0.1") and host != base and (app.debug or app.testing):
             # Local-dev convenience only (never in production): bare localhost
@@ -109,6 +117,23 @@ def install(app: Flask) -> None:
         if current_user.is_authenticated and current_user.operator_id != oid:
             logout_user()
             abort(403)
+
+    @event.listens_for(Session, "do_orm_execute")
+    def _marketplace_fail_closed(orm_execute_state):
+        """On the public marketplace host the tenant filter is off, so any tenant-table read must be explicit."""
+        if not orm_execute_state.is_select or not has_request_context():
+            return
+        if not getattr(g, "marketplace_host", False) or getattr(g, "marketplace_trusted", False):
+            return
+        if orm_execute_state.is_column_load:
+            return  # refreshing an object that an explicit read already loaded
+        opts = orm_execute_state.execution_options
+        if opts.get("skip_operator_filter") or opts.get("marketplace_read"):
+            return
+        for desc in getattr(orm_execute_state.statement, "column_descriptions", ()):
+            entity = desc.get("entity")
+            if isinstance(entity, type) and issubclass(entity, OperatorScoped):
+                raise RuntimeError(f"Marketplace read of {entity.__name__} must be explicit (marketplace_read).")
 
     @event.listens_for(Session, "do_orm_execute")
     def _apply_operator_filter(orm_execute_state):

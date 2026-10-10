@@ -1,0 +1,17 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Enter your code · Hub1z Spaces{% endblock %}
+{% block content %}
+<div class="m-narrow">
+  <div class="m-panel">
+    <h2>Enter your code</h2>
+    <p class="m-note">We sent a 6-digit code to <b>{{ email }}</b>. It is valid for 10 minutes.</p>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="m-label" for="code">Code</label>
+      <input class="m-field" id="code" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus autocomplete="one-time-code">
+      <button class="s-btn primary block" style="margin-top:18px" type="submit">Continue</button>
+    </form>
+    <p class="m-note" style="margin-top:14px"><a href="{{ url_for('marketplace.login') }}">Use a different email or send a new code</a></p>
+  </div>
+</div>
+{% endblock %}

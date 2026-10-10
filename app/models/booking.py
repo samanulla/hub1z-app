@@ -31,6 +31,7 @@ class SeatBooking(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     total_amount = Column(Numeric(10, 2), default=0)
     notes = Column(Text)
+    booking_source = Column(String(24), nullable=False, default="operator_member", server_default="operator_member")
 
     seat = relationship("Seat", back_populates="bookings")
     user = relationship("User", back_populates="seat_bookings")
@@ -54,6 +55,7 @@ class RoomBooking(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     status = Column(Enum(BookingStatus), default=BookingStatus.CONFIRMED, nullable=False)
 
     attendee_count = Column(Integer, default=1, nullable=False)
+    booking_source = Column(String(24), nullable=False, default="operator_member", server_default="operator_member")
     title = Column(String(200))
     notes = Column(Text)
 

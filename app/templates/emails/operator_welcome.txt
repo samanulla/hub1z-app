@@ -1,0 +1,20 @@
+Hi {{ user.full_name }},
+
+Thank you for signing up. {{ operator.name }} is now live on Hub1z.
+
+YOUR PLAN: {{ plan_label }}{% if trial_tier_name %} (everything in {{ trial_tier_name }}){% endif %}
+{% if trial_ends %}FREE UNTIL: {{ trial_ends }} ({{ trial_days }} days, no card needed)
+{% endif %}WORKSPACE ADDRESS: {{ operator.primary_domain }}
+SIGN IN: {{ login_url }}
+
+WHAT TO DO FIRST
+1. Add who owns the business. Under Settings, Operator profile, tell us the owner or director and, if you are setting this up on their behalf, upload their authorisation. You will need this before moving to a paid plan.
+2. Add your location, floors, seats and meeting rooms.
+3. Set up how members pay you. Add your UPI ID and GST details so every invoice carries a QR code and the right tax split.
+4. Invite your team and your first members or companies.
+5. Share your booking page at {{ operator.primary_domain }}.
+{% if higher_tiers %}
+When you grow: {{ higher_tiers[0].name }} {% if higher_tiers[0].blurb %}{{ higher_tiers[0].blurb }}{% else %}has room for more locations, people and storage{% endif %}{% if higher_tiers|length > 1 %}, and {{ higher_tiers[1].name }} suits larger operations{% endif %}. Compare plans any time under Settings, Hub1z plans.
+{% endif %}
+Welcome aboard,
+The Hub1z team

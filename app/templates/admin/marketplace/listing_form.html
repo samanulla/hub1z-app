@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% from "_macros.html" import field %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="h-page-head">
+  <div>
+    <div class="h-crumbs"><span>{{ operator.name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><a href="{{ url_for('admin.marketplace') }}">Marketplace</a></div>
+    <h1>{{ title }}</h1>
+    <div class="muted mt-1">Private offices and member-only resources can't be listed. Guests see the exact address and access details only after their booking is confirmed and paid.</div>
+  </div>
+</div>
+<form method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <div class="h-card mb-3"><div class="h-card-body">
+    <h5 class="mb-3">What you share</h5>
+    <div class="row">
+      <div class="col-md-4">{% if listing %}<div class="mb-3"><label class="form-label">Type</label><div class="form-control-plaintext">{{ 'Meeting room' if listing.resource_type == 'room' else 'Virtual office' if listing.resource_type == 'virtual_office' else 'Day access' }}</div></div>{% else %}{{ field(form.resource_type) }}{% endif %}</div>
+      <div class="col-md-4" id="roomPick">{% if listing %}{% if listing.room %}<div class="mb-3"><label class="form-label">Room</label><div class="form-control-plaintext">{{ listing.room.name }}</div></div>{% endif %}{% else %}{{ field(form.room_id) }}{% endif %}</div>
+      <div class="col-md-4" id="locationPick">{% if listing %}{% if not listing.room %}<div class="mb-3"><label class="form-label">Location</label><div class="form-control-plaintext">{{ listing.location.name }}</div></div>{% endif %}{% else %}{{ field(form.location_id) }}{% endif %}</div>
+    </div>
+    <div class="row"><div class="col-md-8">{{ field(form.title) }}</div><div class="col-md-4">{{ field(form.approval_mode) }}</div></div>
+    {{ field(form.description) }}
+    {{ field(form.show_description) }}
+    {{ field(form.show_photos) }}
+  </div></div>
+
+  <div class="h-card mb-3"><div class="h-card-body">
+    <h5 class="mb-3">Price and how much you share</h5>
+    <div class="row">
+      <div class="col-md-4">{{ field(form.price) }}</div>
+      <div class="col-md-2">{{ field(form.gst_rate_pct) }}</div>
+      <div class="col-md-3" id="capUnits">{{ field(form.daily_cap_units) }}</div>
+      <div class="col-md-3" id="capHours">{{ field(form.daily_cap_hours_pct) }}</div>
+    </div>
+    <div class="form-text">This is a ceiling for the marketplace, not a reservation: members can still book any free slot, and a confirmed guest booking is never cancelled to make room for a member.</div>
+  </div></div>
+
+  <div class="h-card mb-3"><div class="h-card-body">
+    <h5 class="mb-3">When</h5>
+    <div class="mb-3"><label class="form-label">Available days</label>
+      <div class="d-flex flex-wrap gap-3">{% for v, label in form.days.choices %}<div class="form-check"><input class="form-check-input" type="checkbox" name="days" value="{{ v }}" id="day{{ v }}" {{ 'checked' if v in (form.days.data or []) }}><label class="form-check-label" for="day{{ v }}">{{ label }}</label></div>{% endfor %}</div></div>
+    <div class="row"><div class="col-md-3">{{ field(form.window_from) }}</div><div class="col-md-3">{{ field(form.window_to) }}</div>
+      <div class="col-md-3">{{ field(form.min_lead_hours) }}</div><div class="col-md-3">{{ field(form.max_length_hours) }}</div></div>
+    {{ field(form.blackout_dates) }}
+  </div></div>
+
+  <div class="h-card mb-3"><div class="h-card-body">
+    <h5 class="mb-3">Guests</h5>
+    <div class="row"><div class="col-md-3">{{ field(form.max_guests) }}</div><div class="col-md-4">{{ field(form.cancellation_preset) }}</div><div class="col-md-5 pt-4">{{ field(form.id_required) }}</div></div>
+    {{ field(form.house_rules) }}
+    {{ field(form.access_instructions) }}
+  </div></div>
+
+  {% set cur_kind = listing.resource_type if listing else (form.resource_type.data or 'room') %}
+  <div class="h-card mb-3"><div class="h-card-body">
+    <h5 class="mb-1">Amenities</h5>
+    <div class="muted small mb-3">Tell guests what comes with this listing. Mark each as included, or available to buy at the space (for example drinks or printing). Guests see these before they book.</div>
+    <table class="h-table" id="amenityTable">
+      <thead><tr><th>Amenity</th><th class="text-center">Not offered</th><th class="text-center">Included</th><th class="text-center">Available to buy</th></tr></thead>
+      <tbody>
+      {% for key, label, icon, kinds in amenity_catalog %}
+      <tr data-kinds="{{ kinds | join(' ') }}" {% if listing and cur_kind not in kinds %}style="display:none"{% endif %}>
+        <td><i class="bi {{ icon }}"></i> {{ label }}</td>
+        {% set chosen = amenity_state.get(key, '') %}
+        <td class="text-center"><input type="radio" name="amenity_{{ key }}" value="" {{ 'checked' if chosen not in ('included', 'paid') }}></td>
+        <td class="text-center"><input type="radio" name="amenity_{{ key }}" value="included" {{ 'checked' if chosen == 'included' }}></td>
+        <td class="text-center"><input type="radio" name="amenity_{{ key }}" value="paid" {{ 'checked' if chosen == 'paid' }}></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <label class="form-label mt-3" for="amenity_other">Anything else guests should know about</label>
+    <input class="form-control" id="amenity_other" name="amenity_other" maxlength="200" value="{{ amenity_other }}" placeholder="e.g. Complimentary whiteboard markers, ergonomic chairs">
+  </div></div>
+
+  <button class="btn btn-brand" type="submit">Save</button>
+  <a class="btn btn-link" href="{{ url_for('admin.marketplace') }}">Cancel</a>
+</form>
+{% if listing %}
+<div class="h-card mt-4"><div class="h-card-body">
+  <h5 class="mb-1">Photos</h5>
+  <div class="muted small mb-3">Up to 6 photos (JPG, PNG or WebP, 3 MB each). The cover photo is the picture on the search page; all photos show once a guest opens the listing. Show the room and the building entrance, not private areas.</div>
+  <div class="d-flex flex-wrap gap-3 mb-3">
+    {% for p in photos %}
+    <div style="width:150px"><img src="{{ url_for('admin.marketplace_photo_view', photo_id=p.id) }}" alt="" style="width:150px;height:100px;object-fit:cover;border-radius:10px">
+      <div class="d-flex gap-1 mt-1 align-items-center">
+        {% if loop.first %}<span class="h-chip sm tint-success">Cover</span>{% else %}<form method="post" action="{{ url_for('admin.marketplace_photo_cover', photo_id=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-soft btn-sm">Make cover</button></form>{% endif %}
+        <form method="post" action="{{ url_for('admin.marketplace_photo_delete', photo_id=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-soft btn-sm">Remove</button></form>
+      </div></div>
+    {% else %}<div class="muted">No photos yet.</div>{% endfor %}
+  </div>
+  {% if photos|length < 6 %}
+  <form method="post" enctype="multipart/form-data" action="{{ url_for('admin.marketplace_photo_upload', listing_id=listing.id) }}" class="d-flex gap-2 align-items-center">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input class="form-control" type="file" name="photos" accept=".jpg,.jpeg,.png,.webp" multiple required style="max-width:380px">
+    <button class="btn btn-brand">Upload</button>
+  </form>
+  {% endif %}
+</div></div>
+{% else %}
+<div class="muted small mt-3">Save the listing first, then you can add photos.</div>
+{% endif %}
+{% if not listing %}
+<script>
+(function () {
+  var type = document.getElementById('resource_type');
+  function sync() {
+    var room = type.value === 'room', day = type.value === 'day_access', vo = type.value === 'virtual_office';
+    document.getElementById('roomPick').style.display = room ? '' : 'none';
+    document.getElementById('capHours').style.display = room ? '' : 'none';
+    document.getElementById('locationPick').style.display = room ? 'none' : '';
+    document.getElementById('capUnits').style.display = day ? '' : 'none';
+    document.querySelectorAll('#amenityTable tbody tr').forEach(function (row) {
+      row.style.display = row.dataset.kinds.split(' ').indexOf(type.value) >= 0 ? '' : 'none';
+    });
+  }
+  type.addEventListener('change', sync); sync();
+})();
+</script>
+{% endif %}
+{% endblock %}

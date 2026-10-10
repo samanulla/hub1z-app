@@ -12,7 +12,7 @@ from ...models import (PlatformCreditNote, PlatformInvoice, PlatformInvoiceStatu
                        PlatformProfile, PlatformRefund, OperatorSubscription, PricingTier, TierStatus,
                        PlatformModule, OperatorAddon)
 from ...services import upi
-from ...services import mail_service, operator_billing
+from ...services import mail_service, operator_billing, owner_details
 from ...services.pdf_docs import (pdf_response, platform_credit_note_context, platform_invoice_context,
                                   platform_refund_context)
 from ...utils.decorators import super_admin_required, admin_required
@@ -53,6 +53,9 @@ def register_hub1z_billing_routes(bp):
             abort(404)
         if request.method == "POST":
             tier = PricingTier.query.filter_by(id=request.form.get("tier_id", type=int)).first_or_404()
+            if (tier.monthly_price is None or tier.monthly_price > 0) and not owner_details.status(g.operator)["complete"]:
+                flash("Before moving to a paid plan, please add the owner's details and documents.", "warning")
+                return redirect(url_for("admin.owner_details_page"))
             try:
                 invoice = operator_billing.request_plan(g.operator, tier, request.form.get("cycle", "monthly"),
                                                        actor_id=current_user.id)
@@ -72,6 +75,7 @@ def register_hub1z_billing_routes(bp):
         from ...services.entitlements import plan_terms
         from ...services.pricing_page import tier_limit_lines, tier_feature_names
         return render_template("admin/hub1z_plans.html", tiers=tiers, subscription=subscription, addons=addons,
+                               owner_status=owner_details.status(g.operator),
                                purchased=purchased, limits=tier_limit_lines, features=tier_feature_names,
                                included_addons=set(plan_terms(g.operator).get("included_addons", [])))
 

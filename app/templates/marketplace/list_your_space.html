@@ -1,0 +1,33 @@
+{% extends "marketplace/base.html" %}
+{% block title %}List your space · Hub1z Spaces{% endblock %}
+{% block content %}
+<div class="m-wrap" style="max-width:760px">
+  <div class="m-head"><h1>List your space on Hub1z</h1>
+    <p>Share a meeting room, day passes or virtual office plans with guests Hub1z brings you. Apply below; we check your details and set you up. You can move to the full Hub1z workspace tools later without losing anything.</p></div>
+  <form class="m-panel" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h2>Your business</h2>
+    <div class="m-row">
+      <div><label class="m-label" for="bn">Business name</label><input class="m-field" id="bn" name="business_name" required maxlength="200"></div>
+      <div><label class="m-label" for="cn">Contact person</label><input class="m-field" id="cn" name="contact_name" required maxlength="150"></div>
+      <div><label class="m-label" for="em">Email</label><input class="m-field" id="em" type="email" name="email" required></div>
+      <div><label class="m-label" for="ph">Phone</label><input class="m-field" id="ph" name="phone" maxlength="30"></div>
+    </div>
+    <h2 style="margin-top:22px">Where is your space?</h2>
+    <label class="m-label" for="ad">Address</label><input class="m-field" id="ad" name="address_line1" required maxlength="255">
+    <div class="m-row">
+      <div><label class="m-label" for="ct">City</label><input class="m-field" id="ct" name="city" required maxlength="80"></div>
+      <div><label class="m-label" for="st">State</label><input class="m-field" id="st" name="state" maxlength="80"></div>
+      <div><label class="m-label" for="pc">PIN code</label><input class="m-field" id="pc" name="postal_code" maxlength="20"></div>
+    </div>
+    <h2 style="margin-top:22px">Tax and payment details</h2>
+    <div class="m-row">
+      <div><label class="m-label" for="gs">GSTIN <span class="m-note">(if registered)</span></label><input class="m-field" id="gs" name="gstin" maxlength="15" style="text-transform:uppercase"></div>
+      <div><label class="m-label" for="pn">PAN</label><input class="m-field" id="pn" name="pan" maxlength="10" style="text-transform:uppercase"></div>
+    </div>
+    <label class="m-label" for="up">UPI ID where guests can pay you</label><input class="m-field" id="up" name="upi_id" maxlength="120">
+    <label class="m-check"><input type="checkbox" name="agree" value="1" required> <span>I confirm these details are correct and I agree to the Hub1z partner terms, including the marketplace commission shown at approval.</span></label>
+    <button class="s-btn primary" style="margin-top:18px" type="submit">Send application</button>
+  </form>
+</div>
+{% endblock %}

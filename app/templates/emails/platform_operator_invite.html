@@ -1,7 +1,33 @@
+{% extends "emails/_frame.html" %}
+{% from "emails/_steps.html" import flow %}
+{% block body %}
 <p>Hi {{ user.full_name }},</p>
-<p>You've been invited to bring <strong>{{ operator.name }}</strong> onto {{ app_name }} as a workspace operator.</p>
-<p><a href="{{ accept_url }}" style="background:#0f766e;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">Accept invitation</a></p>
-<p>Or copy this URL:<br><code>{{ accept_url }}</code></p>
-<p>The link is valid for {{ ttl_days }} days. Your workspace is ready to use on a free trial. No platform approval is required.</p>
-<p>If you weren't expecting this, you can safely ignore it.</p>
-<p>— The {{ app_name }} team</p>
+<p>Your Hub1z workspace for <strong>{{ operator.name }}</strong> has been created. Two quick steps and you are in.</p>
+
+<div style="background:#f6f7fb;border:1px solid #e6e8f0;border-radius:12px;padding:16px 18px;margin:18px 0">
+  <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#8b93a7;font-weight:700">Your workspace address</div>
+  <div style="font-size:20px;font-weight:700;color:#151a2d;margin-top:4px">{{ operator.primary_domain }}</div>
+  <div style="color:#4a5268;font-size:13.5px;margin-top:4px">This is where you and your team sign in, and where your members will book. It is reserved for you.</div>
+</div>
+
+<table role="presentation" style="margin:0 auto 6px;border-collapse:collapse;text-align:center;font-size:12.5px;color:#4a5268">
+  <tr>
+    <td style="padding:0 6px"><div style="width:44px;height:44px;line-height:44px;border-radius:22px;background:#eeeefc;font-size:22px;margin:0 auto">&#128231;</div>This email</td>
+    <td style="color:#5b5bd6;font-size:22px;font-weight:700;padding:0 4px 18px">&#8594;</td>
+    <td style="padding:0 6px"><div style="width:44px;height:44px;line-height:44px;border-radius:22px;background:#eeeefc;font-size:22px;margin:0 auto">&#128273;</div>Set password</td>
+    <td style="color:#5b5bd6;font-size:22px;font-weight:700;padding:0 4px 18px">&#8594;</td>
+    <td style="padding:0 6px"><div style="width:44px;height:44px;line-height:44px;border-radius:22px;background:#eeeefc;font-size:22px;margin:0 auto">&#127968;</div>Sign in</td>
+  </tr>
+</table>
+
+<p style="margin:18px 0 6px"><strong>Step 1. Set your password</strong></p>
+<p style="margin:0 0 12px">Sign-in email: <strong>{{ user.email }}</strong>. Choose a password of at least 8 characters.</p>
+<p style="margin:0 0 6px"><a href="{{ accept_url }}" style="background:#5b5bd6;color:#ffffff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-block">Set my password</a></p>
+<p style="margin:8px 0 0;font-size:13px;color:#4a5268">The link works for {{ ttl_days }} days. If the button does not open, copy this address:<br><span style="word-break:break-all">{{ accept_url }}</span></p>
+
+<p style="margin:22px 0 6px"><strong>Step 2. Sign in to your workspace</strong></p>
+<p style="margin:0">After you set the password you land on <strong>{{ operator.primary_domain }}</strong>. Bookmark it: that address is always your sign-in page.</p>
+
+<p style="margin:22px 0 0;color:#4a5268">{% if operator.plan_tier == 'marketplace_partner' %}Your marketplace listing account is ready. Add your rooms and photos, then publish when you are ready.{% else %}Your workspace starts on a free trial. No card is needed.{% endif %} If you were not expecting this invitation, you can ignore this email.</p>
+<p style="margin:18px 0 0">The Hub1z team</p>
+{% endblock %}
