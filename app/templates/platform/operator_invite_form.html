@@ -7,7 +7,7 @@
 <div class="card"><div class="card-body">
   <form method="post" novalidate>
     {{ form.hidden_tag() }}
-    {{ field(form.slug, autofocus=true) }}
+    {{ field(form.slug, autofocus=true, attrs={"data-slug-check": url_for('auth.slug_check')}) }}
     {{ field(form.name) }}
     {{ field(form.admin_name) }}
     {{ field(form.admin_email) }}

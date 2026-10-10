@@ -99,5 +99,5 @@ def register_invite_routes(bp):
             db.session.commit()
             operator_emails.send_welcome(user.operator, user)
             logout_user()
-            return redirect(workspace_url(user.operator, "/auth/login"))
+            return redirect(workspace_url(user.operator, "/auth/login?notice=password-set"))
         return render_template("platform/operator_accept_invite.html", form=form, user=user)

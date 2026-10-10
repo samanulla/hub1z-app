@@ -213,8 +213,10 @@ def register_operator():
         slug = form.slug.data.lower().strip()
         admin_email = form.admin_email.data.lower().strip()
 
-        if Operator.query.execution_options(skip_operator_filter=True).filter_by(slug=slug).first():
-            flash("That URL slug is already taken.", "warning")
+        from ...services import operator_slugs
+        slug_ok, slug_message = operator_slugs.check(slug)
+        if not slug_ok:
+            flash(f"That URL slug cannot be used: {slug_message}", "warning")
             return render_template("auth/register_operator.html", form=form)
         if User.query.execution_options(skip_operator_filter=True).filter_by(email=admin_email).first():
             flash("An account with that email already exists.", "warning")
@@ -258,6 +260,18 @@ def register_operator():
         from ...services.operator_urls import workspace_url
         return redirect(workspace_url(t, "/auth/login"))
     return render_template("auth/register_operator.html", form=form)
+
+
+@auth_bp.route("/slug-check")
+@limiter.limit("60 per minute")
+def slug_check():
+    """Live availability hint for a workspace address (sign-up, invite and edit forms)."""
+    from ...services import operator_slugs
+    exclude = request.args.get("exclude_id", type=int)
+    if not (current_user.is_authenticated and getattr(current_user, "is_platform_owner", False)):
+        exclude = None
+    available, message = operator_slugs.check(request.args.get("slug"), exclude_id=exclude)
+    return {"available": available, "message": message}
 
 
 @auth_bp.route("/post-login")

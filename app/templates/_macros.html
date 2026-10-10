@@ -8,19 +8,22 @@
 {% endif %}
 {% endmacro %}
 
-{# Reusable form field renderer for Bootstrap 5 #}
-{% macro field(f, autofocus=false) %}
+{# Reusable form field renderer for Bootstrap 5. `help` adds a (?) tooltip next to the label; `attrs` adds HTML attributes. #}
+{% macro help_icon(text) %}<i class="bi bi-question-circle ms-1 text-muted" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ text }}" tabindex="0" role="img" aria-label="Help: {{ text }}"></i>{% endmacro %}
+{% macro field(f, autofocus=false, help=none, attrs=none) %}
 <div class="mb-3">
-  {% if f.type != "BooleanField" %}{{ f.label(class="form-label") }}{% endif %}
+  {% if f.type != "BooleanField" %}<div>{{ f.label(class="form-label") }}{% if help %}{{ help_icon(help) }}{% endif %}</div>{% endif %}
   {% set css = "form-control" %}
   {% if f.type == "SelectField" %}{% set css = "form-select" %}{% endif %}
+  {% set extra = dict(attrs or {}) %}
+  {% if autofocus %}{% set _ = extra.update(autofocus=True) %}{% endif %}
   {% if f.type == "BooleanField" %}
     <div class="form-check">
       {{ f(class="form-check-input") }}
-      {{ f.label(class="form-check-label") }}
+      {{ f.label(class="form-check-label") }}{% if help %}{{ help_icon(help) }}{% endif %}
     </div>
   {% else %}
-    {{ f(class=css + (" is-invalid" if f.errors else ""), **({"autofocus": True} if autofocus else {})) }}
+    {{ f(class=css + (" is-invalid" if f.errors else ""), **extra) }}
   {% endif %}
   {% for e in f.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
   {% if f.description %}<div class="form-text">{{ f.description }}</div>{% endif %}

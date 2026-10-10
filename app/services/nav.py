@@ -18,8 +18,8 @@ def section_navigation():
     if current_user.is_admin:
         groups = {
             "overview": [("Dashboard", "admin.dashboard"), ("Alerts", "admin.alerts")],
-            "workspace": [("Locations & seats", "admin.locations_list"), ("Book", "book.index"),
-                          ("Pricing plans", "admin.plans_list"), ("Credits", "admin.credits_overview"),
+            "workspace": [("Pricing plans", "admin.plans_list"), ("Locations & seats", "admin.locations_list"),
+                          ("Book", "book.index"), ("Credits", "admin.credits_overview"),
                           ("Seat allocations", "admin.allocations"), ("Documents", "admin.operator_documents")],
             "people": [("People", "admin.people"), ("Companies", "admin.companies_list"),
                        ("Individuals", "admin.individuals_list"), ("Staff", "admin.staff_list"),

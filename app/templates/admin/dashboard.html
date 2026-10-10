@@ -3,8 +3,36 @@
 {% block title %}Manage{% endblock %}
 
 {% block content %}
-<h3 class="mb-4">{{ operator.name if operator else "Operator" }} overview</h3>
+<h3 class="{{ 'mb-1' if setup_active else 'mb-4' }}">{{ operator.name if operator else "Operator" }} overview</h3>
+{% if setup_active %}<p class="muted small mb-4">This is the business name you gave us. You can change it any time under <a href="{{ url_for('admin.settings') }}">Settings, Operator profile</a>.</p>{% endif %}
 
+{% if setup_guide %}
+<div class="h-card mb-4" style="border-color:var(--h-brand, #5b5bd6)"><div class="h-card-body">
+  <div class="d-flex justify-content-between align-items-start gap-3">
+    <div class="d-flex flex-wrap align-items-center gap-2 small mb-3">
+      {% for step in setup_steps %}
+        <span class="d-inline-flex align-items-center gap-1 {{ 'fw-semibold' if step.key == setup_guide.key else 'text-muted' }}">
+          {% if step.done %}<i class="bi bi-check-circle-fill text-success"></i>{% elif step.key == setup_guide.key %}<i class="bi bi-record-circle" style="color:var(--h-brand, #5b5bd6)"></i>{% else %}<i class="bi bi-circle"></i>{% endif %}
+          {{ step.title }}
+        </span>
+        {% if not loop.last %}<i class="bi bi-chevron-right text-muted"></i>{% endif %}
+      {% endfor %}
+    </div>
+    <form method="post" action="{{ url_for('admin.onboarding_dismiss') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="step" value="{{ setup_guide.key }}">
+      <button class="btn-close" aria-label="Hide this guide for now" title="Hide for now"></button>
+    </form>
+  </div>
+  <h5 class="mb-1">{% if stats.locations == 0 %}Welcome. Let's set up your workspace{% else %}Next: {{ setup_guide.title }}{% endif %}</h5>
+  <p class="muted mb-3">{% if stats.locations == 0 %}<b>Step 1: {{ setup_guide.title }}.</b> {% endif %}{{ setup_guide.text }}</p>
+  <div class="d-flex flex-wrap gap-2">
+    {% for label, href in setup_guide.actions %}<a class="btn {{ 'btn-dark' if loop.first else 'btn-outline-dark' }}" href="{{ href }}">{{ label }} <i class="bi bi-arrow-right"></i></a>{% endfor %}
+  </div>
+  {% if stats.locations == 0 %}<div class="small text-muted mt-3">This guide stays until your first location is added. Use the cross to hide it for now.</div>{% endif %}
+</div></div>
+{% endif %}
+
+{% if alerts or not setup_guide %}
 <div class="h-card mb-4"><div class="h-card-body">
   <div class="d-flex align-items-center justify-content-between mb-2">
     <h5 class="mb-0">Needs attention{% if alerts %} <span class="h-count">{{ alerts | length }}</span>{% endif %}</h5>
@@ -14,6 +42,7 @@
   <div class="muted py-2"><i class="bi bi-check2-circle text-success me-1"></i>All clear. No renewals, move-outs or overdue invoices to act on.</div>
   {% endfor %}
 </div></div>
+{% endif %}
 
 <div class="row g-3 mb-4">
   {% for label, value, icon in [
@@ -59,8 +88,8 @@
       </div>
       <div class="row g-2">
         {% for label, sub, icon, tint, href in [
-          ("Locations, floors, seats, rooms", "Physical layout & resources", "building", "", url_for('admin.locations_list')),
           ("Pricing plans", "Plans members can subscribe to", "tags", "amber", url_for('admin.plans_list')),
+          ("Locations, floors, seats, rooms", "Physical layout & resources", "building", "", url_for('admin.locations_list')),
           ("Companies", "Member companies on this workspace", "briefcase", "purple", url_for('admin.companies_list')),
           ("Seat allocations", "Assign desks to people", "diagram-3", "orange", url_for('admin.allocations')),
           ("Documents", "Contracts, KYC, floor maps & more", "file-earmark-text", "amber", url_for('admin.operator_documents')),

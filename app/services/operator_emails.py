@@ -1,10 +1,10 @@
 """Operator lifecycle emails: welcome after sign-up, congratulations after the first paid plan, and on-screen samples."""
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 
-from flask import current_app, has_request_context, render_template
+from flask import current_app, has_request_context, render_template, url_for
 from sqlalchemy import event
 from sqlalchemy.orm import Session
 
@@ -137,14 +137,15 @@ def sample_emails() -> list[dict]:
     workspace = SimpleNamespace(name="Lotus Works", slug="lotusworks", primary_domain="lotusworks.hub1z.com",
                                 plan_tier="starter")
     common = {"user": person, "operator": workspace, "login_url": "https://lotusworks.hub1z.com/auth/login",
-              "support_email": "support@hub1z.com"}
-    ends = date.today().replace(day=1)
+              "support_email": "support@hub1z.com",
+              "logo_src": url_for("static", filename="img/brand/png/hub1z-logo-tagline-small.png")}
+    ends = date.today() + timedelta(days=30)
     samples = [
         ("invite", "1. Invitation: set your password", "Set up Lotus Works on Hub1z", "platform_operator_invite",
          {**common, "accept_url": "https://hub1z.com/platform/operators/accept/eyJhbGciOi...", "ttl_days": 7}),
         ("welcome", "2. After sign-up: welcome to the free trial", "Welcome to Hub1z, Lotus Works", "operator_welcome",
          {**common, "plan_label": "Free trial", "trial_tier_name": "Growth", "trial_days": 14,
-          "trial_ends": datetime.utcnow().strftime("%d %B %Y"), "higher_tiers": _sample_tiers()[:2]}),
+          "trial_ends": (datetime.utcnow() + timedelta(days=14)).strftime("%d %B %Y"), "higher_tiers": _sample_tiers()[:2]}),
         ("upgraded", "3. After the first payment: congratulations", "Lotus Works is now on Growth",
          "operator_upgraded",
          {**common, "tier_name": "Growth", "cycle_label": "billed monthly", "period_end": ends.strftime("%d %B %Y"),

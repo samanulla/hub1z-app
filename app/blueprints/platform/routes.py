@@ -18,6 +18,8 @@ from ...services import mail_service
 from ...services.locale_data import CURRENCY_SYMBOLS
 from ...utils.decorators import platform_staff_required, platform_permission_required
 from .forms import OperatorForm, NewOperatorForm
+from sqlalchemy.exc import IntegrityError
+from ...services import operator_slugs
 
 
 platform_bp = Blueprint("platform", __name__, template_folder="../../templates")
@@ -169,13 +171,32 @@ def operator_edit(operator_id: int):
     form.plan_tier.choices = choices
     if form.validate_on_submit():
         base = current_app.config.get("PLATFORM_BASE_DOMAIN", "hub1z.com")
-        form.primary_domain.data = _normalize_primary_domain(form.primary_domain.data, t.slug, base)
-        form.populate_obj(t)
-        t.currency_symbol = CURRENCY_SYMBOLS.get(t.currency_code, t.currency_symbol)
-        db.session.commit()
-        audit_service.record("operator.updated", "operator", t.id, {"slug": t.slug})
-        flash("Operator workspace updated.", "success")
-        return redirect(url_for("platform.operators_list"))
+        new_slug = form.slug.data.strip().lower()
+        ok, message = operator_slugs.check(new_slug, exclude_id=t.id)
+        if not ok:
+            form.slug.errors.append(message)
+        typed_domain = (form.primary_domain.data or "").strip().lower()
+        auto_domain = typed_domain in ("", f"{t.slug}.{base}")
+        domain = f"{new_slug}.{base}" if auto_domain else _normalize_primary_domain(typed_domain, new_slug, base)
+        custom = (form.custom_domain.data or "").strip().lower() or None
+        others = Operator.query.execution_options(skip_operator_filter=True).filter(Operator.id != t.id)
+        if others.filter((Operator.primary_domain == domain) | (Operator.custom_domain == domain)).first():
+            form.primary_domain.errors.append("That domain is already used by another workspace.")
+        if custom and others.filter((Operator.primary_domain == custom) | (Operator.custom_domain == custom)).first():
+            form.custom_domain.errors.append("That domain is already used by another workspace.")
+        if not (form.slug.errors or form.primary_domain.errors or form.custom_domain.errors):
+            form.slug.data, form.primary_domain.data, form.custom_domain.data = new_slug, domain, custom
+            form.populate_obj(t)
+            t.currency_symbol = CURRENCY_SYMBOLS.get(t.currency_code, t.currency_symbol)
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                flash("Those details clash with another workspace. Check the slug and domains.", "danger")
+                return redirect(url_for("platform.operator_edit", operator_id=operator_id))
+            audit_service.record("operator.updated", "operator", t.id, {"slug": t.slug})
+            flash("Operator workspace updated.", "success")
+            return redirect(url_for("platform.operators_list"))
     return render_template("platform/operator_form.html", form=form,
                            title=f"Edit {t.name}", operator=t,
                            operator_admins=User.query.execution_options(skip_operator_filter=True).filter_by(

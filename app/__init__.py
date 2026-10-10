@@ -118,6 +118,7 @@ def _register_error_handlers(app: Flask) -> None:
 
     @app.errorhandler(500)
     def server_error(e):
+        db.session.rollback()
         return render_template("errors/500.html"), 500
 
 

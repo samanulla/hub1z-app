@@ -1,4 +1,4 @@
-Hi {{ user.full_name }},
+Dear {{ user.full_name }},
 
 Congratulations. {{ operator.name }} is now on {{ tier_name }}.
 

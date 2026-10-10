@@ -115,6 +115,10 @@ def send(subject: str, recipient: str, template: str, **ctx: Any) -> None:
     if body_html:
         icon = Path(current_app.static_folder) / "img/brand/png/hub1z-icon-small.png"
         msg.attach("hub1z.png", "image/png", icon.read_bytes(), disposition="inline", headers={"Content-ID": "<hub1z-mark>"})
+        if "cid:hub1z-logo" in body_html:
+            logo = Path(current_app.static_folder) / "img/brand/png/hub1z-logo-tagline-small.png"
+            msg.attach("hub1z-logo.png", "image/png", logo.read_bytes(), disposition="inline",
+                       headers={"Content-ID": "<hub1z-logo>"})
     if redirected:
         msg.extra_headers = {"X-Original-To": recipient}
     if current_app.config.get("MAIL_SUPPRESS_SEND"):

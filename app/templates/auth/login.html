@@ -8,6 +8,12 @@
     <div class="card shadow-sm">
       <div class="card-body p-4">
         <h4 class="mb-3">Sign in</h4>
+        {% if request.args.get('notice') == 'password-set' %}
+        <div class="alert alert-success d-flex gap-2 align-items-start" role="status">
+          <i class="bi bi-check-circle-fill"></i>
+          <div><b>Your password is set.</b><br>Sign in with your email and the new password to open your workspace.</div>
+        </div>
+        {% endif %}
         <form method="post" novalidate>
           {{ form.hidden_tag() }}
           {{ field(form.email, autofocus=true) }}

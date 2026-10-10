@@ -142,6 +142,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/hub1z-ui.js') }}"></script>
+<script>document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) { new bootstrap.Tooltip(el); });</script>
+<script src="{{ url_for('static', filename='js/slug-check.js') }}" defer></script>
 {% if authed %}<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>{% endif %}
 {% block scripts %}{% endblock %}
 </body>

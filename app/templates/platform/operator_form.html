@@ -11,7 +11,7 @@
 
   <h6>Identity</h6>
   <div class="row">
-    <div class="col-md-3">{{ field(form.slug) }}</div>
+    <div class="col-md-3">{{ field(form.slug, attrs={"data-slug-check": url_for('auth.slug_check'), "data-exclude-id": (operator.id if operator_admins is defined and operator else "")}) }}</div>
     <div class="col-md-5">{{ field(form.name) }}</div>
     <div class="col-md-4">{{ field(form.tagline) }}</div>
   </div>

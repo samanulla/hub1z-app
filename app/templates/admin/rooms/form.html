@@ -21,7 +21,7 @@
     </div>
     {{ field(form.cross_location_bookable) }}
     {{ field(form.description) }}
-    {% if request.endpoint == 'admin.room_new' %}{{ field(form.carry_details) }}{% endif %}
+    {% if request.endpoint == 'admin.room_new' %}{{ field(form.carry_details, help="When you use Save & add next, the next room form opens pre-filled with this room's capacity, rates and amenities, so you only change the name.") }}{% endif %}
     <button class="btn btn-dark" type="submit" name="submit_action" value="save">Save</button>
     {% if request.endpoint == 'admin.room_new' %}<button class="btn btn-outline-dark" type="submit" name="submit_action" value="save_next"><i class="bi bi-plus-lg"></i> Save &amp; add next</button>{% endif %}
     <a class="btn btn-link" href="{{ url_for('admin.rooms_list', location_id=location.id) }}">Cancel</a>

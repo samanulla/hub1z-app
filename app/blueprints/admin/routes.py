@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date, datetime
 import re
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, g
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, g, session
 from flask_login import current_user
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
@@ -62,14 +62,26 @@ def dashboard():
     recent_bookings = (RoomBooking.query
                        .order_by(RoomBooking.created_at.desc()).limit(10).all())
     from ...services.alerts import operator_alerts
+    from ...services import onboarding
+    setup_steps = onboarding.steps(stats, current_user.is_super_admin) if getattr(g, "operator_id", None) else []
+    setup_current = onboarding.current(setup_steps)
+    guide = setup_current if setup_current and session.get("onboarding_dismissed") != setup_current["key"] else None
     return render_template("admin/dashboard.html",
                            stats=stats,
+                           setup_steps=setup_steps, setup_guide=guide, setup_active=setup_current is not None,
                            alerts=operator_alerts(g.operator_id) if getattr(g, "operator_id", None) else [],
                            recent_companies=recent_companies,
                            recent_bookings=recent_bookings)
 
 
 # ------------------------------------------------------------- locations --
+
+@admin_bp.route("/onboarding/dismiss", methods=["POST"])
+@admin_required
+def onboarding_dismiss():
+    session["onboarding_dismissed"] = request.form.get("step", "")[:30]
+    return redirect(url_for("admin.dashboard"))
+
 
 @admin_bp.route("/locations")
 @admin_required
