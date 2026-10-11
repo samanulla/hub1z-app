@@ -70,6 +70,9 @@ def _destination(recipient: str) -> tuple[str, bool]:
     target = (current_app.config.get("MAIL_REDIRECT_TO") or "").strip()
     if not target:
         return recipient, False
+    allowed = {a.strip().lower() for a in (current_app.config.get("MAIL_ALLOWED_RECIPIENTS") or "").split(",") if a.strip()}
+    if recipient.strip().lower() in allowed:
+        return recipient, False
     keep = {d.strip().lower() for d in (current_app.config.get("MAIL_REDIRECT_KEEP_DOMAINS") or "").split(",") if d.strip()}
     if recipient.rsplit("@", 1)[-1].lower() in keep:
         return recipient, False

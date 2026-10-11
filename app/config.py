@@ -54,6 +54,9 @@ class BaseConfig:
     # subject) so bounces from real addresses cannot hurt SES approval. Set it empty to deliver normally.
     MAIL_REDIRECT_TO = os.getenv("MAIL_REDIRECT_TO", "admin@hub1z.com")
     MAIL_REDIRECT_KEEP_DOMAINS = os.getenv("MAIL_REDIRECT_KEEP_DOMAINS", "hub1z.com")
+    # Comma-separated exact addresses that are always delivered for real, even while MAIL_REDIRECT_TO is set
+    # (used on dev so only the dev team's own mailboxes receive mail).
+    MAIL_ALLOWED_RECIPIENTS = os.getenv("MAIL_ALLOWED_RECIPIENTS", "")
     # Optional: AWS Secrets Manager secret name/ARN holding {"username","password"}.
     # When set, overrides MAIL_USERNAME/MAIL_PASSWORD above at app startup via the
     # EC2 instance's IAM role — no static AWS keys or plaintext SMTP password on disk.

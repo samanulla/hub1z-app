@@ -536,6 +536,25 @@ def test_all_outgoing_mail_is_redirected_except_hub1z_addresses(scenario, monkey
     assert normal.recipients == ["owner@billing-space.example"] and normal.subject == "New enquiry"
 
 
+def test_allowed_recipients_receive_real_mail_while_everyone_else_is_redirected(scenario, monkeypatch):
+    from types import SimpleNamespace
+    from app.services import mail_service
+    app, operator = scenario
+    sent = []
+    monkeypatch.setattr(mail_service.mail, "send", sent.append)
+    app.config.update(MAIL_SUPPRESS_SEND=False, MAIL_REDIRECT_TO="admin@hub1z.com", MAIL_REDIRECT_KEEP_DOMAINS="",
+                      MAIL_ALLOWED_RECIPIENTS="Dev.One@gmail.com, dev.two@gmail.com")
+    lead = SimpleNamespace(name="Asha", email="asha@example.com", phone=None, interest=None)
+    with app.test_request_context("/", headers={"Host": "billing.hub1z.com"}):
+        for to in ("dev.one@gmail.com", "DEV.TWO@gmail.com", "customer@gmail.com", "someone@example.com"):
+            mail_service.send("New enquiry", to, "lead_enquiry", operator=operator, lead=lead)
+    one, two, other_gmail, other = sent
+    assert one.recipients == ["dev.one@gmail.com"] and two.recipients == ["DEV.TWO@gmail.com"]
+    assert one.subject == "New enquiry" and not hasattr(one, "extra_headers") or not one.extra_headers
+    assert other_gmail.recipients == ["admin@hub1z.com"] and other.recipients == ["admin@hub1z.com"]
+    assert other_gmail.subject == "[for customer@gmail.com] New enquiry"
+
+
 def test_hub1z_invoice_pdf_carries_the_logo(scenario):
     from app.services.pdf_docs import pdf_response, platform_invoice_context
     app, operator = scenario
