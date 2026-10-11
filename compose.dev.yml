@@ -1,0 +1,16 @@
+# Dev override: bundled local PostgreSQL, nothing published beyond localhost, demo seeding off.
+# Use with: docker compose -f docker-compose.yml -f compose.dev.yml <command>
+services:
+  db:
+    ports: !override
+      - "127.0.0.1:5433:5432"
+  web:
+    ports: !override
+      - "127.0.0.1:8000:8000"
+    environment:
+      SEED_DEMO: "false"
+      MARKETPLACE_ENABLED: ${MARKETPLACE_ENABLED:-false}
+  scheduler:
+    environment:
+      SEED_DEMO: "false"
+      MARKETPLACE_ENABLED: ${MARKETPLACE_ENABLED:-false}
