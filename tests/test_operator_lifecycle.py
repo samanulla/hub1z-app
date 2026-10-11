@@ -91,7 +91,7 @@ def test_accept_operator_invite_starts_trial_and_redirects_to_workspace():
                     data={"password": "NinaPass123!", "confirm": "NinaPass123!"},
                     follow_redirects=False)
     assert r.status_code == 302
-    assert r.location == "http://newbiz.hub1z.com/auth/login"
+    assert r.location == "http://newbiz.hub1z.com/auth/login?notice=password-set"
     with app.app_context():
         admin = User.query.filter_by(email="nina@newbiz.com") \
                           .execution_options(skip_operator_filter=True).first()

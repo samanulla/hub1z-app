@@ -26,6 +26,7 @@ def app():
         "STORAGE_BACKEND": "local",
         "LOCAL_STORAGE_DIR": "./var/test-uploads",
         "RATELIMIT_ENABLED": False,
+        "PLATFORM_BASE_DOMAIN": "localhost",
     })
     with app.app_context():
         db.create_all()
@@ -34,6 +35,7 @@ def app():
 
 def _workspace():
     operator = Operator(slug="acme", name="Acme Workspace", status=OperatorStatus.ACTIVE,
+                        primary_domain="acme.localhost",
                     currency_code="INR", default_tax_rate=Decimal("18.00"))
     user = User(operator=operator, email="member@acme.example", full_name="Member",
                 role=UserRole.INDIVIDUAL, is_active=True)
@@ -128,14 +130,16 @@ def test_operator_document_upload_has_scoped_metadata(app):
         db.session.commit()
 
     client = app.test_client()
+    host = {"Host": "acme.localhost"}
     response = client.post("/auth/login", data={
         "email": "owner@acme.example", "password": "password",
-    }, follow_redirects=False)
+    }, headers=host, follow_redirects=False)
     assert response.status_code == 302
     response = client.post(
         "/admin/documents",
-        data={"kind": "other", "file": (BytesIO(b"workspace document"), "terms.pdf")},
+        data={"kind": "other", "tag": "Workspace terms", "file": (BytesIO(b"workspace document"), "terms.pdf")},
         content_type="multipart/form-data",
+        headers=host,
         follow_redirects=False,
     )
     assert response.status_code == 302

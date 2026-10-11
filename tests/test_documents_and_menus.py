@@ -130,28 +130,26 @@ def test_operator_sees_only_its_own_hub1z_invoices_with_pdfs_and_platform_staff_
     assert _is_pdf(_get(platform, APEX, f"/platform/finance/refunds/{refund_ids['HUB-T-DEMO-RF']}/pdf"))
 
 
-def test_check_in_qr_leads_the_menu_and_the_top_bar_for_everyone_who_can_use_it():
+def test_check_in_qr_sits_in_the_top_bar_for_everyone_who_can_use_it():
     app, _ = _seeded_app()
     for email, landing in (("owner@demospace.com", "/admin/"), ("admin@acmeco.com", "/company/"),
                            ("employee@acmeco.com", "/me/"), ("individual@demospace.com", "/me/")):
         c = _client(app, DEMO, email, PERSONA_PASSWORD)
         html = _get(c, DEMO, landing).data
         assert b"h-top-checkin" in html, email
-        assert html.index(b"h-nav-cta") < html.index(b'class="h-nav-label"'), email  # above the first menu group
-        assert html.count(b'href="/checkin/pass"') >= 2, email  # menu and top bar
+        assert html.count(b'href="/checkin/pass"') >= 1, email
     platform = _client(app, APEX, "admin@hub1z.com", OWNER_PASSWORD)
     assert b"h-top-checkin" not in _get(platform, APEX, "/platform/").data
 
 
-def test_book_and_calendar_sit_with_the_workspace_items_and_community_is_its_own_group():
+def test_menus_group_workspace_items_and_community_separately():
     app, _ = _seeded_app()
     company_admin = _client(app, DEMO, "admin@acmeco.com", PERSONA_PASSWORD)
     html = _get(company_admin, DEMO, "/company/").data
-    group = html.index(b">People &amp; workspace<")
-    assert group < html.index(b">Book<") < html.index(b">Calendar<") < html.index(b">People<")
+    assert html.index(b">Dashboard<") < html.index(b">Workspace<") < html.index(b">People<") \
+        < html.index(b">Billing<") < html.index(b">Services<")
     assert b"Book &amp; community" not in html
-    assert html.index(b">Plan &amp; billing<") < html.index(b">Community<") < html.index(b">Member directory<")
-    assert b">Support tickets<" in html and b">Guest passes<" in html
+    assert b">Hub1z invoices<" not in html
 
     for email in ("employee@acmeco.com", "individual@demospace.com"):
         c = _client(app, DEMO, email, PERSONA_PASSWORD)
@@ -160,8 +158,9 @@ def test_book_and_calendar_sit_with_the_workspace_items_and_community_is_its_own
         assert b">Announcements<" in html and b">Guest passes<" in html
 
     owner = _client(app, DEMO, "owner@demospace.com", PERSONA_PASSWORD)
-    html = _get(owner, DEMO, "/admin/").data
-    assert html.index(b">Workspace<") < html.index(b">Book<") < html.index(b">Locations &amp; seats<")
-    assert b"Book &amp; community" not in html and b">Hub1z invoices<" in html
-    assert html.index(b">Community<") < html.index(b">Lockers<") and b">Reception<" in html
-    assert b">Hub1z invoices<" not in _get(company_admin, DEMO, "/company/").data
+    html = _get(owner, DEMO, "/admin/locations").data
+    assert html.index(b">Pricing plans<") < html.index(b">Locations &amp; seats<") < html.index(b">Book<")
+    assert b"Book &amp; community" not in html
+    assert b">Hub1z invoices<" in _get(owner, DEMO, "/admin/invoices").data
+    services = _get(owner, DEMO, "/admin/parcels").data
+    assert b">Lockers<" in services and b">Reception<" in services

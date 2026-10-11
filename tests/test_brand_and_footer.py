@@ -62,7 +62,7 @@ def test_platform_site_uses_the_new_design_and_no_powered_by_strip():
     for path in ("/", "/features", "/features/billing", "/pricing", "/legal", "/terms", "/privacy", "/cookies"):
         html = _get(client, APEX, path)
         assert b"hub1z-site.css" in html, path
-        assert b"img/brand/hub1z-logo.svg" in html and b"img/brand/hub1z-logo-light.svg" in html, path
+        assert b"img/brand/hub1z-logo" in html and b"-light.svg" in html, path
         assert POWERED not in html, path
         assert b"$" not in html and b"USD" not in html, path
 

@@ -12,6 +12,7 @@ def _app():
                       "WTF_CSRF_ENABLED": False,
                       "MAIL_SUPPRESS_SEND": True,
                       "STORAGE_BACKEND": "local",
+                      "PLATFORM_BASE_DOMAIN": "localhost",
                       "LOCAL_STORAGE_DIR": "./var/test-uploads"})
     with app.app_context():
         db.create_all()

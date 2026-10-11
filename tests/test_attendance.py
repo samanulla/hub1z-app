@@ -188,7 +188,7 @@ def test_platform_team_attendance_and_head_counts_without_names():
 def test_menus_link_to_attendance_and_the_check_in_qr():
     app, _ = _seeded_app()
     owner = _client(app, DEMO, "owner@demospace.com", PERSONA_PASSWORD)
-    html = _get(owner, DEMO, "/admin/").data
+    html = _get(owner, DEMO, "/admin/companies").data
     assert b"/admin/attendance" in html and b"/checkin/pass" in html
     employee = _client(app, DEMO, "employee@acmeco.com", PERSONA_PASSWORD)
     html = _get(employee, DEMO, "/me/").data
