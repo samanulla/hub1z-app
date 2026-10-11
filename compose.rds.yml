@@ -1,6 +1,7 @@
 # Production override: use Amazon RDS instead of the bundled PostgreSQL container.
 # Use with: docker compose -f docker-compose.yml -f compose.rds.yml <command>
-# DATABASE_URL comes from the protected .env (never commit it).
+# RDS_DATABASE_URL comes from the protected .env (never commit it). It is a separate name from
+# DATABASE_URL so a stale local-database URL in .env can never be picked up by accident.
 services:
   db:
     profiles: [local-db]
@@ -9,14 +10,14 @@ services:
     ports: !override
       - "127.0.0.1:8000:8000"
     environment:
-      DATABASE_URL: ${DATABASE_URL:?Set the production RDS DATABASE_URL in .env}
+      DATABASE_URL: ${RDS_DATABASE_URL:?Set RDS_DATABASE_URL in .env}
       SEED_DEMO: "false"
       MARKETPLACE_ENABLED: ${MARKETPLACE_ENABLED:-false}
     volumes:
       - ./certs:/app/certs:ro
   scheduler:
     environment:
-      DATABASE_URL: ${DATABASE_URL:?Set the production RDS DATABASE_URL in .env}
+      DATABASE_URL: ${RDS_DATABASE_URL:?Set RDS_DATABASE_URL in .env}
       SEED_DEMO: "false"
       MARKETPLACE_ENABLED: ${MARKETPLACE_ENABLED:-false}
     volumes:

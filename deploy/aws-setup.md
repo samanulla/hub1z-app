@@ -395,7 +395,9 @@ their workspace hostname. `/healthz` alone does not prove RDS is reachable.
 #### Compose RDS Override (Both Web and Scheduler)
 The repository's [compose.rds.yml](../compose.rds.yml) is the production override.
 It needs Docker Compose **2.24.4+** (for `!override` and `!reset`). It stops the
-local `db` container, takes `DATABASE_URL` from the protected `.env`, binds port
+local `db` container, takes the database URL from `RDS_DATABASE_URL` in the
+protected `.env` (a separate name from `DATABASE_URL`, so a stale local-database
+URL in `.env` can never be picked up), binds port
 8000 to localhost only, mounts the RDS CA bundle, and forces `SEED_DEMO=false`
 so Compose's default of `true` can never insert demo operators into production.
 
@@ -413,7 +415,7 @@ Add to production `.env` (percent-encode reserved characters in the username
 and password; quote the value so Compose does not interpret password `$` signs):
 
 ```env
-DATABASE_URL='postgresql+psycopg2://hub1z_app:<URL_ENCODED_PASSWORD>@<RDS_ENDPOINT>:5432/hub1z?sslmode=verify-full&sslrootcert=/app/certs/global-bundle.pem'
+RDS_DATABASE_URL='postgresql+psycopg2://hub1z_app:<URL_ENCODED_PASSWORD>@<RDS_ENDPOINT>:5432/hub1z?sslmode=verify-full&sslrootcert=/app/certs/global-bundle.pem'
 SEED_DEMO=false
 MARKETPLACE_ENABLED=false
 ```
