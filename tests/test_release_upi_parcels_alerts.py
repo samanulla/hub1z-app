@@ -287,12 +287,13 @@ def test_alerts_list_renewals_and_overdue_and_email_each_item_once(monkeypatch):
         sub.start_date = date.today() - relativedelta(months=sub.term_months) + timedelta(days=20)
         db.session.commit()
         who = acme.name
+        days = (sub.term_ends_on - date.today()).days  # month lengths shift this by a day on some dates
     owner = _client(app, DEMO, "owner@demospace.com")
     page = _get(owner, DEMO, "/admin/alerts").data.decode()
-    assert f"{who}: agreement ends in 20 days" in page and "overdue" in page
+    assert f"{who}: agreement ends in {days} days" in page and "overdue" in page
     assert "Needs attention" in _get(owner, DEMO, "/admin/").data.decode()
     company_admin = _client(app, DEMO, "admin@acmeco.com")
-    assert "Renewal due in 20 days" in _get(company_admin, DEMO, "/company/").data.decode()
+    assert f"Renewal due in {days} days" in _get(company_admin, DEMO, "/company/").data.decode()
 
     enabled = False
     monkeypatch.setattr("app.services.entitlements.has_feature", lambda operator, code: enabled)
