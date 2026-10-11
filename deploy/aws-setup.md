@@ -3,6 +3,19 @@
 This runbook provides step-by-step instructions for setting up the Hub1z Flask
 webapp on AWS EC2 instances for dev and production environments.
 
+### Planned Environment Split
+- **Production:** retain the current EC2 instance and its Elastic IP, Nginx,
+  certificate and `hub1z.com` operator domains; move PostgreSQL to private RDS.
+- **Development:** create a separate EC2 instance with its own local PostgreSQL,
+  `dev.hub1z.com` and `<slug>.dev.hub1z.com` domains, secrets and document buckets.
+- Reuse the current instance's VPC for RDS. Do not create an unrelated VPC from
+  the example below unless you also plan private connectivity between VPCs.
+- Keep `MARKETPLACE_ENABLED=false`. Do not copy production data or credentials
+  into dev. Use `FLASK_ENV=production` on both internet-facing instances; dev
+  is a deployment environment, not permission to expose Flask debug mode.
+- Follow section 4.10 for RDS and cutover before treating the current VM as
+  production. This guide does not provision or change any resources itself.
+
 ## Prerequisites
 - AWS account with appropriate permissions
 - Domain: hub1z.com (owned and configured in Route 53)
@@ -15,18 +28,27 @@ with affordable and secure AWS services.
 
 - Prefer the Mumbai region (`ap-south-1`) for lower latency for India-based operators and members.
 - Use `t3.micro` for dev if eligible under the free tier. For production, `t3.small` is a low-cost but reliable choice; move to `t3.medium` as operator/traffic volume grows.
-- Keep PostgreSQL on the EC2 host using the existing Docker Compose `db` service, avoiding RDS costs until you need managed DB scale, multi-AZ failover, or point-in-time recovery.
+- Keep PostgreSQL in Docker Compose on dev. Use RDS PostgreSQL on production
+  for managed backups and point-in-time recovery. Single-AZ is cheaper but
+  does not provide Multi-AZ failover; choose Multi-AZ when availability warrants it.
 - Use `gp3` EBS storage for cost-efficient persistent disk, starting with 20 GB (PostgreSQL data plus document staging live here).
-- Use Nginx + Let's Encrypt (via Certbot) for free SSL instead of ACM + ALB, since Hub1z needs a wildcard certificate for `*.hub1z.com` operator subdomains.
+- Use Nginx + Let's Encrypt (via Certbot) for free wildcard SSL without ALB
+  running costs. ACM with an ALB also supports wildcard certificates but adds
+  load-balancer costs; it is an alternative when availability/scale warrants it.
 - Use Route 53 only if the domain is already managed there; otherwise keep DNS costs minimal with an existing registrar.
 - Use Security Groups and IP-restricted SSH to improve security without extra service spend.
 
 ### Estimated Chargeable Services
-- EC2 t3.micro dev (free tier eligible for 12 months): $0 if within free tier, otherwise about $8–10/mo
+- EC2 t3.micro dev: check current account-specific free-tier eligibility; builds
+  may need swap or a larger instance. Existing account age matters.
 - EC2 t3.small prod: about $15–20/mo
 - EBS gp3 20 GB (per instance): about $2–3/mo
 - Route 53 hosted zone: $0.50/mo plus a few cents per million DNS queries
-- Elastic IP: free when attached to a running instance
+- Public IPv4 / Elastic IP: charged even when attached to a running instance;
+  budget roughly $3.65/month per address at $0.005/hour, subject to current pricing.
+- RDS PostgreSQL: separately budget instance hours, storage, backup overages and
+  optional Multi-AZ. Compare Mumbai prices in AWS Pricing Calculator rather than
+  assuming an EC2 free-tier allowance also covers RDS.
 - Let's Encrypt via Certbot: free public TLS certificates, including wildcard
 - S3 (two document buckets, low volume): under $1–2/mo
 - SES: pennies per 1,000 emails at low volume
@@ -35,7 +57,10 @@ with affordable and secure AWS services.
 
 > Confirm current AWS free-tier eligibility and pricing for your account/region — the above are approximate starting-point estimates, not a quote.
 
-> For a low-volume multi-operator deployment, the secure and cheap configuration is: dev on `t3.micro` with a tightly scoped security group, prod on `t3.small`, Docker Compose running the app + PostgreSQL, Nginx reverse proxy with a wildcard Let's Encrypt certificate, and S3 for documents.
+> Target: separate dev EC2 with local PostgreSQL, existing production EC2 with
+> private RDS PostgreSQL, Nginx with environment-specific wildcard certificates,
+> and separate private S3 buckets. No NAT Gateway is required just for EC2-to-RDS
+> connectivity in the same VPC.
 
 ## 0.5 Infrastructure as Code
 This repository does not yet include Terraform. If you want reproducible
@@ -63,10 +88,17 @@ console steps below.
    - Name: `hub1z-public-subnet-b`
    - Availability Zone: `ap-south-1b`
    - IPv4 CIDR: `10.20.2.0/24`
-3. Create Private Subnet (reserved for a future managed database):
+3. Create Private Subnet for RDS:
    - Name: `hub1z-private-subnet`
    - Availability Zone: `ap-south-1a`
    - IPv4 CIDR: `10.20.11.0/24`
+4. Create a second private subnet in `ap-south-1b`:
+  - Name: `hub1z-private-subnet-b`
+  - IPv4 CIDR: `10.20.12.0/24`
+5. Associate both private subnets with a private route table containing only
+  the VPC local route. RDS needs a DB subnet group spanning at least two AZs,
+  even for a Single-AZ DB instance. Use unused CIDRs within the existing VPC
+  if its CIDR differs from this example.
 
 ### 1.3 Create Internet Gateway
 1. VPC > Internet Gateways > Create
@@ -102,7 +134,7 @@ console steps below.
    - SSH: 22, Source: Your IP (restrict to your IP for security)
    - HTTP: 80, Source: `0.0.0.0/0`
    - HTTPS: 443, Source: `0.0.0.0/0`
-   - Custom TCP: 8000, Source: `0.0.0.0/0` (direct dev app port, useful before Nginx is configured)
+  - Do not open port 8000 publicly. Use Nginx or an SSH tunnel for initial testing.
 
 ### 2.2 Prod Security Group
 1. Similar to dev, but name: `hub1z-prod-sg`
@@ -113,13 +145,21 @@ In both security groups, do not open PostgreSQL ports (5432/5433) to
 `0.0.0.0/0`. The web container reaches PostgreSQL over the private Docker
 Compose network; no host firewall rule should expose it externally.
 
+### 2.3 RDS Security Group
+Create `hub1z-prod-rds-sg` in the production EC2 VPC. Allow inbound PostgreSQL
+TCP **5432** from **`hub1z-prod-sg` (security group ID)** only, not an IP range
+and not `hub1z-dev-sg`. Allow outbound 5432 from the production EC2 security
+group to the RDS security group if EC2 outbound rules are restricted. Keep
+RDS public accessibility **No**. Confirm the current EC2 actually has the
+production security group attached before connecting.
+
 ## 3. Launch EC2 Instances
 
 ### 3.1 Dev Instance
 1. EC2 > Instances > Launch instances
 2. Name: `hub1z-dev`
 3. AMI: Amazon Linux 2023
-4. Instance type: `t3.micro` (free tier)
+4. Instance type: `t3.micro` if sufficient; verify free-tier eligibility
 5. Key pair: Select your SSH key
 6. VPC: `hub1z-vpc`
 7. Subnet: `hub1z-public-subnet`
@@ -129,10 +169,10 @@ Compose network; no host firewall rule should expose it externally.
 11. Launch
 
 ### 3.2 Prod Instance
-1. Same as dev, but:
-   - Name: `hub1z-prod`
-   - Instance type: `t3.small` (increase later if needed)
-   - Security group: `hub1z-prod-sg`
+Reuse the current VM rather than launching another production instance.
+Rename its Name tag to `hub1z-prod`, attach `hub1z-prod-sg`, and retain its
+Elastic IP and existing DNS. Consider resizing to `t3.small`; resizing requires
+a stop/start and an outage. Keep an EBS snapshot before significant changes.
 
 ## 4. Initial Server Setup
 
@@ -203,7 +243,8 @@ To avoid entering credentials on every `git pull`:
 ssh-keygen -t ed25519 -C "hub1z-ec2" -f ~/.ssh/id_ed25519 -N ""
 cat ~/.ssh/id_ed25519.pub
 ```
-Add the public key to GitHub: [github.com/settings/keys](https://github.com/settings/keys), then switch the remote:
+Add the public key as a **read-only deploy key** in the repository's
+Settings > Deploy keys, not an account-wide key, then switch the remote:
 ```bash
 cd /opt/hub1z
 git remote set-url origin git@github.com:<YOUR_ORG>/hub1z-app.git
@@ -215,9 +256,9 @@ ssh -T git@github.com  # Should greet you by username
 cp .env.example .env
 nano .env
 ```
-Set production values, in particular. Docker Compose constructs the internal
-PostgreSQL URL from `POSTGRES_*`; do not set a host-local `DATABASE_URL` in
-this deployment:
+The base Compose file constructs a local PostgreSQL URL from `POSTGRES_*`.
+Production RDS requires the override in section 4.10; adding `DATABASE_URL`
+to `.env` alone will NOT switch either app service to RDS. Start with:
 ```env
 FLASK_ENV=production
 APP_NAME=hub1z
@@ -259,12 +300,31 @@ TIMEZONE=Asia/Kolkata
 # Fresh installs seed only the platform owner; operator credentials are supplied
 # explicitly when an operator is provisioned.
 SEED_DEMO=false
+MARKETPLACE_ENABLED=false
+# Empty means deliver to actual recipients, not the Compose default test mailbox.
+MAIL_REDIRECT_TO=
+MAIL_REDIRECT_KEEP_DOMAINS=
 ```
+For the new dev VM, use `APP_BASE_URL=https://dev.hub1z.com`,
+`PLATFORM_BASE_DOMAIN=dev.hub1z.com`, a different `SECRET_KEY`, different
+database credentials and dedicated dev buckets. Keep `MAIL_SUPPRESS_SEND=true`
+unless explicitly testing mail; then redirect ALL mail to your test mailbox
+with `MAIL_REDIRECT_TO=<YOUR_TEST_EMAIL>` and `MAIL_REDIRECT_KEEP_DOMAINS=`.
+Never copy the production `.env`. Run `chmod 600 .env`.
 Do not set `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY` on EC2 when the
 instance role from section 4 has S3 permissions. Never commit `.env` or place
 secrets directly in the repository.
 
 ### 4.7 Start the Application
+This section starts the **local-database dev stack**. On production, complete
+section 4.10 and use its two-file Compose commands instead.
+Before starting the base Compose stack on dev, correct its `db` healthcheck:
+it currently hardcodes `coworkhub`. Use
+`pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"` in the Compose
+healthcheck instead. Bind the web port as `127.0.0.1:8000:8000` and remove the
+`db` port publication entirely (containers use `db:5432` internally).
+These are required Compose changes, not settings `.env` can apply.
+
 ```bash
 docker compose up --build -d
 ```
@@ -273,9 +333,10 @@ migrations, and (only when `SEED_DEMO=true`) seeds demo data — leave
 `SEED_DEMO=false` on dev/prod servers you intend to use for real operators.
 
 ### 4.8 Create the Platform Owner and (Optionally) an Operator
-`seed-demo` (section 4.7) already creates a Platform Owner using
-`PLATFORM_OWNER_EMAIL`/`PLATFORM_OWNER_PASSWORD` from `.env` (default
-`admin@hub1z.com`). To create an additional platform admin instead:
+With `SEED_DEMO=false`, the startup command does not run `seed-demo` or
+automatically create a platform owner. On a fresh dev/RDS database, create
+one explicitly with a unique strong password (never the Compose default).
+Do not create a duplicate if restoring the existing production database:
 ```bash
 docker compose exec web flask --app wsgi.py create-admin \
   --email you@hub1z.com --password '<STRONG_PASSWORD>' --platform-owner
@@ -305,6 +366,116 @@ curl -f http://localhost:8000/healthz
 - App (before Nginx/SSL): `http://<public-ip>:8000`
 - Admin login: `http://<public-ip>:8000/auth/login`
 - Platform dashboard: `http://<public-ip>:8000/platform/`
+
+Use these IP URLs only through a restricted connection before DNS setup.
+For normal access, use the correct platform hostname; operator logins require
+their workspace hostname. `/healthz` alone does not prove RDS is reachable.
+
+### 4.10 Production RDS and Database Cutover
+
+#### Create RDS in the AWS Console
+1. RDS > Subnet groups: create `hub1z-prod-db-subnets` using both private
+  subnets in the **current production EC2 VPC**.
+2. RDS > Create database > Standard create > **PostgreSQL**, not Aurora.
+  Choose a supported PostgreSQL major compatible with the current PostgreSQL
+  16 source; avoid a version already subject to Extended Support charges.
+3. Identifier: `hub1z-prod-db`; initial database: `hub1z`. Use a strong master
+  credential; create a separate application DB login with schema/DDL privileges
+  for Alembic. Do not use the master login for routine app traffic.
+4. Start with an available `db.t4g.micro`/`db.t4g.small` and gp3 storage at the
+  engine's allowed minimum (typically 20 GiB). Set a storage autoscaling cap.
+  Single-AZ is the budget option; Multi-AZ provides failover at added cost.
+5. Connectivity: current VPC, `hub1z-prod-db-subnets`, public access **No**,
+  security group **`hub1z-prod-rds-sg` only**. Port **5432**, not Compose's 5433.
+6. Enable storage encryption, deletion protection, automatic backups (7-14 days),
+  and a maintenance window outside busy hours. Enable PostgreSQL log export
+  with an explicit CloudWatch retention period. Set/confirm `rds.force_ssl=1`.
+7. Note the endpoint once Available. Dev must never use this endpoint or login.
+
+#### Compose RDS Override (Both Web and Scheduler)
+The repository's [compose.rds.yml](../compose.rds.yml) is the production override.
+It needs Docker Compose **2.24.4+** (for `!override` and `!reset`). It stops the
+local `db` container, takes `DATABASE_URL` from the protected `.env`, binds port
+8000 to localhost only, mounts the RDS CA bundle, and forces `SEED_DEMO=false`
+so Compose's default of `true` can never insert demo operators into production.
+
+Download the RDS CA bundle and make it readable by the container's `app` user:
+
+```bash
+mkdir -p certs
+curl -fL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
+  -o certs/global-bundle.pem
+chmod 755 certs
+chmod 644 certs/global-bundle.pem
+```
+
+Add to production `.env` (percent-encode reserved characters in the username
+and password; quote the value so Compose does not interpret password `$` signs):
+
+```env
+DATABASE_URL='postgresql+psycopg2://hub1z_app:<URL_ENCODED_PASSWORD>@<RDS_ENDPOINT>:5432/hub1z?sslmode=verify-full&sslrootcert=/app/certs/global-bundle.pem'
+SEED_DEMO=false
+MARKETPLACE_ENABLED=false
+```
+
+Always include both files for production commands. Check the resolved model
+without printing secrets:
+
+```bash
+docker compose -f docker-compose.yml -f compose.rds.yml config --quiet
+```
+
+#### Choose Fresh Database or Restore Existing Data
+For an intentionally empty production database, create the application login
+and grant ownership of the `hub1z` database and rights to its `public` schema,
+then run Alembic and create the platform owner. Do not import test data by accident.
+
+For a database named `hub1z`, connect as the RDS master using an SSL-verified
+`psql` session and run (the password prompt is interactive, not logged SQL):
+
+```sql
+CREATE ROLE hub1z_app LOGIN;
+\password hub1z_app
+ALTER DATABASE hub1z OWNER TO hub1z_app;
+\connect hub1z
+GRANT USAGE, CREATE ON SCHEMA public TO hub1z_app;
+```
+
+Keep the master credentials separate. For a restore, use `hub1z_app` as the
+restore login so it owns the restored tables and can run future migrations.
+
+If preserving existing data, rehearse a restore first. During final cutover:
+1. Put Nginx into maintenance mode so new writes cannot arrive, and stop
+  **both** `web` and `scheduler` using the existing Compose configuration.
+2. Dump the local database using PostgreSQL 16 tools:
+  `docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --no-owner --no-acl' > hub1z-cutover.sql`.
+  Protect the dump with `chmod 600`; do not commit it.
+3. Restore into an **empty** RDS database using `psql -v ON_ERROR_STOP=1`
+  over `sslmode=verify-full`, with a client version at least as new as the
+  source. Supply credentials with a protected `.pgpass` or secret mechanism,
+  not command-line passwords. Restore as the application/schema owner.
+4. Preserve S3 objects and the existing uploads volume; DB migration does not
+  migrate documents. If switching local uploads to S3, that is a separate task.
+5. Run migrations once, start web then scheduler, and verify DB-backed pages:
+
+```bash
+docker compose -f docker-compose.yml -f compose.rds.yml build web scheduler
+docker compose -f docker-compose.yml -f compose.rds.yml run --rm --no-deps web flask --app wsgi.py db upgrade
+docker compose -f docker-compose.yml -f compose.rds.yml up -d --wait web scheduler
+docker compose -f docker-compose.yml -f compose.rds.yml exec -T web flask --app wsgi.py db current
+curl -f http://127.0.0.1:8000/healthz
+```
+
+Confirm platform login, operator resolution, invoice history, document download,
+and a controlled write. Confirm SSL using `pg_stat_ssl` on an application
+connection. Remove maintenance mode only after verification. Stop local `db`
+after cutover but retain its volume until the rollback window ends; **never run
+`docker compose down -v`**. Replace the existing deploy script with commands
+using the RDS override so a later deployment cannot silently revert to local DB.
+
+Rollback before accepting new writes: stop web/scheduler, return to the original
+database configuration and restart them. After RDS has accepted writes, do not
+simply switch back: reconcile/export those writes first to avoid data loss.
 
 ## 5. Domain and SSL Setup
 
@@ -368,6 +539,8 @@ listening on port 80.
 |------|------|-------|-----|
 | A | *(blank)* | `<ELASTIC_IP>` | 300 |
 | A | `*` | `<ELASTIC_IP>` | 300 |
+| A | `dev` | `<DEV_ELASTIC_IP>` | 300 |
+| A | `*.dev` | `<DEV_ELASTIC_IP>` | 300 |
 | MX/TXT | *(blank)* | your mail provider's records, if any | 300 |
 
 > The wildcard `A` record is what makes `<operator-slug>.hub1z.com` resolve
@@ -376,6 +549,13 @@ listening on port 80.
 
 Allocate and associate an Elastic IP with the instance first so the DNS
 records above don't need to change on every reboot.
+
+Retain the existing hosted zone and its records; do not replace nameservers.
+The explicit `dev` and `*.dev` records separate dev from production's `*`.
+On dev, use `server_name dev.hub1z.com *.dev.hub1z.com` in Nginx and request
+a separate certificate with `-d dev.hub1z.com -d '*.dev.hub1z.com'`.
+Production's `*.hub1z.com` certificate does **not** cover `foo.dev.hub1z.com`.
+Use `/etc/letsencrypt/live/dev.hub1z.com/` certificate paths on dev.
 
 ### 5.4 Install Nginx
 ```bash
@@ -417,9 +597,13 @@ from the instance metadata service, not from `aws configure`.
 
 Check whether the instance already has a role attached:
 ```bash
-curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/
+TOKEN=$(curl -fsS -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' \
+  http://169.254.169.254/latest/api/token)
+curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" \
+  http://169.254.169.254/latest/meta-data/iam/security-credentials/
 ```
-An empty response means no role is attached yet — create/attach one:
+A 404 for the role path indicates no role; a 401 without a token does not.
+Create/attach a role if needed:
 
 1. **IAM → Roles → Create role**
    - Trusted entity type: `AWS service`
@@ -519,11 +703,12 @@ While in sandbox, verify any email addresses you want to send to (your own
 test accounts, early operator admins, etc.) the same way.
 
 ### 6.4 Credentials for SES
-Prefer an IAM role attached to the EC2 instance over long-lived access keys:
-EC2 → Instance → Actions → Security → Modify IAM role, then attach a policy
-scoped to `ses:SendEmail` and `ses:SendRawEmail`.
-
-If you must use SMTP credentials instead, create SES SMTP credentials under
+The current app uses Flask-Mail **SMTP**, not the SES API. Attaching
+`ses:SendEmail` to the EC2 role does not authenticate SMTP. Use SES SMTP
+credentials, preferably stored through the app's `MAIL_CREDENTIALS_SECRET_NAME`
+AWS Secrets Manager integration (grant only `secretsmanager:GetSecretValue`
+for that secret, and KMS decrypt if using a customer-managed key). Otherwise
+store SMTP credentials in the protected `.env`. Create them under
 **SES → SMTP settings → Create SMTP credentials** and set:
 ```env
 MAIL_SERVER=email-smtp.ap-south-1.amazonaws.com
@@ -585,8 +770,10 @@ pattern of complaints).
 MAIL_SUPPRESS_SEND=false
 ```
 ```bash
-docker compose down && docker compose up -d
+docker compose up -d --force-recreate web scheduler
 ```
+For production RDS, include `-f docker-compose.yml -f compose.rds.yml`.
+Keep production `MAIL_REDIRECT_TO=` empty; use suppression/redirection on dev.
 
 ## 7. S3 Storage for Documents
 
@@ -600,9 +787,17 @@ invoices, floor maps, expense receipts) in two separate private buckets.
    - `hub1z-operator-documents-<ACCOUNT_ID>`
 3. Region: Asia Pacific (Mumbai) `ap-south-1`
 4. Block Public Access settings: check **Block all public access** (all 4 sub-options)
-5. Default encryption: Server-side encryption with Amazon S3 managed keys (SSE-S3), Bucket Key enabled
+5. Default encryption: Server-side encryption with Amazon S3 managed keys (SSE-S3).
+  Bucket Keys apply to SSE-KMS, not SSE-S3.
 6. Enable versioning
 7. Leave everything else as defaults and create
+
+For dev create two additional buckets with `-dev` names and a separate EC2
+role that can access only those buckets. Reuse the actual production bucket
+names already configured; do not rename them or assume their names match scope.
+Require IMDSv2 on both EC2 instances. Docker needs access to the instance role;
+if credentials cannot be obtained from containers, configure the metadata
+response hop limit appropriately (commonly 2 for a bridged Docker network).
 
 ### 7.2 IAM Policy for S3 Access
 Attach an inline policy to the EC2 instance role (preferred) or a dedicated
@@ -672,7 +867,9 @@ docker compose exec web flask --app wsgi.py db upgrade
 
 ## 8. Monitoring and Security
 - Enable CloudWatch monitoring on both instances
-- Set up CloudWatch alarms for CPU/memory and low disk space (the EBS volume backs PostgreSQL data)
+- Set up CloudWatch alarms for CPU, status checks, memory and disk space.
+  Memory/disk require the CloudWatch Agent; basic EC2 metrics do not include them.
+  For RDS monitor FreeStorageSpace, FreeableMemory, CPU and DatabaseConnections.
 - Regularly update packages (`sudo dnf update -y`)
 - Use AWS Systems Manager for patch management and shell access instead of open SSH where possible
 - Keep the security groups minimal: only Nginx-fronted 80/443 public, no direct public access to 5432/5433 or (on prod) 8000
@@ -681,16 +878,22 @@ docker compose exec web flask --app wsgi.py db upgrade
 ## 9. Backup and Recovery
 
 ### 9.1 PostgreSQL Logical Backups
-Because PostgreSQL is not managed by RDS, backups are your responsibility.
-Create a daily logical backup and copy it to S3:
+For production RDS, enable automated backups/PITR and take a manual snapshot
+before migrations. Regularly test restoration to a **separate** private DB;
+backups do not replace restore testing. Retain a final snapshot on intentional deletion.
+For dev local PostgreSQL (or an optional additional logical backup), use:
 ```bash
 mkdir -p /opt/hub1z/backups
 DATE=$(date -u +%Y-%m-%dT%H-%M-%SZ)
 docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
   | gzip > "/opt/hub1z/backups/hub1z-$DATE.sql.gz"
 aws s3 cp "/opt/hub1z/backups/hub1z-$DATE.sql.gz" \
-  "s3://hub1z-operator-documents-<ACCOUNT_ID>/backups/postgres/hub1z-$DATE.sql.gz"
+  "s3://<DEV_BACKUP_BUCKET>/backups/postgres/hub1z-$DATE.sql.gz"
 ```
+The S3 policy in section 7.2 allows only `operators/*` and `platform/*`, NOT
+`backups/*`. Grant a separate role-scoped PutObject permission for the backup
+prefix/bucket, install AWS CLI before this command, and set retention/lifecycle
+rules. Do not place dev backups in the production document buckets.
 Schedule this with cron or a systemd timer. Keep multiple backup generations
 and periodically test restoring into a separate database.
 
@@ -706,9 +909,13 @@ auto-deploys to dev, and a push to `main` deploys to prod behind a manual
 approval gate — add a GitHub Actions workflow that SSHes into the target
 instance and runs:
 ```bash
-cd /opt/hub1z && git pull && docker compose up --build -d \
-  && docker compose exec -T web flask --app wsgi.py db upgrade
+cd /opt/hub1z && git pull --ff-only && \
+  docker compose -f docker-compose.yml -f compose.rds.yml up --build -d --wait web scheduler
 ```
+The web startup already applies Alembic migrations before Gunicorn; avoid
+also running an unnecessary second upgrade after startup. Use the base Compose
+file for dev. Do not auto-deploy arbitrary branches concurrently to one dev DB:
+select a dev branch or serialize deployments. Keep production approval explicit.
 Store `DEV_HOST`/`DEV_SSH_KEY` and `PROD_HOST`/`PROD_SSH_KEY` as GitHub
 Actions secrets, and gate the `main` branch deploy with a `production`
 GitHub Environment that requires a reviewer, mirroring the dev/prod split
