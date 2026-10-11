@@ -63,7 +63,7 @@ def register_settings_routes(bp):
                 db.session.commit()
                 flash("Workspace settings saved.", "success")
                 return redirect(url_for("admin.settings"))
-            counts = {"locations": Location.query.count(), "seats": Seat.query.count(),
+            counts = {"locations": Location.query.count(), "seats": Seat.query.filter(Seat.is_active.is_(True)).count(),
                       "staff": User.query.filter(User.role.in_([UserRole.SUPER_ADMIN, UserRole.MANAGER, UserRole.LOCATION_MANAGER])).count()}
             documents = Document.query.filter_by(owner_type="operator", operator_id=operator.id).all()
             return render_template("admin/operator_settings.html", form=form, operator=operator,

@@ -44,6 +44,18 @@ class Location(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     def __repr__(self) -> str:
         return f"<Location {self.code}>"
 
+    @property
+    def active_seats(self):
+        return [s for s in self.seats if s.is_active]
+
+    @property
+    def inactive_seats(self):
+        return [s for s in self.seats if not s.is_active]
+
+    @property
+    def active_rooms(self):
+        return [r for r in self.rooms if r.is_active]
+
 
 class Floor(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     __tablename__ = "floors"

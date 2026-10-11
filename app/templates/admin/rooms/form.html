@@ -19,6 +19,7 @@
       <div class="col-md-3">{{ field(form.category_id) }}</div>
       <div class="col-md-3 pt-4">{{ field(form.is_active) }}</div>
     </div>
+    <div class="form-text mb-3">The <b>hourly rate override</b> is a cash price for this room only. Leave it at 0 to use the cash rate of the room's category, which you set under <a href="{{ url_for('admin.credits_settings') }}">Credits &rarr; Room categories</a>. What members pay on a subscription is set in <a href="{{ url_for('admin.plans_list') }}">Pricing plans</a>.</div>
     {{ field(form.cross_location_bookable) }}
     {{ field(form.description) }}
     {% if request.endpoint == 'admin.room_new' %}{{ field(form.carry_details, help="When you use Save & add next, the next room form opens pre-filled with this room's capacity, rates and amenities, so you only change the name.") }}{% endif %}

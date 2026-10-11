@@ -1,35 +1,76 @@
 {% extends "base.html" %}
 {% block title %}Seats — {{ location.name }}{% endblock %}
 
+{% macro seat_rows(rows, inactive=false) %}
+{% for s in rows %}
+<tr class="{{ 'text-muted' if inactive }}">
+  <td><input class="form-check-input" type="checkbox" name="seat_id" value="{{ s.id }}" aria-label="Select {{ s.code }}"></td>
+  <td><strong>{{ s.code }}</strong></td>
+  <td>{{ s.floor | floor_name }}</td>
+  <td>{{ s.seat_type.value.replace('_',' ') | title }}</td>
+  <td>{{ s.hourly_rate | money }}</td>
+  <td>{{ s.daily_rate | money }}</td>
+  <td>{{ s.monthly_rate | money }}</td>
+  <td class="text-end text-nowrap">
+    <a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.seat_edit', seat_id=s.id) }}">Edit</a>
+    <button class="btn btn-sm btn-outline-danger" type="submit" form="delete-seat-{{ s.id }}" title="Delete this seat"
+            onclick="return confirm('Delete seat {{ s.code }}? This cannot be undone.');"><i class="bi bi-trash"></i><span class="visually-hidden">Delete {{ s.code }}</span></button>
+  </td>
+</tr>
+{% endfor %}
+{% endmacro %}
+
 {% block content %}
 {% include "admin/_inventory_nav.html" %}
 <div class="d-flex justify-content-between mb-3">
-  <h3>Seats at {{ location.name }}</h3>
+  <div>
+    <h3 class="mb-0">Seats at {{ location.name }}</h3>
+    <div class="text-muted small">{{ seats | length }} active{% if inactive_count %} · {{ inactive_count }} inactive{% endif %}</div>
+  </div>
   <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-dark" href="{{ url_for('admin.seats_bulk_add', location_id=location.id) }}"><i class="bi bi-plus-lg"></i> Bulk add</a><a class="btn btn-dark" href="{{ url_for('admin.seat_new', location_id=location.id) }}">+ New seat</a></div>
 </div>
+
+<div class="alert alert-light border small d-flex gap-2 align-items-start" role="note">
+  <i class="bi bi-info-circle mt-1"></i>
+  <div>The rates on a seat are <b>walk-in prices</b> for booking this seat by the hour or day. What members and companies pay on a subscription is set in
+    <a href="{{ url_for('admin.plans_list') }}">Pricing plans</a>.</div>
+</div>
+
+<form method="get" class="mb-3" id="seat-filter">
+  <div class="form-check">
+    <input class="form-check-input" type="checkbox" name="include_inactive" value="1" id="include-inactive"
+           {{ 'checked' if include_inactive }} {{ 'disabled' if not inactive_count and not include_inactive }}
+           onchange="this.form.submit()">
+    <label class="form-check-label" for="include-inactive">Include inactive seats{% if inactive_count %} ({{ inactive_count }}){% endif %}</label>
+  </div>
+</form>
 
 <form method="get" action="{{ url_for('admin.seats_bulk_edit', location_id=location.id) }}">
 <button class="btn btn-outline-dark mb-3" type="submit"><i class="bi bi-pencil"></i> Edit selected</button>
 <div class="table-responsive"><table class="table bg-white shadow-sm">
-  <thead><tr><th><input class="form-check-input" type="checkbox" id="select-seats" aria-label="Select all seats"></th><th>Code</th><th>Floor</th><th>Type</th><th>Hourly</th><th>Daily</th><th>Monthly</th><th>Active</th><th></th></tr></thead>
+  <thead><tr><th><input class="form-check-input" type="checkbox" id="select-seats" aria-label="Select all seats"></th><th>Code</th><th>Floor</th><th>Type</th><th>Hourly</th><th>Daily</th><th>Monthly</th><th></th></tr></thead>
   <tbody>
-    {% for s in seats %}
-    <tr>
-      <td><input class="form-check-input" type="checkbox" name="seat_id" value="{{ s.id }}" aria-label="Select {{ s.code }}"></td>
-      <td><strong>{{ s.code }}</strong></td>
-      <td>L{{ s.floor.level }} — {{ s.floor.name }}</td>
-      <td>{{ s.seat_type.value.replace('_',' ') | title }}</td>
-      <td>{{ s.hourly_rate | money }}</td>
-      <td>{{ s.daily_rate | money }}</td>
-      <td>{{ s.monthly_rate | money }}</td>
-      <td>{% if s.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
-      <td class="text-end"><a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.seat_edit', seat_id=s.id) }}">Edit</a></td>
-    </tr>
-    {% else %}
-    <tr><td colspan="9" class="text-center text-muted py-4">No seats yet.</td></tr>
-    {% endfor %}
+    {{ seat_rows(seats) }}
+    {% if not seats %}
+    <tr><td colspan="8" class="text-center text-muted py-4">{{ 'No active seats.' if inactive_count else 'No seats yet.' }}</td></tr>
+    {% endif %}
   </tbody>
 </table></div>
+
+{% if include_inactive and inactive_seats %}
+<h5 class="mt-4 mb-1">Inactive seats</h5>
+<p class="text-muted small">These are out of use. They do not count towards your inventory or appear for booking. Edit a seat to make it active again, or delete it if it has no bookings or allocations.</p>
+<div class="table-responsive"><table class="table bg-white shadow-sm">
+  <thead><tr><th></th><th>Code</th><th>Floor</th><th>Type</th><th>Hourly</th><th>Daily</th><th>Monthly</th><th></th></tr></thead>
+  <tbody>{{ seat_rows(inactive_seats, inactive=true) }}</tbody>
+</table></div>
+{% endif %}
 </form>
+
+{% for s in seats + inactive_seats %}
+<form id="delete-seat-{{ s.id }}" method="post" action="{{ url_for('admin.seat_delete', seat_id=s.id) }}" hidden>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+</form>
+{% endfor %}
 <script>document.getElementById('select-seats').addEventListener('change', event => document.querySelectorAll('input[name="seat_id"]').forEach(input => { input.checked = event.target.checked; }));</script>
 {% endblock %}

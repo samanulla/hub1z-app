@@ -17,7 +17,7 @@
       <div class="col-md-4">
         <div class="card h-100"><div class="card-body">
           <h6>{{ s.code }}</h6>
-          <div class="text-muted small">L{{ s.floor.level }} · {{ s.floor.name }}</div>
+          <div class="text-muted small">{{ s.floor | floor_name }}</div>
           <p class="small mb-2">Hourly {{ s.hourly_rate | money }} · Daily {{ s.daily_rate | money }}</p>
           <a class="btn btn-sm btn-dark" href="{{ url_for('book.seat_book', seat_id=s.id) }}">Book</a>
         </div></div>
@@ -33,7 +33,7 @@
       <div class="col-md-4">
         <div class="card h-100"><div class="card-body">
           <h6>{{ r.name }}</h6>
-          <div class="text-muted small">Cap {{ r.capacity }} · L{{ r.floor.level }}</div>
+          <div class="text-muted small">Cap {{ r.capacity }} · {{ r.floor | floor_name }}</div>
           <p class="small mb-2">{{ r.cash_rate_per_hour | money }}/hr · {{ r.credits_per_slot }} credit(s) / 30 min</p>
           <a class="btn btn-sm btn-dark" href="{{ url_for('book.room_book', room_id=r.id) }}">Book</a>
         </div></div>

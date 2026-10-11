@@ -6,6 +6,7 @@
   <h3>Pricing plans</h3>
   <a class="btn btn-dark" href="{{ url_for('admin.plan_new') }}">+ New plan</a>
 </div>
+<div class="alert alert-light border small" role="note"><i class="bi bi-info-circle"></i> Pricing plans are what members and companies <b>subscribe</b> to. The rates on individual seats and rooms (under <a href="{{ url_for('admin.locations_list') }}">Locations</a>) are walk-in prices for booking by the hour or day.</div>
 
 <table class="table bg-white shadow-sm">
   <thead><tr><th>Plan Name</th><th>Scope</th><th>Workspace Type</th><th>Billing Unit</th><th>Cycle</th><th>Base Price</th><th>Included Seats</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>

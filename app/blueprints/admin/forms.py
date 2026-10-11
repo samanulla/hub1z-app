@@ -4,7 +4,7 @@ from flask_wtf.file import FileField, FileAllowed
 from wtforms import (StringField, IntegerField, DecimalField, SelectField,
                      TextAreaField, TimeField, BooleanField, SubmitField, DateField,
                      PasswordField, SelectMultipleField)
-from wtforms.validators import DataRequired, Length, Optional, NumberRange, Email, EqualTo
+from wtforms.validators import DataRequired, InputRequired, Length, Optional, NumberRange, Email, EqualTo
 
 from ...models import (
     SeatType, PlanType, BillingCycle, PlanScope, BillingUnit, LocationScope, PlanStatus, CompanyStatus,
@@ -25,6 +25,9 @@ EARLY_EXIT_CHOICES = [("remaining_fees", "Pay the remaining lock-in fees"),
 
 def _enum_choices(enum_cls):
     return [(m.value, m.value.replace("_", " ").title()) for m in enum_cls]
+
+
+LEGACY_PLAN_TYPES = {"managed_office"}
 
 
 class LocationForm(FlaskForm):
@@ -50,8 +53,11 @@ class LocationForm(FlaskForm):
 
 
 class FloorForm(FlaskForm):
-    level = IntegerField("Level", validators=[DataRequired(), NumberRange(min=-5, max=200)])
-    name = StringField("Name", validators=[DataRequired(), Length(max=80)])
+    level = IntegerField("Floor number", validators=[InputRequired(message="Enter a floor number, 0 for the Ground floor."),
+                                                     NumberRange(min=-5, max=200, message="Use a number from -5 (basement) to 200.")],
+                         description="0 is the Ground floor, then 1, 2, 3 and so on. Use -1, -2 for basements.")
+    name = StringField("Name", validators=[DataRequired(), Length(max=80)],
+                       description="For example Ground floor, Cabin block or Terrace.")
     submit = SubmitField("Save")
 
 
@@ -144,7 +150,9 @@ class PricingPlanForm(FlaskForm):
     name = StringField("Plan name", validators=[DataRequired(), Length(max=120)])
     scope = SelectField("Plan scope", choices=_enum_choices(PlanScope), validators=[DataRequired()])
     company_id = SelectField("Company-specific plan for", coerce=int, validators=[Optional()])
-    plan_type = SelectField("Workspace type", choices=_enum_choices(PlanType), validators=[DataRequired()])
+    plan_type = SelectField("Workspace type",
+                            choices=[c for c in _enum_choices(PlanType) if c[0] not in LEGACY_PLAN_TYPES],
+                            validators=[DataRequired()])
     billing_unit = SelectField("Billing unit", choices=[
         ("per_seat", "Per Seat"), ("per_office", "Per Office"),
         ("per_day_pass", "Per Day Pass"), ("per_person_day", "Per Person-Day"),
@@ -185,7 +193,9 @@ class PricingPlanForm(FlaskForm):
             valid = False
         allowed_units = {
             "hot_desk": {"daily": "per_person_day", "monthly": "per_seat"},
-            "dedicated_desk": {"*": "per_seat"}, "private_office": {"*": "per_office"},
+            "dedicated_desk": {"*": "per_seat"},
+            "private_office": {"*": {"per_office", "flat_fee"}},
+            "executive_office": {"*": {"per_office", "flat_fee"}},
             "managed_office": {"*": {"per_office", "flat_fee"}}, "day_pass": {"*": "per_day_pass"},
         }
         expected = allowed_units.get(self.plan_type.data, {}).get(self.billing_cycle.data) or allowed_units.get(self.plan_type.data, {}).get("*")

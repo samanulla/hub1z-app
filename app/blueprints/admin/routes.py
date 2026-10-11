@@ -18,7 +18,8 @@ from ...models import (
     Document, DocumentKind, CompanyDocument, Invoice, DayPass, DayPassStatus, RoomCategory,
 )
 from ...services.storage import storage_service
-from ...services import tier_limits
+from ...services import tier_limits, audit_service
+from ...services.formatting import floor_label
 from ...utils.decorators import admin_required, super_admin_required, manager_or_super_required
 from .forms import (
     LocationForm, FloorForm, SeatForm, BulkSeatForm, BulkSeatEditForm, RoomForm, PricingPlanForm,
@@ -48,8 +49,8 @@ def dashboard():
     # doesn't filter them — these joins scope them explicitly.
     stats = {
         "locations": Location.query.count(),
-        "seats": Seat.query.join(Location).count(),
-        "rooms": ConferenceRoom.query.join(Location).count(),
+        "seats": Seat.query.join(Location).filter(Seat.is_active.is_(True)).count(),
+        "rooms": ConferenceRoom.query.join(Location).filter(ConferenceRoom.is_active.is_(True)).count(),
         "companies": Company.query.count(),
         "members": User.query.filter(User.role.in_([UserRole.EMPLOYEE, UserRole.INDIVIDUAL])).count(),
         "active_subs": Subscription.query.filter_by(status=SubscriptionStatus.ACTIVE).count(),
@@ -168,7 +169,7 @@ def _next_inventory_code(model, location_id, current_code):
 def seats_bulk_add(location_id: int):
     location = Location.query.get_or_404(location_id)
     form = BulkSeatForm()
-    form.floor_id.choices = [(floor.id, f"L{floor.level} - {floor.name}") for floor in location.floors]
+    form.floor_id.choices = [(floor.id, floor_label(floor)) for floor in location.floors]
     if form.validate_on_submit():
         prefix = form.code_prefix.data.strip()
         codes = [f"{prefix}{number:0{form.number_digits.data}d}" for number in
@@ -202,7 +203,7 @@ def seats_bulk_edit(location_id: int):
     available = Seat.query.filter_by(location_id=location.id).order_by(Seat.code).all()
     form = BulkSeatEditForm()
     form.seat_ids.choices = [(seat.id, seat.code) for seat in available]
-    form.floor_id.choices = [(0, "Choose floor")] + [(floor.id, f"L{floor.level} - {floor.name}") for floor in location.floors]
+    form.floor_id.choices = [(0, "Choose floor")] + [(floor.id, floor_label(floor)) for floor in location.floors]
     if not form.is_submitted():
         selected_ids = set(request.args.getlist("seat_id", type=int))
         if not selected_ids or len(selected_ids) > 100 or not selected_ids.issubset({seat.id for seat in available}):
@@ -229,8 +230,32 @@ def seats_bulk_edit(location_id: int):
 @admin_required
 def seats_list(location_id: int):
     loc = Location.query.get_or_404(location_id)
-    seats = Seat.query.filter_by(location_id=loc.id).order_by(Seat.code).all()
-    return render_template("admin/seats/list.html", location=loc, seats=seats)
+    every_seat = Seat.query.filter_by(location_id=loc.id).order_by(Seat.code).all()
+    include_inactive = request.args.get("include_inactive") == "1"
+    active = [s for s in every_seat if s.is_active]
+    inactive = [s for s in every_seat if not s.is_active]
+    return render_template("admin/seats/list.html", location=loc, seats=active,
+                           inactive_seats=inactive if include_inactive else [],
+                           inactive_count=len(inactive), include_inactive=include_inactive)
+
+
+@admin_bp.route("/seats/<int:seat_id>/delete", methods=["POST"])
+@manager_or_super_required
+def seat_delete(seat_id: int):
+    seat = Seat.query.get_or_404(seat_id)
+    location_id = seat.location_id
+    has_history = (SeatBooking.query.filter_by(seat_id=seat.id).first() is not None
+                   or SeatAllocation.query.filter_by(seat_id=seat.id).first() is not None)
+    if has_history:
+        flash(f"Seat {seat.code} has booking or allocation history, so it cannot be deleted. "
+              "Mark it inactive instead to take it out of use and keep the history.", "warning")
+        return redirect(url_for("admin.seat_edit", seat_id=seat.id))
+    code = seat.code
+    db.session.delete(seat)
+    db.session.commit()
+    audit_service.record("seat.deleted", "seat", seat_id, {"code": code, "location_id": location_id})
+    flash(f"Seat {code} deleted.", "success")
+    return redirect(url_for("admin.seats_list", location_id=location_id, include_inactive="1"))
 
 
 @admin_bp.route("/locations/<int:location_id>/seats/new", methods=["GET", "POST"])
@@ -241,7 +266,7 @@ def seat_new(location_id: int):
     previous = Seat.query.filter_by(id=previous_id, location_id=loc.id).first_or_404() if previous_id else None
     carry = request.args.get("carry") == "1"
     form = SeatForm(obj=previous if carry else None)
-    form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in loc.floors]
+    form.floor_id.choices = [(f.id, floor_label(f)) for f in loc.floors]
     if previous and not form.is_submitted():
         form.code.data = _next_inventory_code(Seat, loc.id, previous.code)
         form.carry_details.data = carry
@@ -276,7 +301,7 @@ def seat_new(location_id: int):
 def seat_edit(seat_id: int):
     seat = Seat.query.get_or_404(seat_id)
     form = SeatForm(obj=seat)
-    form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in seat.location.floors]
+    form.floor_id.choices = [(f.id, floor_label(f)) for f in seat.location.floors]
     if form.validate_on_submit():
         duplicate = Seat.query.filter(Seat.location_id == seat.location_id, Seat.code == form.code.data,
                                       Seat.id != seat.id).first()
@@ -313,7 +338,7 @@ def room_new(location_id: int):
     previous = ConferenceRoom.query.filter_by(id=previous_id, location_id=loc.id).first_or_404() if previous_id else None
     carry = request.args.get("carry") == "1"
     form = RoomForm(obj=previous if carry else None)
-    form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in loc.floors]
+    form.floor_id.choices = [(f.id, floor_label(f)) for f in loc.floors]
     form.category_id.choices = _room_category_choices(loc.operator_id)
     if previous and not form.is_submitted():
         form.code.data = _next_inventory_code(ConferenceRoom, loc.id, previous.code)
@@ -343,7 +368,7 @@ def room_new(location_id: int):
 def room_edit(room_id: int):
     room = ConferenceRoom.query.get_or_404(room_id)
     form = RoomForm(obj=room)
-    form.floor_id.choices = [(f.id, f"L{f.level} — {f.name}") for f in room.location.floors]
+    form.floor_id.choices = [(f.id, floor_label(f)) for f in room.location.floors]
     form.category_id.choices = _room_category_choices(room.operator_id)
     if not form.is_submitted():
         form.category_id.data = room.category_id or 0
@@ -363,13 +388,13 @@ def _normalize_plan_conditions(plan, form):
         plan.company_id = None
     else:
         plan.company_id = form.company_id.data
-    if form.plan_type.data not in ("private_office", "managed_office"):
+    if form.plan_type.data not in ("private_office", "executive_office", "managed_office"):
         plan.office_capacity = None
     if form.billing_unit.data not in ("per_seat", "per_office", "flat_fee"):
         plan.included_seat_quantity = 0
     if form.plan_type.data == "day_pass":
         plan.minimum_contract_months = 0
-    if form.plan_type.data not in ("private_office", "managed_office"):
+    if form.plan_type.data not in ("private_office", "executive_office", "managed_office"):
         plan.office_capacity = None
     if form.billing_unit.data not in ("per_seat", "per_office", "flat_fee"):
         plan.included_seat_quantity = 0

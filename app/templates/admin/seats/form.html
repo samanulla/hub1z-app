@@ -19,12 +19,20 @@
       <div class="col-md-3">{{ field(form.daily_rate) }}</div>
       <div class="col-md-3">{{ field(form.monthly_rate) }}</div>
     </div>
+    <div class="form-text mb-3">These are <b>walk-in rates</b> for booking this seat by the hour, day or month. What a member or company pays on a subscription is set in <a href="{{ url_for('admin.plans_list') }}">Pricing plans</a>.</div>
     {{ field(form.is_active) }}
     {{ field(form.notes) }}
     {% if request.endpoint == 'admin.seat_new' %}{{ field(form.carry_details, help="When you use Save & add next, the next seat form opens pre-filled with this seat's type, capacity and rates, so you only change the code.") }}{% endif %}
     <button class="btn btn-dark" type="submit" name="submit_action" value="save">Save</button>
     {% if request.endpoint == 'admin.seat_new' %}<button class="btn btn-outline-dark" type="submit" name="submit_action" value="save_next"><i class="bi bi-plus-lg"></i> Save &amp; add next</button>{% endif %}
     <a class="btn btn-link" href="{{ url_for('admin.seats_list', location_id=location.id) }}">Cancel</a>
+    {% if request.endpoint == 'admin.seat_edit' %}<button class="btn btn-outline-danger float-end" type="submit" form="delete-seat"
+      onclick="return confirm('Delete this seat? This cannot be undone. Seats with bookings or allocations cannot be deleted; mark them inactive instead.');"><i class="bi bi-trash"></i> Delete seat</button>{% endif %}
   </form>
+  {% if request.endpoint == 'admin.seat_edit' %}
+  <form id="delete-seat" method="post" action="{{ url_for('admin.seat_delete', seat_id=request.view_args.seat_id) }}" hidden>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  </form>
+  {% endif %}
 </div></div>
 {% endblock %}

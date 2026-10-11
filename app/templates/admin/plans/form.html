@@ -40,14 +40,14 @@
     const refresh = () => {
       const allowedUnits = {
         hot_desk: type.value === 'hot_desk' && byId('billing_cycle').value === 'daily' ? ['per_person_day'] : ['per_seat'],
-        dedicated_desk: ['per_seat'], private_office: ['per_office'],
-        managed_office: ['per_office', 'flat_fee'], day_pass: ['per_day_pass'],
+        dedicated_desk: ['per_seat'], private_office: ['per_office', 'flat_fee'],
+        executive_office: ['per_office', 'flat_fee'], day_pass: ['per_day_pass'],
       };
       const validUnits = allowedUnits[type.value] || ['flat_fee'];
       Array.from(unit.options).forEach(option => option.hidden = !validUnits.includes(option.value));
       if (!validUnits.includes(unit.value)) unit.value = validUnits[0];
       show(byId('company-field'), scope.value === 'company_custom', () => byId('company_id').value = '0');
-      show(byId('office-capacity-field'), ['private_office', 'managed_office'].includes(type.value), () => byId('office_capacity').value = '');
+      show(byId('office-capacity-field'), ['private_office', 'executive_office'].includes(type.value), () => byId('office_capacity').value = '');
       show(byId('included-seats-field'), ['per_seat', 'per_office', 'flat_fee'].includes(unit.value), () => byId('included_seat_quantity').value = '0');
       const recurring = ['monthly', 'quarterly', 'annual'].includes(byId('billing_cycle').value) && type.value !== 'day_pass' && unit.value !== 'per_person_day';
       show(byId('contract-field'), recurring, () => byId('minimum_contract_months').value = '0');

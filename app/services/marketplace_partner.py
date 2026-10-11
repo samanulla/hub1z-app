@@ -70,7 +70,7 @@ def provision(application: MarketplacePartnerApplication, commission_pct) -> tup
                         postal_code=application.postal_code, country="India", timezone="Asia/Kolkata")
     db.session.add(location)
     db.session.flush()
-    db.session.add(Floor(operator_id=operator.id, location_id=location.id, level=1, name="Ground"))
+    db.session.add(Floor(operator_id=operator.id, location_id=location.id, level=0, name="Ground"))
     operator.primary_location_id = location.id
     db.session.add(OperatorMarketplaceTerms(operator_id=operator.id, enabled=False, kyc_approved=True,
                                             commission_pct=commission_pct,

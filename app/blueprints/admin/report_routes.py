@@ -79,9 +79,9 @@ def register_report_routes(bp):
         # Seat inventory & utilization by location
         loc_stats = []
         for loc in Location.query.filter_by(is_active=True).order_by(Location.name).all():
-            hot = sum(1 for s in loc.seats if s.seat_type == SeatType.HOT_DESK)
-            ded = sum(1 for s in loc.seats if s.seat_type == SeatType.DEDICATED_DESK)
-            priv = sum(1 for s in loc.seats if s.seat_type == SeatType.PRIVATE_OFFICE)
+            hot = sum(1 for s in loc.active_seats if s.seat_type == SeatType.HOT_DESK)
+            ded = sum(1 for s in loc.active_seats if s.seat_type == SeatType.DEDICATED_DESK)
+            priv = sum(1 for s in loc.active_seats if s.seat_type == SeatType.PRIVATE_OFFICE)
             recent = SeatBooking.query.join(Seat).filter(
                 Seat.location_id == loc.id,
                 SeatBooking.start_at >= start,

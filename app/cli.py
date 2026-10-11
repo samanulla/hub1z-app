@@ -347,7 +347,7 @@ def seed_personas_cmd(password: str) -> None:
                        city="Bengaluru", country="IN", timezone="Asia/Kolkata")
         db.session.add(loc)
         db.session.flush()
-        floor = Floor(operator_id=op.id, location_id=loc.id, level=1, name="Ground")
+        floor = Floor(operator_id=op.id, location_id=loc.id, level=0, name="Ground")
         db.session.add(floor)
         db.session.flush()
         db.session.flush()

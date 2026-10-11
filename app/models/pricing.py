@@ -14,7 +14,8 @@ class PlanType(str, enum.Enum):
     HOT_DESK = "hot_desk"
     DEDICATED_DESK = "dedicated_desk"
     PRIVATE_OFFICE = "private_office"
-    MANAGED_OFFICE = "managed_office"
+    EXECUTIVE_OFFICE = "executive_office"
+    MANAGED_OFFICE = "managed_office"  # legacy: kept only because Postgres cannot drop an enum value; rows migrate to private office
     ALL_ACCESS = "all_access"
     DAY_PASS = "day_pass"
     VIRTUAL_OFFICE = "virtual_office"  # business address + mail handling, no desk

@@ -1,0 +1,144 @@
+"""Inventory usability: floor numbering, workspace types, active-only seat counts, seat delete, pricing hints."""
+import os
+from datetime import datetime, timedelta
+
+os.environ.setdefault("FLASK_ENV", "testing")
+
+from app.extensions import db
+from app.models import (BookingStatus, Floor, Location, Operator, PlanType, Seat, SeatBooking, SeatType, User)
+from app.services.formatting import floor_label, floor_level_label
+from tests.test_release_upi_parcels_alerts import DEMO, _client, _get, _post, _seeded_app
+
+
+def _demo(app):
+    with app.app_context():
+        operator = Operator.query.filter_by(primary_domain=DEMO).one()
+        location = Location.query.execution_options(skip_operator_filter=True).filter_by(operator_id=operator.id).first()
+        floor = Floor.query.execution_options(skip_operator_filter=True).filter_by(location_id=location.id).first()
+        return operator.id, location.id, floor.id
+
+
+def _add_seat(app, code, active=True):
+    operator_id, location_id, floor_id = _demo(app)
+    with app.app_context():
+        seat = Seat(operator_id=operator_id, location_id=location_id, floor_id=floor_id, code=code,
+                    seat_type=SeatType.HOT_DESK, is_active=active)
+        db.session.add(seat)
+        db.session.commit()
+        return seat.id
+
+
+def test_floor_numbers_read_ground_then_1_2_3():
+    assert [floor_level_label(n) for n in (0, 1, 2, 3, -1)] == ["Ground", "1", "2", "3", "B1"]
+    ground, first, other = (type("F", (), {"level": level, "name": name}) for level, name in
+                            ((0, "Ground floor"), (1, "Cabin block"), (2, ""))
+                            )
+    assert floor_label(ground) == "Ground floor"        # no "Ground — Ground floor"
+    assert floor_label(first) == "1 \u2014 Cabin block"
+    assert floor_label(other) == "2"
+
+
+def test_ground_floor_can_be_added_as_zero_and_shows_as_ground():
+    app, _ = _seeded_app()
+    _, location_id, _ = _demo(app)
+    owner = _client(app, DEMO, "owner@demospace.com")
+    page = _get(owner, DEMO, f"/admin/locations/{location_id}/floors/new").get_data(as_text=True)
+    assert "0 is the Ground floor" in page
+    response = _post(owner, DEMO, f"/admin/locations/{location_id}/floors/new", {"level": "0", "name": "Terrace lounge"})
+    assert response.status_code == 302
+    with app.app_context():
+        assert Floor.query.execution_options(skip_operator_filter=True).filter_by(
+            location_id=location_id, name="Terrace lounge").one().level == 0
+    detail = _get(owner, DEMO, f"/admin/locations/{location_id}").get_data(as_text=True)
+    assert "Ground \u2014 Terrace lounge" in detail and "L0" not in detail
+    assert _post(owner, DEMO, f"/admin/locations/{location_id}/floors/new", {"level": "", "name": "x"}).status_code == 200
+
+
+def test_plan_form_offers_executive_office_and_not_managed_office():
+    app, _ = _seeded_app()
+    owner = _client(app, DEMO, "owner@demospace.com")
+    page = _get(owner, DEMO, "/admin/plans/new").get_data(as_text=True)
+    assert 'value="executive_office"' in page and "Executive Office" in page
+    assert 'value="private_office"' in page
+    assert 'value="managed_office"' not in page
+    assert PlanType.EXECUTIVE_OFFICE.value == "executive_office"
+
+
+def test_seats_list_shows_active_seats_with_an_option_for_inactive_ones():
+    app, _ = _seeded_app()
+    _, location_id, _ = _demo(app)
+    _add_seat(app, "ACT-1")
+    _add_seat(app, "OFF-1", active=False)
+    owner = _client(app, DEMO, "owner@demospace.com")
+    default = _get(owner, DEMO, f"/admin/locations/{location_id}/seats").get_data(as_text=True)
+    assert "ACT-1" in default and "OFF-1" not in default
+    assert "Include inactive seats (1)" in default and "Inactive seats</h5>" not in default
+    shown = _get(owner, DEMO, f"/admin/locations/{location_id}/seats?include_inactive=1").get_data(as_text=True)
+    assert "Inactive seats</h5>" in shown and "OFF-1" in shown
+    assert shown.index("ACT-1") < shown.index("Inactive seats</h5>") < shown.index("OFF-1")
+
+
+def test_inactive_seats_are_not_counted_in_inventory():
+    app, _ = _seeded_app()
+    _, location_id, _ = _demo(app)
+    with app.app_context():
+        before = len(Location.query.execution_options(skip_operator_filter=True).get(location_id).active_seats)
+    _add_seat(app, "ACT-2")
+    _add_seat(app, "OFF-2", active=False)
+    with app.app_context():
+        location = Location.query.execution_options(skip_operator_filter=True).get(location_id)
+        assert len(location.active_seats) == before + 1 and len(location.inactive_seats) >= 1
+    owner = _client(app, DEMO, "owner@demospace.com")
+    detail = _get(owner, DEMO, f"/admin/locations/{location_id}").get_data(as_text=True)
+    assert f"Seats ({before + 1}, " in detail and "inactive" in detail
+    listing = _get(owner, DEMO, "/admin/locations").get_data(as_text=True)
+    assert f"{before + 1} <span" in listing or f"<td>{before + 1}" in listing
+
+
+def test_a_seat_without_history_can_be_deleted():
+    app, _ = _seeded_app()
+    seat_id = _add_seat(app, "DEL-1", active=False)
+    owner = _client(app, DEMO, "owner@demospace.com")
+    assert _post(owner, DEMO, f"/admin/seats/{seat_id}/delete", {}).status_code == 302
+    with app.app_context():
+        assert db.session.get(Seat, seat_id) is None
+
+
+def test_a_seat_with_bookings_is_not_deleted_and_the_message_suggests_inactive():
+    app, _ = _seeded_app()
+    operator_id, _, _ = _demo(app)
+    seat_id = _add_seat(app, "KEEP-1")
+    with app.app_context():
+        user = User.query.execution_options(skip_operator_filter=True).filter_by(operator_id=operator_id).first()
+        start = datetime.utcnow() + timedelta(days=1)
+        db.session.add(SeatBooking(operator_id=operator_id, seat_id=seat_id, user_id=user.id, start_at=start,
+                                   end_at=start + timedelta(hours=2), status=BookingStatus.CONFIRMED))
+        db.session.commit()
+    owner = _client(app, DEMO, "owner@demospace.com")
+    response = _post(owner, DEMO, f"/admin/seats/{seat_id}/delete", {})
+    assert response.status_code == 302 and f"/seats/{seat_id}/edit" in response.headers["Location"]
+    page = _get(owner, DEMO, f"/admin/seats/{seat_id}/edit").get_data(as_text=True)
+    assert "cannot be deleted" in page and "inactive" in page
+    with app.app_context():
+        assert db.session.get(Seat, seat_id) is not None
+
+
+def test_company_admins_cannot_delete_seats():
+    app, _ = _seeded_app()
+    seat_id = _add_seat(app, "NOPE-1")
+    company_admin = _client(app, DEMO, "admin@acmeco.com")
+    assert _post(company_admin, DEMO, f"/admin/seats/{seat_id}/delete", {}).status_code in (302, 403)
+    with app.app_context():
+        assert db.session.get(Seat, seat_id) is not None
+
+
+def test_rate_fields_point_to_where_prices_are_set():
+    app, _ = _seeded_app()
+    _, location_id, _ = _demo(app)
+    owner = _client(app, DEMO, "owner@demospace.com")
+    room_form = _get(owner, DEMO, f"/admin/locations/{location_id}/rooms/new").get_data(as_text=True)
+    assert 'href="/admin/credits/settings"' in room_form and "Room categories" in room_form
+    assert 'href="/admin/plans"' in room_form
+    seat_form = _get(owner, DEMO, f"/admin/locations/{location_id}/seats/new").get_data(as_text=True)
+    assert "walk-in rates" in seat_form and 'href="/admin/plans"' in seat_form
+    assert "walk-in prices" in _get(owner, DEMO, "/admin/plans").get_data(as_text=True)

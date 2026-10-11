@@ -7,6 +7,7 @@
   <h3>Conference rooms at {{ location.name }}</h3>
   <a class="btn btn-dark" href="{{ url_for('admin.room_new', location_id=location.id) }}">+ New room</a>
 </div>
+<div class="alert alert-light border small" role="note"><i class="bi bi-info-circle"></i> Room cash rates come from the room's category (set under <a href="{{ url_for('admin.credits_settings') }}">Credits &rarr; Room categories</a>) unless a room has its own override. Member subscriptions are priced in <a href="{{ url_for('admin.plans_list') }}">Pricing plans</a>.</div>
 
 <table class="table bg-white shadow-sm">
   <thead><tr><th>Code</th><th>Name</th><th>Floor</th><th>Capacity</th><th>Hourly</th><th>Category</th><th>Credits / 30 min</th><th></th></tr></thead>
@@ -15,7 +16,7 @@
     <tr>
       <td>{{ r.code }}</td>
       <td>{{ r.name }}</td>
-      <td>L{{ r.floor.level }}</td>
+      <td>{{ r.floor | floor_name }}</td>
       <td>{{ r.capacity }}</td>
       <td>{{ r.cash_rate_per_hour | money }}</td>
       <td>{{ r.category.name if r.category else "—" }}</td>

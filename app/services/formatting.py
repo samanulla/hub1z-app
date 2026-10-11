@@ -234,7 +234,27 @@ def format_time(dt: datetime | None, fmt: str | None = None) -> str:
 
 # --------------------------------------------------------------- Jinja --
 
+def floor_level_label(level) -> str:
+    """Indian numbering: 0 is the Ground floor, then 1, 2, 3; basements are B1, B2."""
+    try:
+        n = int(level)
+    except (TypeError, ValueError):
+        return ""
+    return "Ground" if n == 0 else (f"B{-n}" if n < 0 else str(n))
+
+
+def floor_label(floor) -> str:
+    """Level plus the floor's own name, without repeating the same word twice."""
+    level = floor_level_label(floor.level)
+    name = (floor.name or "").strip()
+    if not name:
+        return level
+    return name if level.lower() in name.lower() else f"{level} \u2014 {name}"
+
+
 def register_formatting(app) -> None:
+    app.jinja_env.filters["floor_level"] = floor_level_label
+    app.jinja_env.filters["floor_name"] = floor_label
     app.jinja_env.filters["money"] = format_money
     app.jinja_env.filters["inr"] = format_inr
     app.jinja_env.filters["inr_short"] = format_inr_compact
