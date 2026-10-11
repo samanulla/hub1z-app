@@ -1,0 +1,45 @@
+name: Deploy Dev
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, hub1z-deploy]
+    timeout-minutes: 30
+    environment: development
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Deploy selected branch to dev
+        shell: bash
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          SOURCE_BRANCH: ${{ github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REF" == refs/heads/* ]] || { echo 'Select a branch, not a tag.'; exit 1; }
+          git check-ref-format "refs/heads/$SOURCE_BRANCH"
+          [[ -n "$DEPLOY_HOST" && -n "$DEPLOY_SSH_KEY" && -n "$DEPLOY_KNOWN_HOSTS" ]]
+          key=$(mktemp)
+          hosts=$(mktemp)
+          trap 'rm -f "$key" "$hosts"' EXIT
+          chmod 600 "$key" "$hosts"
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$hosts"
+          remote_script="/tmp/hub1z-deploy-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.sh"
+          options=(-i "$key" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$hosts")
+          scp "${options[@]}" scripts/deploy.sh "ec2-user@$DEPLOY_HOST:$remote_script"
+          printf -v command 'bash %q dev %q %q; result=$?; rm -f %q; exit "$result"' "$remote_script" "$SOURCE_BRANCH" "$SOURCE_SHA" "$remote_script"
+          ssh "${options[@]}" "ec2-user@$DEPLOY_HOST" "$command"
