@@ -69,7 +69,9 @@ def register_subscription_routes(bp):
             for p in PricingPlan.query.filter_by(is_active=True).order_by(PricingPlan.base_price).all()
         ]
         form.space_ids.choices = [
-            (s.id, f"{s.code} - {s.location.name} ({s.seat_type.value.replace('_', ' ')})")
+            (s.id, f"{s.code} - {s.location.name} ({s.seat_type.value.replace('_', ' ')}"
+                   + (f", seats {s.capacity})" if s.seat_type.value == "private_office" and s.capacity > 1
+                      else ", capacity not set)" if s.seat_type.value == "private_office" else ")"))
             for s in subscription_spaces.free_seats()]
         form.new_space_location_id.choices = [(0, "Choose location")] + [
             (loc.id, loc.name) for loc in Location.query.order_by(Location.name).all()]
@@ -83,7 +85,7 @@ def register_subscription_routes(bp):
                               "people": subscription_spaces.people_per_unit(p),
                               "extras": bool(p.additional_seats_allowed), "max_extra": p.maximum_additional_seats,
                               "rate": str(p.additional_seat_rate or 0), "unit": p.billing_unit.value}
-            seat_types = {str(s.id): s.seat_type.value for s in subscription_spaces.free_seats()}
+            seat_types = {str(s.id): [s.seat_type.value, s.capacity] for s in subscription_spaces.free_seats()}
             return render_template("admin/companies/subscription_form.html", form=form,
                                    subject_name=subject_name, back_url=back_url, plan_meta=meta,
                                    seat_types=seat_types)

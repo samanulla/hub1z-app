@@ -4,6 +4,8 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
+from sqlalchemy import or_
+
 from ..extensions import db
 from ..models import (AllocationStatus, Floor, Invoice, InvoiceStatus, Location, LocationScope, PlanType, Seat,
                       SeatAllocation, SeatType)
@@ -48,6 +50,9 @@ def free_seats(plan=None) -> list[Seat]:
     if not types:
         return []
     query = query.filter(Seat.seat_type.in_(types))
+    if plan.plan_type in OFFICE_TYPES:
+        # Capacity 1 is the unset default, so those rooms stay available.
+        query = query.filter(or_(Seat.capacity == people_per_unit(plan), Seat.capacity <= 1))
     if plan.location_scope != LocationScope.ALL:
         query = query.filter(Seat.location_id.in_([loc.id for loc in plan.locations] or [0]))
     return query.order_by(Seat.code).all()

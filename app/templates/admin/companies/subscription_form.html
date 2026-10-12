@@ -83,7 +83,8 @@
       ? "Extra person rate " + m.rate + " a month" + (m.max_extra ? ", up to " + m.max_extra + " extra people." : ".") : "";
     if (spaces) {
       Array.prototype.forEach.call(spaces.options, function (o) {
-        var ok = seatTypes[o.value] === m.seat_type;
+        var seat = seatTypes[o.value] || [];
+        var ok = seat[0] === m.seat_type && (!m.office || seat[1] <= 1 || seat[1] === m.people);
         o.hidden = !ok; o.disabled = !ok; if (!ok) o.selected = false;
       });
     }
