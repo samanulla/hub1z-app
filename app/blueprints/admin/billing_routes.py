@@ -76,6 +76,14 @@ def register_billing_routes(bp):
         users = User.query.filter_by(role=UserRole.INDIVIDUAL).order_by(User.full_name).all()
         return render_template("admin/invoices/new.html", companies=companies, users=users)
 
+    @bp.route("/invoices/issue-drafts", methods=["POST"])
+    @admin_required
+    def invoices_issue_drafts():
+        count = billing_service.issue_drafts(g.operator_id)
+        db.session.commit()
+        flash(f"{count} draft invoice(s) sent." if count else "There are no draft invoices to send.", "success")
+        return redirect(url_for("admin.invoices_list"))
+
     @bp.route("/invoices/<int:invoice_id>", methods=["GET", "POST"])
     @admin_required
     def invoice_detail(invoice_id: int):

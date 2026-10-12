@@ -99,6 +99,8 @@ def register_subscription_routes(bp):
                 people_per_unit=subscription_spaces.people_per_unit(plan),
                 extra_people=extra,
                 extra_person_price=Decimal(plan.additional_seat_rate or 0),
+                prorate_partial=form.prorate_partial.data != "0",
+                auto_send_invoices=form.auto_send_invoices.data == "1",
                 company_id=company.id if company else None,
                 user_id=user.id if user else None,
                 quantity=form.quantity.data,

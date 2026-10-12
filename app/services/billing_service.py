@@ -162,6 +162,22 @@ def effective_unit_price(sub: Subscription, on: date) -> Decimal:
     return Decimal(rev.new_unit_price if rev else sub.unit_price)
 
 
+def invoice_status(sub: Subscription) -> InvoiceStatus:
+    """New invoices wait as drafts unless the subscription is set to send them automatically."""
+    return InvoiceStatus.ISSUED if sub.auto_send_invoices else InvoiceStatus.DRAFT
+
+
+def issue_drafts(operator_id: int) -> int:
+    """Send every draft invoice raised from a subscription."""
+    count = 0
+    for inv in _q(Invoice, operator_id).filter(Invoice.status == InvoiceStatus.DRAFT,
+                                               Invoice.subscription_id.isnot(None)).all():
+        inv.status = InvoiceStatus.ISSUED
+        inv.issued_at = datetime.utcnow()
+        count += 1
+    return count
+
+
 def _plan_charge(sub: Subscription, period_start: date, period_end: date, prorate: bool):
     """(description, unit price) for the period, or None when the agreement is not running in it."""
     first = max(period_start, sub.start_date)
@@ -248,7 +264,7 @@ def _generate(sub: Subscription, period_start: date, period_end: date, *, prorat
     operator = _operator(sub.operator_id)
     inv = open_invoice(operator, company_id=sub.company_id, user_id=sub.user_id, subscription_id=sub.id,
                        period_start=period_start, period_end=period_end,
-                       due_date=due_date_for(sub, period_start, today))
+                       due_date=due_date_for(sub, period_start, today), status=invoice_status(sub))
     label, price = charge
     add_line(inv, label, sub.quantity or 1, price, "plan", period_start, tax_inclusive=sub.price_includes_tax)
     extra = _extra_people_charge(sub, period_start, period_end, prorate)
@@ -287,7 +303,7 @@ def run_monthly_billing(target_month: date | None = None, today: date | None = N
             continue
         subs = _q(Subscription, op.id).filter(Subscription.status == SubscriptionStatus.ACTIVE).all()
         for sub in subs:
-            inv, created = _generate(sub, period_start, period_end, prorate=True, today=today)
+            inv, created = _generate(sub, period_start, period_end, prorate=bool(sub.prorate_partial), today=today)
             if created:
                 made.append(inv)
     db.session.commit()
@@ -329,7 +345,8 @@ def create_deposit_invoice(sub: Subscription, today: date | None = None) -> Invo
         return None
     inv = open_invoice(_operator(sub.operator_id), company_id=sub.company_id, user_id=sub.user_id,
                        subscription_id=sub.id, period_start=sub.start_date, period_end=sub.start_date,
-                       due_date=max(sub.start_date, today), notes="Refundable security deposit (no GST).")
+                       due_date=max(sub.start_date, today), notes="Refundable security deposit (no GST).",
+                       status=invoice_status(sub))
     add_line(inv, "Refundable security deposit", 1, amount, "deposit", today)
     recompute_invoice(inv)
     return inv

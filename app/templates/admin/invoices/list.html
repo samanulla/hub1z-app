@@ -6,6 +6,10 @@
   <h3>Invoices</h3>
   <div>
     <a class="btn btn-outline-dark" href="{{ url_for('admin.invoice_new') }}">+ New invoice</a>
+    <form method="post" action="{{ url_for('admin.invoices_issue_drafts') }}" class="d-inline">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline-dark btn-sm">Send all drafts</button>
+    </form>
     <form method="post" action="{{ url_for('admin.billing_run') }}" class="d-inline">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="btn btn-dark btn-sm">Run monthly billing</button>

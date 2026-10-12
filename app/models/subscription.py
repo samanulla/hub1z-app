@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import enum
 from sqlalchemy import Column, Integer, ForeignKey, Enum, Date, DateTime, Numeric, Text, CheckConstraint, String, Boolean
+from sqlalchemy import true as sa_true
 from sqlalchemy.orm import relationship
 
 from ..extensions import db
@@ -59,6 +60,10 @@ class Subscription(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     # People: `quantity` is how many offices/desks were bought; each unit seats `people_per_unit` people,
     # and `extra_people` more are charged at `extra_person_price` a month.
     people_per_unit = Column(Integer, default=1, nullable=False, server_default="1")
+    # True: a partial first/last month is charged by days; False: the full month.
+    prorate_partial = Column(Boolean, default=True, nullable=False, server_default=sa_true())
+    # True: invoices go to the customer as soon as they are raised; False: they wait as drafts.
+    auto_send_invoices = Column(Boolean, default=True, nullable=False, server_default=sa_true())
     extra_people = Column(Integer, default=0, nullable=False, server_default="0")
     extra_people_before = Column(Integer, default=0, nullable=False, server_default="0")
     extra_effective_from = Column(Date)  # first month the current extra_people count is billed from (NULL = start)

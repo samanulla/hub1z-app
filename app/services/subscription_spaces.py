@@ -7,7 +7,8 @@ from decimal import Decimal
 from ..extensions import db
 from ..models import (AllocationStatus, Floor, Invoice, InvoiceStatus, Location, LocationScope, PlanType, Seat,
                       SeatAllocation, SeatType)
-from .billing_service import _month_end, _operator, _q, add_line, due_date_for, open_invoice, recompute_invoice
+from .billing_service import (_month_end, _operator, _q, add_line, due_date_for, invoice_status, open_invoice,
+                              recompute_invoice)
 from .gst import money
 
 OFFICE_TYPES = {PlanType.PRIVATE_OFFICE, PlanType.EXECUTIVE_OFFICE, PlanType.MANAGED_OFFICE}
@@ -159,7 +160,7 @@ def change_extra_people(sub, new_count: int, mode: str, today: date | None = Non
             operator = _operator(sub.operator_id)
             invoice = open_invoice(operator, company_id=sub.company_id, user_id=sub.user_id,
                                    subscription_id=sub.id, period_start=today, period_end=last,
-                                   due_date=due_date_for(sub, today, today))
+                                   due_date=due_date_for(sub, today, today), status=invoice_status(sub))
             add_line(invoice, f"Additional people ({today} to {last}, {days} of {month_days} days)", delta,
                      money(price * days / month_days), "plan", today, tax_inclusive=sub.price_includes_tax)
             recompute_invoice(invoice)

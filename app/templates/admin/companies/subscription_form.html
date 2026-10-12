@@ -13,11 +13,17 @@
       <div class="col-md-3">{{ field(form.start_date) }}</div>
     </div>
     {{ field(form.price_includes_tax) }}
+    <div class="row">
+      <div class="col-md-4">{{ field(form.prorate_partial) }}</div>
+      <div class="col-md-4">{{ field(form.auto_send_invoices) }}</div>
+      <div class="col-md-4 small text-muted pt-4">Invoices are always created first. Choose drafts to review and send each one yourself.</div>
+    </div>
   </div></div>
 
   <div class="card mb-3" id="people-card"><div class="card-body">
     <h6>People and space</h6>
     <p class="text-muted small" id="plan-hint">Choose a plan to see what it includes.</p>
+    <p class="text-muted small" id="space-help">The plan sets the <b>type</b> of space. Here you give this customer the actual desk or office from your inventory. You can skip this and assign later.</p>
     <div class="row" id="extras-block">
       <div class="col-md-3">{{ field(form.extra_people) }}</div>
       <div class="col-md-9 small text-muted pt-4" id="extras-hint"></div>
@@ -65,11 +71,13 @@
   var spaces = document.getElementById("space_ids");
   function refresh() {
     var m = meta[plan.value] || {};
+    var qty = parseInt(document.getElementById("quantity").value, 10) || 0;
     document.getElementById("extras-block").style.display = m.extras ? "" : "none";
     document.getElementById("space-block").style.display = m.seat_type ? "" : "none";
     var hint = [];
-    if (m.office) hint.push("Each office seats " + m.people + " people.");
-    if (m.unit) hint.push("Quantity counts " + (m.office ? "offices" : (m.seat_type ? "desks" : "units")) + ".");
+    if (m.office) hint.push("Each office seats " + m.people + " people. Quantity counts offices" +
+      (qty ? ": " + qty + " = " + (qty * m.people) + " people." : "."));
+    else if (m.seat_type) hint.push("Quantity counts desks.");
     document.getElementById("plan-hint").textContent = hint.join(" ") || "This plan is not tied to a specific desk or office.";
     document.getElementById("extras-hint").textContent = m.extras
       ? "Extra person rate " + m.rate + " a month" + (m.max_extra ? ", up to " + m.max_extra + " extra people." : ".") : "";
@@ -81,6 +89,7 @@
     }
   }
   plan.addEventListener("change", refresh);
+  document.getElementById("quantity").addEventListener("input", refresh);
   refresh();
 })();
 </script>

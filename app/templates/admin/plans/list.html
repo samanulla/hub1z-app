@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Pricing plans{% endblock %}
+{% block title %}Plans{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between mb-3">
-  <h3>Pricing plans</h3>
+  <h3>Plans</h3>
   <a class="btn btn-dark" href="{{ url_for('admin.plan_new') }}">+ New plan</a>
 </div>
-<div class="alert alert-light border small" role="note"><i class="bi bi-info-circle"></i> Pricing plans are what members and companies <b>subscribe</b> to. The rates on individual seats and rooms (under <a href="{{ url_for('admin.locations_list') }}">Locations</a>) are walk-in prices for booking by the hour or day.</div>
+<div class="alert alert-light border small" role="note"><i class="bi bi-info-circle"></i> Plans are what you sell, for example "Private Office 10" or "Exec 2". A <b>subscription</b> is one company or member taking a plan, with a quantity. The rates on individual seats and rooms (under <a href="{{ url_for('admin.locations_list') }}">Locations</a>) are walk-in prices for booking by the hour or day.</div>
 
 <table class="table bg-white shadow-sm">
   <thead><tr><th>Plan Name</th><th>Scope</th><th>Workspace Type</th><th>Billing Unit</th><th>Cycle</th><th>Base Price</th><th>Included Seats</th><th>Location</th><th>Status</th><th>Actions</th></tr></thead>

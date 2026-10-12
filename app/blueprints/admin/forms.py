@@ -579,12 +579,18 @@ class AdminSubscribeForm(TermsForm):
                             description="Offices for office plans, desks for desk plans, people for per-person plans.")
     extra_people = IntegerField("Extra people", default=0, validators=[Optional(), NumberRange(min=0, max=500)],
                                 description="People beyond what the plan includes, charged at the plan's extra-person rate.")
-    space_ids = SelectMultipleField("Existing space", coerce=int, validators=[Optional()],
-                                    description="Free desks/offices of the right type. Hold Ctrl/Cmd to pick several.")
+    space_ids = SelectMultipleField("Free spaces in your inventory", coerce=int, validators=[Optional()],
+                                    description="Empty? Add one under Locations > Seats, or create it in the next box. Hold Ctrl/Cmd to pick several.")
     new_space_location_id = SelectField("New space location", coerce=int, validators=[Optional()])
     new_space_code = StringField("or create a new space", validators=[Optional(), Length(max=30)],
                                  description="Name or code, for example CABIN-4.")
     start_date = DateField("Start date", validators=[DataRequired()])
+    prorate_partial = SelectField("Part months", choices=[("1", "Prorate by days"), ("0", "Charge the full month")],
+                                  default="1", validators=[Optional()],
+                                  description="How the first (and last) month is charged when it is not a full month.")
+    auto_send_invoices = SelectField("Invoices", choices=[("0", "Keep as drafts until I send them"),
+                                                          ("1", "Send automatically every month")],
+                                     default="0", validators=[Optional()])
     deposit_months = IntegerField("Security deposit (months of fee)", validators=[Optional(), NumberRange(min=0, max=24)])
     deposit_amount = DecimalField("or a fixed deposit amount", validators=[Optional(), NumberRange(min=0)],
                                   description="Overrides the months above when filled in.")
