@@ -56,6 +56,13 @@ class Subscription(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     price_includes_tax = Column(Boolean, default=False, nullable=False, server_default=db.false())
     notice_given_on = Column(Date)
     terminate_on = Column(Date)
+    # People: `quantity` is how many offices/desks were bought; each unit seats `people_per_unit` people,
+    # and `extra_people` more are charged at `extra_person_price` a month.
+    people_per_unit = Column(Integer, default=1, nullable=False, server_default="1")
+    extra_people = Column(Integer, default=0, nullable=False, server_default="0")
+    extra_people_before = Column(Integer, default=0, nullable=False, server_default="0")
+    extra_effective_from = Column(Date)  # first month the current extra_people count is billed from (NULL = start)
+    extra_person_price = Column(Numeric(10, 2), default=0, nullable=False, server_default="0")
     agreement_document_id = Column(Integer, ForeignKey("documents.id", ondelete="SET NULL"))
 
     plan = relationship("PricingPlan", back_populates="subscriptions")
@@ -71,7 +78,19 @@ class Subscription(db.Model, PkMixin, TimestampMixin, OperatorScoped):
 
     @property
     def monthly_total(self):
-        return (self.unit_price or 0) * (self.quantity or 1)
+        return ((self.unit_price or 0) * (self.quantity or 1)
+                + (self.extra_person_price or 0) * (self.extra_people or 0))
+
+    @property
+    def people_capacity(self) -> int:
+        """How many named people the customer can seat under this agreement."""
+        return (self.quantity or 1) * (self.people_per_unit or 1) + (self.extra_people or 0)
+
+    def extra_people_for(self, period_start) -> int:
+        """The extra-people count that applies to the invoice period starting on `period_start`."""
+        if self.extra_effective_from and period_start < self.extra_effective_from:
+            return self.extra_people_before or 0
+        return self.extra_people or 0
 
     @property
     def lock_in_ends_on(self):

@@ -14,11 +14,11 @@ from flask_login import current_user
 
 from ...extensions import db
 from ...models import (
-    Company, PricingPlan, Subscription, SubscriptionStatus, User, UserRole,
+    Company, Location, PricingPlan, Subscription, SubscriptionStatus, User, UserRole,
     SubscriptionChangeRequest, SubscriptionRequestStatus,
 )
 from ...utils.decorators import admin_required, manager_or_super_required
-from ...services import audit_service, credit_service, billing_service
+from ...services import audit_service, credit_service, billing_service, subscription_spaces
 from ...services.gst import money
 from ...models import BillingSettings
 from .forms import AdminSubscribeForm
@@ -27,6 +27,34 @@ _TERM_FIELDS = (
     "term_months", "lock_in_months", "notice_months", "due_day", "deposit_refund_days", "escalation_percent",
     "escalation_after_months", "late_fee_mode", "late_fee_value", "late_fee_grace_days", "early_exit_rule",
 )
+
+
+def _read_spaces(form, plan):
+    """Validate the extra people and the chosen/new space against the plan.
+    Returns (seats, location for a new space, new space code, extra people, error)."""
+    extra = form.extra_people.data or 0
+    ids = form.space_ids.data or []
+    code = (form.new_space_code.data or "").strip()
+    if extra and not plan.additional_seats_allowed:
+        return [], None, "", 0, "This plan does not allow extra people."
+    if extra and plan.maximum_additional_seats and extra > plan.maximum_additional_seats:
+        return [], None, "", 0, f"This plan allows at most {plan.maximum_additional_seats} extra people."
+    if (ids or code) and not subscription_spaces.seat_types_for(plan):
+        return [], None, "", 0, "This plan is not tied to a specific desk or office, so no space can be assigned."
+    available = {s.id: s for s in subscription_spaces.free_seats(plan)}
+    seats = []
+    for seat_id in ids:
+        if seat_id not in available:
+            return [], None, "", 0, "A chosen space is taken or does not fit this plan."
+        seats.append(available[seat_id])
+    location = None
+    if code:
+        location = db.session.get(Location, form.new_space_location_id.data or 0)
+        if location is None:
+            return [], None, "", 0, "Choose a location for the new space."
+    if len(seats) + (1 if code else 0) > (form.quantity.data or 1):
+        return [], None, "", 0, "You chose more spaces than the quantity being subscribed."
+    return seats, location, code, extra, None
 
 
 def register_subscription_routes(bp):
@@ -40,10 +68,37 @@ def register_subscription_routes(bp):
             (p.id, f"{p.name} — {p.base_price}/{p.billing_cycle.value}")
             for p in PricingPlan.query.filter_by(is_active=True).order_by(PricingPlan.base_price).all()
         ]
+        form.space_ids.choices = [
+            (s.id, f"{s.code} - {s.location.name} ({s.seat_type.value.replace('_', ' ')})")
+            for s in subscription_spaces.free_seats()]
+        form.new_space_location_id.choices = [(0, "Choose location")] + [
+            (loc.id, loc.name) for loc in Location.query.order_by(Location.name).all()]
+
+        def _page():
+            meta = {}
+            for p in PricingPlan.query.filter_by(is_active=True).all():
+                types = subscription_spaces.seat_types_for(p)
+                meta[p.id] = {"seat_type": types[0].value if types else None,
+                              "office": p.plan_type in subscription_spaces.OFFICE_TYPES,
+                              "people": subscription_spaces.people_per_unit(p),
+                              "extras": bool(p.additional_seats_allowed), "max_extra": p.maximum_additional_seats,
+                              "rate": str(p.additional_seat_rate or 0), "unit": p.billing_unit.value}
+            seat_types = {str(s.id): s.seat_type.value for s in subscription_spaces.free_seats()}
+            return render_template("admin/companies/subscription_form.html", form=form,
+                                   subject_name=subject_name, back_url=back_url, plan_meta=meta,
+                                   seat_types=seat_types)
+
         if form.validate_on_submit():
             plan = PricingPlan.query.get_or_404(form.plan_id.data)
+            seats, new_location, new_code, extra, error = _read_spaces(form, plan)
+            if error:
+                flash(error, "warning")
+                return _page()
             sub = Subscription(
                 plan_id=plan.id,
+                people_per_unit=subscription_spaces.people_per_unit(plan),
+                extra_people=extra,
+                extra_person_price=Decimal(plan.additional_seat_rate or 0),
                 company_id=company.id if company else None,
                 user_id=user.id if user else None,
                 quantity=form.quantity.data,
@@ -71,6 +126,14 @@ def register_subscription_routes(bp):
                 months = form.deposit_months.data if form.deposit_months.data is not None else defaults.deposit_months
                 sub.deposit_amount = money(Decimal(sub.unit_price) * sub.quantity * months)
             db.session.flush()
+            try:
+                if new_code:
+                    seats.append(subscription_spaces.create_space(new_location, new_code, plan))
+            except subscription_spaces.SpaceError as exc:
+                db.session.rollback()
+                flash(str(exc), "warning")
+                return _page()
+            subscription_spaces.attach_spaces(sub, seats)
             billing_service.create_deposit_invoice(sub)
             credits = credit_service.auto_allocate_for_subscription(sub, actor=current_user)
             db.session.commit()
@@ -89,8 +152,8 @@ def register_subscription_routes(bp):
             for name in _TERM_FIELDS:
                 getattr(form, name).data = getattr(defaults, name)
             form.deposit_months.data = defaults.deposit_months
-        return render_template("admin/companies/subscription_form.html", form=form, subject_name=subject_name,
-                               back_url=back_url)
+            form.extra_people.data = 0
+        return _page()
 
     @bp.route("/companies/<int:company_id>/subscriptions/new", methods=["GET", "POST"])
     @manager_or_super_required
@@ -119,6 +182,7 @@ def register_subscription_routes(bp):
         sub = Subscription.query.filter_by(id=sub_id, user_id=user_id).first_or_404()
         sub.status = SubscriptionStatus.CANCELLED
         sub.end_date = date.today()
+        subscription_spaces.end_places(sub, sub.end_date)
         db.session.commit()
         audit_service.record("subscription.cancelled", "subscription", sub.id, {"user_id": user_id})
         flash("Subscription cancelled.", "info")
@@ -130,10 +194,32 @@ def register_subscription_routes(bp):
         sub = Subscription.query.filter_by(id=sub_id, company_id=company_id).first_or_404()
         sub.status = SubscriptionStatus.CANCELLED
         sub.end_date = date.today()
+        subscription_spaces.end_places(sub, sub.end_date)
         db.session.commit()
         audit_service.record("subscription.cancelled", "subscription", sub.id, {"company_id": company_id})
         flash("Subscription cancelled.", "info")
         return redirect(url_for("admin.company_detail", company_id=company_id))
+
+    @bp.route("/subscriptions/<int:sub_id>/extra-people", methods=["POST"])
+    @manager_or_super_required
+    def subscription_extra_people(sub_id: int):
+        sub = Subscription.query.filter_by(id=sub_id, status=SubscriptionStatus.ACTIVE).first_or_404()
+        back = (url_for("admin.company_detail", company_id=sub.company_id) if sub.company_id
+                else url_for("admin.individuals_list"))
+        mode = "prorate" if request.form.get("mode") == "prorate" else "next"
+        try:
+            count = int(request.form.get("extra_people", ""))
+            _invoice, message = subscription_spaces.change_extra_people(sub, count, mode)
+        except (ValueError, subscription_spaces.SpaceError) as exc:
+            db.session.rollback()
+            flash(str(exc) if isinstance(exc, subscription_spaces.SpaceError) else "Enter a whole number.",
+                  "warning")
+            return redirect(back)
+        db.session.commit()
+        audit_service.record("subscription.extra_people", "subscription", sub.id,
+                             {"extra_people": sub.extra_people, "mode": mode})
+        flash(message, "success")
+        return redirect(back)
 
     @bp.route("/companies/<int:company_id>/subscription-requests/<int:request_id>/<decision>", methods=["POST"])
     @manager_or_super_required

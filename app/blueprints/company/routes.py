@@ -20,7 +20,7 @@ from ...models import (
 from ...utils.decorators import company_admin_required
 from .forms import (
     InviteEmployeeForm, AcceptInviteForm, CompanyProfileForm,
-    SubscriptionRequestForm, EmployeeAllocationForm, CompanySeatAllocationForm, PaymentSubmissionForm,
+    SubscriptionRequestForm, EmployeeAllocationForm, PaymentSubmissionForm,
     CreditRulesForm,
 )
 from ...services import mail_service, tier_limits, credit_service, audit_service
@@ -67,7 +67,7 @@ def credits():
 
 
 def _company_subscription_capacity(company):
-    return sum(subscription.quantity for subscription in Subscription.query.filter_by(
+    return sum(subscription.people_capacity for subscription in Subscription.query.filter_by(
         company_id=company.id, status=SubscriptionStatus.ACTIVE,
     ).all())
 
@@ -404,62 +404,8 @@ def allocations():
     form.employee_id.choices = [(employee.id, employee.full_name) for employee in employees]
     capacity = _company_subscription_capacity(c)
     assigned = sum(1 for allocation in allocs if allocation.user_id)
-    create_form = CompanySeatAllocationForm()
-    create_form.seat_id.choices = [(seat.id, f"{seat.location.name} / {seat.code} ({seat.seat_type.value.replace('_', ' ')})")
-                                   for seat in Seat.query.filter(
-                                       Seat.is_active.is_(True),
-                                       Seat.seat_type.in_([SeatType.DEDICATED_DESK, SeatType.PRIVATE_OFFICE]),
-                                       ~Seat.allocations.any(SeatAllocation.status == AllocationStatus.ACTIVE),
-                                   ).order_by(Seat.code).all()]
-    create_form.employee_id.choices = [(0, "— leave unassigned —")] + [
-        (employee.id, employee.full_name) for employee in employees
-    ]
     return render_template("company/allocations.html", company=c, allocations=allocs,
-                           allocation_form=form, create_form=create_form, capacity=capacity, assigned=assigned)
-
-
-@company_bp.route("/allocations/new", methods=["POST"])
-@company_admin_required
-def allocation_new():
-    c = _own_company()
-    form = CompanySeatAllocationForm()
-    form.seat_id.choices = [(seat.id, seat.code) for seat in Seat.query.filter(
-        Seat.is_active.is_(True),
-        Seat.seat_type.in_([SeatType.DEDICATED_DESK, SeatType.PRIVATE_OFFICE]),
-        ~Seat.allocations.any(SeatAllocation.status == AllocationStatus.ACTIVE),
-    ).all()]
-    employees = User.query.filter_by(company_id=c.id, role=UserRole.EMPLOYEE, is_active=True).all()
-    form.employee_id.choices = [(0, "— leave unassigned —")] + [
-        (employee.id, employee.full_name) for employee in employees
-    ]
-    active_allocations = SeatAllocation.query.filter_by(company_id=c.id, status=AllocationStatus.ACTIVE).count()
-    if active_allocations >= _company_subscription_capacity(c):
-        flash("Your active subscription does not have another seat available to allocate.", "warning")
-    elif form.validate_on_submit():
-        seat = Seat.query.filter(
-            Seat.id == form.seat_id.data,
-            Seat.is_active.is_(True),
-            Seat.seat_type.in_([SeatType.DEDICATED_DESK, SeatType.PRIVATE_OFFICE]),
-            ~Seat.allocations.any(SeatAllocation.status == AllocationStatus.ACTIVE),
-        ).first()
-        employee = User.query.filter_by(
-            id=form.employee_id.data, company_id=c.id, role=UserRole.EMPLOYEE, is_active=True,
-        ).first() if form.employee_id.data else None
-        if seat is None:
-            flash("That seat is no longer available.", "warning")
-        else:
-            db.session.add(SeatAllocation(
-                seat_id=seat.id,
-                company_id=c.id,
-                user_id=employee.id if employee else None,
-                status=AllocationStatus.ACTIVE,
-                start_date=date.today(),
-            ))
-            db.session.commit()
-            flash("Seat allocated to your company.", "success")
-    else:
-        flash("Pick a valid available seat.", "warning")
-    return redirect(url_for("company.allocations"))
+                           allocation_form=form, capacity=capacity, assigned=assigned)
 
 
 @company_bp.route("/allocations/<int:allocation_id>/assign", methods=["POST"])

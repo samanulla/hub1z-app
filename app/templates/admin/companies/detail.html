@@ -66,6 +66,23 @@
           {% endif %}
         </td>
       </tr>
+      {% if s.status.value == 'active' and (s.plan.additional_seats_allowed or s.extra_people) %}
+      <tr>
+        <td colspan="6" class="small bg-light">
+          <form method="post" action="{{ url_for('admin.subscription_extra_people', sub_id=s.id) }}" class="d-flex flex-wrap gap-2 align-items-center">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <span>Seats {{ s.people_capacity }} people ({{ s.quantity }} x {{ s.people_per_unit }} + {{ s.extra_people }} extra at {{ s.extra_person_price }} each).</span>
+            <label class="mb-0">Extra people</label>
+            <input type="number" name="extra_people" min="0" value="{{ s.extra_people }}" class="form-control form-control-sm" style="width:5rem">
+            <select name="mode" class="form-select form-select-sm w-auto">
+              <option value="prorate">Prorate now (bill rest of this month)</option>
+              <option value="next">Bill from next month</option>
+            </select>
+            <button class="btn btn-sm btn-outline-dark">Update</button>
+          </form>
+        </td>
+      </tr>
+      {% endif %}
       {% else %}
       <tr><td colspan="6" class="text-muted text-center py-3">No subscriptions yet.</td></tr>
       {% endfor %}

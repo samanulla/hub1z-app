@@ -578,6 +578,8 @@ def allocations():
     if form.validate_on_submit():
         if not form.company_id.data and not form.user_id.data:
             flash("Choose a company or an individual user.", "warning")
+        elif SeatAllocation.query.filter_by(seat_id=form.seat_id.data, status=AllocationStatus.ACTIVE).first():
+            flash("That space is already allocated. End its current allocation first.", "warning")
         else:
             alloc = SeatAllocation(
                 seat_id=form.seat_id.data,
@@ -595,7 +597,18 @@ def allocations():
     active = (SeatAllocation.query
               .filter_by(status=AllocationStatus.ACTIVE)
               .order_by(SeatAllocation.created_at.desc()).all())
-    return render_template("admin/allocations/list.html", form=form, allocations=active)
+    held = {}
+    for row in active:
+        if row.subscription_id:
+            entry = held.setdefault((row.seat_id, row.subscription_id), {
+                "seat": row.seat, "holder": row.company or row.user, "subscription": row.subscription,
+                "places": 0, "names": []})
+            entry["places"] += 1
+            if row.user_id and row.company_id:
+                entry["names"].append(row.user.full_name)
+    return render_template("admin/allocations/list.html", form=form,
+                           allocations=[r for r in active if not r.subscription_id],
+                           held=list(held.values()))
 
 
 @admin_bp.route("/allocations/<int:alloc_id>/end", methods=["POST"])

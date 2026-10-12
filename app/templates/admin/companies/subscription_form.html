@@ -15,6 +15,20 @@
     {{ field(form.price_includes_tax) }}
   </div></div>
 
+  <div class="card mb-3" id="people-card"><div class="card-body">
+    <h6>People and space</h6>
+    <p class="text-muted small" id="plan-hint">Choose a plan to see what it includes.</p>
+    <div class="row" id="extras-block">
+      <div class="col-md-3">{{ field(form.extra_people) }}</div>
+      <div class="col-md-9 small text-muted pt-4" id="extras-hint"></div>
+    </div>
+    <div class="row" id="space-block">
+      <div class="col-md-6">{{ field(form.space_ids, attrs={'size': 5}) }}</div>
+      <div class="col-md-3">{{ field(form.new_space_location_id) }}</div>
+      <div class="col-md-3">{{ field(form.new_space_code) }}</div>
+    </div>
+  </div></div>
+
   <div class="card mb-3"><div class="card-body">
     <h6>Agreement terms</h6>
     <p class="text-muted small">Started from your defaults in Billing settings. Change anything that was negotiated for this agreement.</p>
@@ -42,4 +56,32 @@
   <button class="btn btn-dark">Add subscription</button>
   <a class="btn btn-link" href="{{ back_url }}">Cancel</a>
 </form>
+
+<script>
+(function () {
+  var meta = {{ plan_meta | tojson }};
+  var seatTypes = {{ seat_types | tojson }};
+  var plan = document.getElementById("plan_id");
+  var spaces = document.getElementById("space_ids");
+  function refresh() {
+    var m = meta[plan.value] || {};
+    document.getElementById("extras-block").style.display = m.extras ? "" : "none";
+    document.getElementById("space-block").style.display = m.seat_type ? "" : "none";
+    var hint = [];
+    if (m.office) hint.push("Each office seats " + m.people + " people.");
+    if (m.unit) hint.push("Quantity counts " + (m.office ? "offices" : (m.seat_type ? "desks" : "units")) + ".");
+    document.getElementById("plan-hint").textContent = hint.join(" ") || "This plan is not tied to a specific desk or office.";
+    document.getElementById("extras-hint").textContent = m.extras
+      ? "Extra person rate " + m.rate + " a month" + (m.max_extra ? ", up to " + m.max_extra + " extra people." : ".") : "";
+    if (spaces) {
+      Array.prototype.forEach.call(spaces.options, function (o) {
+        var ok = seatTypes[o.value] === m.seat_type;
+        o.hidden = !ok; o.disabled = !ok; if (!ok) o.selected = false;
+      });
+    }
+  }
+  plan.addEventListener("change", refresh);
+  refresh();
+})();
+</script>
 {% endblock %}

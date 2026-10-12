@@ -14,7 +14,7 @@
 <div class="mb-3">
   {% if f.type != "BooleanField" %}<div>{{ f.label(class="form-label") }}{% if help %}{{ help_icon(help) }}{% endif %}</div>{% endif %}
   {% set css = "form-control" %}
-  {% if f.type == "SelectField" %}{% set css = "form-select" %}{% endif %}
+  {% if f.type in ("SelectField", "SelectMultipleField") %}{% set css = "form-select" %}{% endif %}
   {% set extra = dict(attrs or {}) %}
   {% if autofocus %}{% set _ = extra.update(autofocus=True) %}{% endif %}
   {% if f.type == "BooleanField" %}

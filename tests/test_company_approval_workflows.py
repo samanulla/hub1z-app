@@ -10,7 +10,7 @@ from app.extensions import db
 from app.models import (
     BillingCycle, Company, CompanyStatus, Floor, Invoice, InvoiceStatus, Location,
     Payment, PaymentSubmission, PaymentSubmissionStatus, PlanScope, PlanType, PricingPlan,
-    Seat, SeatAllocation, SeatType,
+    AllocationStatus, Seat, SeatAllocation, SeatType,
     Subscription, SubscriptionChangeRequest, SubscriptionRequestStatus,
     SubscriptionStatus, Operator, OperatorStatus, User, UserRole,
 )
@@ -188,10 +188,18 @@ def test_company_admin_allocates_available_seat_to_employee():
     assert page.status_code == 200
     assert b"Assigned seat (optional)" in page.data
 
-    response = company_client.post("/company/allocations/new", data={
-        "seat_id": seat_id, "employee_id": employee_id,
+    with app.app_context():
+        db.session.add(SeatAllocation(operator_id=Seat.query.get(seat_id).operator_id, seat_id=seat_id,
+                                      company_id=company_id, status=AllocationStatus.ACTIVE,
+                                      start_date=date.today()))
+        db.session.commit()
+        allocation_id = SeatAllocation.query.filter_by(company_id=company_id, seat_id=seat_id).one().id
+    response = company_client.post(f"/company/allocations/{allocation_id}/assign", data={
+        "employee_id": employee_id,
     }, follow_redirects=False)
     assert response.status_code == 302
+    # Companies no longer pick desks themselves; the operator sets them up.
+    assert company_client.post("/company/allocations/new", data={"seat_id": seat_id}).status_code in (404, 405)
 
     with app.app_context():
         allocation = SeatAllocation.query.filter_by(company_id=company_id, seat_id=seat_id).one()

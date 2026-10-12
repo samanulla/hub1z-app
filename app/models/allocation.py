@@ -24,6 +24,7 @@ class SeatAllocation(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     seat_id = Column(Integer, ForeignKey("seats.id", ondelete="CASCADE"), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    subscription_id = Column(Integer, ForeignKey("subscriptions.id", ondelete="SET NULL"), nullable=True, index=True)
     status = Column(Enum(AllocationStatus), default=AllocationStatus.ACTIVE, nullable=False)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date)  # NULL = open-ended
@@ -31,6 +32,7 @@ class SeatAllocation(db.Model, PkMixin, TimestampMixin, OperatorScoped):
     seat = relationship("Seat", back_populates="allocations")
     company = relationship("Company", back_populates="allocations")
     user = relationship("User", back_populates="allocations")
+    subscription = relationship("Subscription", foreign_keys=[subscription_id])
 
     __table_args__ = (
         CheckConstraint(

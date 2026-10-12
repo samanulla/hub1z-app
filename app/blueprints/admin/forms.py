@@ -161,9 +161,9 @@ class PricingPlanForm(FlaskForm):
     billing_cycle = SelectField("Billing cycle", choices=_enum_choices(BillingCycle), validators=[DataRequired()])
     base_price = DecimalField("Base price", validators=[DataRequired(), NumberRange(min=0)])
     included_seat_quantity = IntegerField("Included seat quantity", default=1, validators=[NumberRange(min=0)])
-    additional_seats_allowed = BooleanField("Additional seats allowed", default=False)
-    additional_seat_rate = DecimalField("Additional seat rate", default=0, validators=[NumberRange(min=0)])
-    maximum_additional_seats = IntegerField("Maximum additional seats", validators=[Optional(), NumberRange(min=1)])
+    additional_seats_allowed = BooleanField("Allow extra people", default=False)
+    additional_seat_rate = DecimalField("Extra person rate (per month)", default=0, validators=[NumberRange(min=0)])
+    maximum_additional_seats = IntegerField("Maximum extra people", validators=[Optional(), NumberRange(min=1)])
     location_scope = SelectField("Applicable locations", choices=_enum_choices(LocationScope), validators=[DataRequired()])
     location_ids = SelectMultipleField("Locations", coerce=int, validators=[Optional()])
     minimum_contract_months = IntegerField("Minimum contract duration (months)", default=0, validators=[NumberRange(min=0)])
@@ -175,7 +175,7 @@ class PricingPlanForm(FlaskForm):
     effective_from = DateField("Effective from", validators=[Optional()])
     effective_until = DateField("Effective until", validators=[Optional()])
     version = IntegerField("Plan version", default=1, validators=[NumberRange(min=1)])
-    office_capacity = IntegerField("Office capacity", validators=[Optional(), NumberRange(min=1)])
+    office_capacity = IntegerField("People included per office", validators=[Optional(), NumberRange(min=1)])
     status = SelectField("Plan status", choices=_enum_choices(PlanStatus), validators=[DataRequired()])
     description = TextAreaField("Description", validators=[Optional()])
     submit = SubmitField("Save")
@@ -575,7 +575,15 @@ class AdminSubscribeForm(TermsForm):
     """Operator admin/manager sets up a company's subscription — tied to real
     seat inventory the operator manages, not a company self-checkout."""
     plan_id = SelectField("Plan", coerce=int, validators=[DataRequired()])
-    quantity = IntegerField("Seats / users", default=1, validators=[NumberRange(min=1)])
+    quantity = IntegerField("Quantity", default=1, validators=[NumberRange(min=1)],
+                            description="Offices for office plans, desks for desk plans, people for per-person plans.")
+    extra_people = IntegerField("Extra people", default=0, validators=[Optional(), NumberRange(min=0, max=500)],
+                                description="People beyond what the plan includes, charged at the plan's extra-person rate.")
+    space_ids = SelectMultipleField("Existing space", coerce=int, validators=[Optional()],
+                                    description="Free desks/offices of the right type. Hold Ctrl/Cmd to pick several.")
+    new_space_location_id = SelectField("New space location", coerce=int, validators=[Optional()])
+    new_space_code = StringField("or create a new space", validators=[Optional(), Length(max=30)],
+                                 description="Name or code, for example CABIN-4.")
     start_date = DateField("Start date", validators=[DataRequired()])
     deposit_months = IntegerField("Security deposit (months of fee)", validators=[Optional(), NumberRange(min=0, max=24)])
     deposit_amount = DecimalField("or a fixed deposit amount", validators=[Optional(), NumberRange(min=0)],

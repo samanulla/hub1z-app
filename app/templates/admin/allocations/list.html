@@ -4,9 +4,28 @@
 
 {% block content %}
 <h3>Seat allocations</h3>
+<p class="text-muted">Spaces are assigned when you add a subscription. They are released when it is cancelled or ends.</p>
+
+<div class="card mb-3"><div class="card-body p-0">
+<table class="table mb-0">
+  <thead><tr><th>Space</th><th>Held by</th><th>Plan</th><th>People</th></tr></thead>
+  <tbody>
+    {% for h in held %}
+    <tr>
+      <td>{{ h.seat.code }} <span class="text-muted small">({{ h.seat.seat_type.value.replace('_', ' ') }}, {{ h.seat.location.name }})</span></td>
+      <td>{{ h.holder.name if h.holder.name is defined else h.holder.full_name }}</td>
+      <td>{{ h.subscription.plan.name }}</td>
+      <td>{{ h.names|length }} of {{ h.places }} named{% if h.names %} ({{ h.names|join(', ') }}){% endif %}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="text-center text-muted py-3">No spaces assigned through subscriptions yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div></div>
 
 <div class="card mb-3"><div class="card-body">
-  <h6>New allocation</h6>
+  <h6>Assign a space without a subscription</h6>
   <form method="post" novalidate>
     {{ form.hidden_tag() }}
     <div class="row">

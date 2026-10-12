@@ -181,6 +181,28 @@ def _plan_charge(sub: Subscription, period_start: date, period_end: date, prorat
     return label, price
 
 
+def _extra_people_charge(sub: Subscription, period_start: date, period_end: date, prorate: bool):
+    """(description, count, unit price) for the additional people in the period, or None."""
+    count = sub.extra_people_for(period_start)
+    unit = Decimal(sub.extra_person_price or 0)
+    if count <= 0 or unit <= 0:
+        return None
+    first = max(period_start, sub.start_date)
+    last = period_end
+    if sub.terminate_on:
+        last = min(last, sub.terminate_on - timedelta(days=1))
+    if last < first:
+        return None
+    label = f"Additional people ({period_start} to {period_end})"
+    if prorate:
+        month_days = calendar.monthrange(period_start.year, period_start.month)[1]
+        days = (last - first).days + 1
+        if days < month_days:
+            unit = money(unit * days / month_days)
+            label = f"Additional people ({first} to {last}, {days} of {month_days} days)"
+    return label, count, unit
+
+
 # ---------------------------------------------------------------- late fees --
 
 def _add_late_fees(inv: Invoice, sub: Subscription, today: date) -> None:
@@ -229,6 +251,9 @@ def _generate(sub: Subscription, period_start: date, period_end: date, *, prorat
                        due_date=due_date_for(sub, period_start, today))
     label, price = charge
     add_line(inv, label, sub.quantity or 1, price, "plan", period_start, tax_inclusive=sub.price_includes_tax)
+    extra = _extra_people_charge(sub, period_start, period_end, prorate)
+    if extra:
+        add_line(inv, extra[0], extra[1], extra[2], "plan", period_start, tax_inclusive=sub.price_includes_tax)
     _add_late_fees(inv, sub, today)
     recompute_invoice(inv)
     return inv, True
@@ -470,10 +495,12 @@ def end_terminated_subscriptions(today: date | None = None, operator_id: int | N
         Subscription.terminate_on <= today)
     if operator_id is not None:
         q = q.filter(Subscription.operator_id == operator_id)
+    from .subscription_spaces import end_places  # imported here: that module builds on this one
     ended = 0
     for sub in q.all():
         sub.status = SubscriptionStatus.EXPIRED
         sub.end_date = sub.terminate_on
+        end_places(sub, sub.terminate_on)
         ended += 1
     db.session.commit()
     return ended
