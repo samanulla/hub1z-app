@@ -13,7 +13,16 @@
   </div>
 </div>
 
-<div class="row g-3">
+<nav class="nav nav-tabs mb-3" aria-label="Company sections">
+  <a class="nav-link active" href="#overview">Overview</a>
+  <a class="nav-link" href="#subscriptions">Subscriptions</a>
+  <a class="nav-link" href="#spaces">Spaces &amp; people</a>
+  <a class="nav-link" href="#invoices">Invoices</a>
+  <a class="nav-link" href="{{ url_for('admin.credits_overview') }}">Credits</a>
+  <a class="nav-link" href="{{ url_for('admin.company_documents', company_id=company.id) }}">Documents</a>
+</nav>
+
+<div class="row g-3" id="overview">
   <div class="col-md-4">
     <div class="card"><div class="card-body">
       <h6>Status</h6>
@@ -38,7 +47,7 @@
   </div>
 </div>
 
-<div class="card mt-3"><div class="card-body">
+<div class="card mt-3" id="subscriptions"><div class="card-body">
   <div class="d-flex justify-content-between align-items-center mb-2">
     <h6 class="mb-0">Subscriptions</h6>
     <a class="btn btn-sm btn-dark" href="{{ url_for('admin.company_subscription_new', company_id=company.id) }}">+ Add subscription</a>
@@ -85,6 +94,46 @@
       {% endif %}
       {% else %}
       <tr><td colspan="6" class="text-muted text-center py-3">No subscriptions yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="card mt-3" id="spaces"><div class="card-body">
+  <h6>Spaces &amp; people</h6>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Space</th><th>Plan</th><th>People named</th></tr></thead>
+    <tbody>
+      {% for sp in spaces %}
+      <tr>
+        <td>{{ sp.seat.code }} <span class="text-muted small">({{ sp.seat.location.name }})</span></td>
+        <td>{{ sp.subscription.plan.name if sp.subscription else '&mdash;'|safe }}</td>
+        <td>{{ sp.names|length }} of {{ sp.places }}{% if sp.names %} <span class="text-muted small">({{ sp.names|join(', ') }})</span>{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="3" class="text-muted text-center py-3">No desk or office assigned yet. Pick one when adding a subscription.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="card mt-3" id="invoices"><div class="card-body">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h6 class="mb-0">Recent invoices</h6>
+    <a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.invoices_list') }}">All invoices</a>
+  </div>
+  <table class="table table-sm mb-0">
+    <thead><tr><th>Number</th><th>Period</th><th>Total</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for i in recent_invoices %}
+      <tr>
+        <td><a href="{{ url_for('admin.invoice_detail', invoice_id=i.id) }}">{{ i.number }}</a></td>
+        <td>{{ i.period_start }} &rarr; {{ i.period_end }}</td>
+        <td>{{ i.total_amount | money }}</td>
+        <td><span class="badge bg-secondary">{{ i.status.value }}</span></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="text-muted text-center py-3">No invoices yet.</td></tr>
       {% endfor %}
     </tbody>
   </table>

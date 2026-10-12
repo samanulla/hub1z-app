@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Subscriptions{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-2 justify-content-between align-items-start mb-3">
+  <div>
+    <h3 class="mb-1">Subscriptions</h3>
+    <p class="text-muted mb-0">Each subscription is one customer taking a plan, with a quantity. Add one from here or from the customer's page.</p>
+  </div>
+  <div class="btn-group btn-group-sm" role="group" aria-label="Filter">
+    <a class="btn btn-outline-dark {{ 'active' if status != 'all' }}" href="{{ url_for('admin.subscriptions_list') }}">Active</a>
+    <a class="btn btn-outline-dark {{ 'active' if status == 'all' }}" href="{{ url_for('admin.subscriptions_list', status='all') }}">All</a>
+  </div>
+</div>
+
+<div class="card mb-3" id="new"><div class="card-body">
+  <h6>New subscription</h6>
+  <form method="get" action="{{ url_for('admin.subscription_pick') }}" class="row g-2 align-items-end">
+    <div class="col-md-4">
+      <label class="form-label" for="company_id">Company</label>
+      <select class="form-select" id="company_id" name="company_id">
+        <option value="">Choose a company</option>
+        {% for c in companies %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label" for="user_id">or member</label>
+      <select class="form-select" id="user_id" name="user_id">
+        <option value="">Choose a member</option>
+        {% for p in people %}<option value="{{ p.id }}">{{ p.full_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4"><button class="btn btn-dark">Continue</button></div>
+  </form>
+</div></div>
+
+<div class="table-responsive"><table class="table bg-white shadow-sm">
+  <thead><tr><th>Customer</th><th>Plan</th><th>Qty</th><th>People</th><th>Spaces</th><th>Monthly</th><th>Invoices</th><th>Status</th><th>Start</th></tr></thead>
+  <tbody>
+    {% for s in subs %}
+    {% set h = held.get(s.id) %}
+    <tr>
+      <td>{% if s.company %}<a href="{{ url_for('admin.company_detail', company_id=s.company_id) }}">{{ s.company.name }}</a>{% elif s.user %}{{ s.user.full_name }}{% else %}&mdash;{% endif %}</td>
+      <td>{{ s.plan.name }}</td>
+      <td>{{ s.quantity }}</td>
+      <td>{{ s.people_capacity }}{% if h and s.company_id %} <span class="text-muted small">({{ h.named }} named)</span>{% endif %}</td>
+      <td>{% if h %}{{ h.spaces | join(', ') }}{% else %}<span class="text-muted">not assigned</span>{% endif %}</td>
+      <td>{{ s.monthly_total | money }}</td>
+      <td>{{ 'sent automatically' if s.auto_send_invoices else 'drafts first' }}</td>
+      <td><span class="badge bg-secondary">{{ s.status.value }}</span></td>
+      <td>{{ s.start_date }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="9" class="text-center text-muted py-4">No subscriptions yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

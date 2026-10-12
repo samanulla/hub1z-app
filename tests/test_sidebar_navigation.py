@@ -182,5 +182,5 @@ def test_invitations_live_under_people_and_render_distinct_content():
     assert b'Search name, email or phone' not in invitations
     sidebar = invitations.split(b'<aside class="h-side"')[1].split(b'</aside>')[0]
     assert b'href="/admin/invites"' not in sidebar
-    assert b'h-nav-link active" href="/admin/people"' in sidebar
+    assert b'h-nav-link active" href="/admin/companies"' in sidebar
     assert b'href="/admin/invites"' in invitations.split(b'aria-label="Section navigation"')[1]

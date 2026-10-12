@@ -222,4 +222,4 @@ def test_workspace_card_lists_pricing_plans_before_locations():
     c = app.test_client()
     _login(c, DEMO, "owner@demospace.com", "DemoPass123!")
     html = c.get("/admin/", headers={"Host": DEMO}).get_data(as_text=True)
-    assert html.index("Pricing plans") < html.index("Locations, floors, seats, rooms")
+    assert html.index("What members and companies subscribe to") < html.index("Locations, floors, seats, rooms")

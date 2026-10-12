@@ -4,7 +4,7 @@ from __future__ import annotations
 from flask import current_app, g, request, url_for, has_request_context
 from flask_login import current_user
 
-from ..models import Parcel, PlatformPaymentReport, UserRole
+from ..models import Invoice, InvoiceStatus, Parcel, PlatformPaymentReport, UserRole
 from ..models.parcel import WAITING
 
 
@@ -18,42 +18,54 @@ def section_navigation():
     if current_user.is_admin:
         groups = {
             "overview": [("Dashboard", "admin.dashboard"), ("Alerts", "admin.alerts")],
-            "workspace": [("Pricing plans", "admin.plans_list"), ("Locations & seats", "admin.locations_list"),
-                          ("Book", "book.index"), ("Credits", "admin.credits_overview"),
-                          ("Seat allocations", "admin.allocations"), ("Documents", "admin.operator_documents")],
-            "people": [("People", "admin.people"), ("Companies", "admin.companies_list"),
-                       ("Individuals", "admin.individuals_list"), ("Staff", "admin.staff_list"),
-                       ("Attendance", "admin.attendance"), ("Payroll", "admin.payroll_list")],
-            "billing": [("Invoices", "admin.invoices_list"), ("Credit notes", "admin.credit_notes"),
-                        ("Refunds", "admin.refunds"), ("Expenses", "admin.expenses_list"),
-                        ("Expense categories", "admin.expense_categories")],
-            "reports": [("Reports", "admin.reports_home")],
+            "frontdesk": [("Reception", "community.visitors_reception"), ("Mail & parcels", "admin.parcels"),
+                          ("Lockers", "community.lockers"), ("Check-in scan", "admin.attendance_scan")],
+            "customers": [("Companies", "admin.companies_list"), ("Members", "admin.individuals_list"),
+                          ("Leads", "admin.leads"), ("Subscriptions", "admin.subscriptions_list")],
+            "space": [("Calendar", "book.calendar"), ("Book", "book.index"), ("Rooms & desks", "admin.locations_list"),
+                      ("Who holds what", "admin.allocations"), ("Credits", "admin.credits_overview")],
+            "team": [("Staff", "admin.staff_list"), ("Attendance", "admin.attendance"),
+                     ("Payroll", "admin.payroll_list")],
+            "money": [("Invoices", "admin.invoices_list"), ("Credit notes", "admin.credit_notes"),
+                      ("Refunds", "admin.refunds"), ("Expenses", "admin.expenses_list"),
+                      ("Expense categories", "admin.expense_categories"), ("Reports", "admin.reports_home")],
+            "setup": [("Plans", "admin.plans_list"), ("Documents", "admin.operator_documents"),
+                      ("Email templates", "admin.email_templates")],
+            "community": [("Announcements", "community.announcements"), ("Member directory", "community.directory"),
+                          ("Guest passes", "community.guest_passes"), ("Visitors", "community.visitors"),
+                          ("Day pass", "member.day_passes"), ("Support tickets", "community.tickets"),
+                          ("Printing credits", "community.printing"), ("Refer & earn", "community.referrals")],
             "marketplace": [("Overview & listings", "admin.marketplace"), ("Bookings", "admin.marketplace_bookings"), ("Commission", "admin.marketplace_commission")],
-            "settings": [],
         }
         if current_user.is_manager or current_user.is_super_admin:
-            groups["people"].insert(3, ("Invitations", "admin.invites_list"))
+            groups["customers"].insert(3, ("Invitations", "admin.invites_list"))
         if current_user.is_super_admin:
-            groups["billing"] += [("Hub1z invoices", "admin.hub1z_billing"), ("Billing settings", "admin.billing_settings")]
-            groups["settings"] = [("Operator profile", "admin.settings"), ("Email templates", "admin.email_templates"), ("Audit log", "admin.audit_log")]
-        else:
-            groups["settings"] = [("Email templates", "admin.email_templates")]
+            groups["setup"] = [("Plans", "admin.plans_list"), ("Billing settings", "admin.billing_settings"),
+                               ("Operator profile", "admin.settings"), ("Documents", "admin.operator_documents"),
+                               ("Email templates", "admin.email_templates"), ("Hub1z invoices", "admin.hub1z_billing"),
+                               ("Audit log", "admin.audit_log")]
         if endpoint in ("admin.dashboard", "admin.alerts"):
             key = "overview"
-        elif endpoint.startswith(("admin.company", "admin.companies", "admin.individual", "admin.invite", "admin.staff", "admin.salary", "admin.payroll", "admin.attendance")) or endpoint == "admin.people":
-            key = "people"
-        elif endpoint.startswith(("admin.invoice", "admin.payment", "admin.billing", "admin.hub1z", "admin.credit_note", "admin.refund", "admin.expense")):
-            key = "billing"
-        elif endpoint.startswith("admin.report"):
-            key = "reports"
+        elif endpoint.startswith(("admin.parcel", "admin.attendance_scan", "community.visitors_reception",
+                                  "community.lockers", "admin.reception")):
+            key = "frontdesk"
+        elif endpoint.startswith(("admin.compan", "admin.individual", "admin.invite", "admin.lead",
+                                  "admin.subscription")) or endpoint == "admin.people":
+            key = "customers"
+        elif endpoint.startswith(("admin.staff", "admin.salary", "admin.payroll", "admin.attendance")):
+            key = "team"
+        elif endpoint.startswith(("admin.invoice", "admin.payment", "admin.credit_note", "admin.refund",
+                                  "admin.expense", "admin.report", "admin.billing_run")):
+            key = "money"
+        elif endpoint.startswith(("admin.plan", "admin.operator_documents", "admin.email_template", "admin.audit",
+                                  "admin.billing", "admin.hub1z")) or endpoint == "admin.settings":
+            key = "setup"
         elif endpoint.startswith("admin.marketplace"):
             key = "marketplace"
-        elif endpoint.startswith(("admin.email_template", "admin.audit")) or endpoint == "admin.settings":
-            key = "settings"
-        elif endpoint.startswith(("admin.parcel", "admin.reception", "community.", "member.day_pass")):
-            key = "services"
+        elif endpoint.startswith(("community.", "member.day_pass")):
+            key = "community"
         else:
-            key = "workspace"
+            key = "space"
     elif current_user.is_company_admin:
         groups = {
             "overview": [("Dashboard", "company.dashboard")],
@@ -80,9 +92,7 @@ def section_navigation():
                           ("Guest passes", "community.guest_passes"), ("Visitors", "community.visitors"),
                           ("Day pass", "member.day_passes"), ("Support tickets", "community.tickets"),
                           ("Printing credits", "community.printing"), ("Refer & earn", "community.referrals")]
-    if current_user.is_admin:
-        groups["services"] += [("Mail & parcels", "admin.parcels"), ("Lockers", "community.lockers"), ("Reception", "community.visitors_reception")]
-    else:
+    if not current_user.is_admin:
         groups["services"] += [("Mail & parcels", "company.parcels")]
     feature_codes = {"admin.payroll_list": "payroll", "admin.expenses_list": "expenses", "admin.expense_categories": "expenses"}
     items = [{"label": label, "url": url_for(target), "active": endpoint == target,
@@ -108,6 +118,8 @@ def nav_badges() -> dict:
 
             out["alerts"] = len(operator_alerts(g.operator_id))
             out["parcels"] = Parcel.query.filter_by(operator_id=g.operator_id, status=WAITING).count()
+            out["drafts"] = Invoice.query.filter_by(status=InvoiceStatus.DRAFT).filter(
+                Invoice.subscription_id.isnot(None)).count()
         elif current_user.role == UserRole.COMPANY_ADMIN:
             out["parcels"] = Parcel.query.filter_by(company_id=current_user.company_id, status=WAITING).count()
         else:

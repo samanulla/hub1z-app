@@ -159,8 +159,9 @@ def test_menus_group_workspace_items_and_community_separately():
 
     owner = _client(app, DEMO, "owner@demospace.com", PERSONA_PASSWORD)
     html = _get(owner, DEMO, "/admin/locations").data
-    assert html.index(b">Pricing plans<") < html.index(b">Locations &amp; seats<") < html.index(b">Book<")
+    tabs = html.split(b'aria-label="Section navigation"', 1)[1]
+    assert tabs.index(b">Calendar<") < tabs.index(b">Book<") < tabs.index(b">Rooms &amp; desks<")
     assert b"Book &amp; community" not in html
-    assert b">Hub1z invoices<" in _get(owner, DEMO, "/admin/invoices").data
+    assert b">Hub1z invoices<" in _get(owner, DEMO, "/admin/settings").data
     services = _get(owner, DEMO, "/admin/parcels").data
     assert b">Lockers<" in services and b">Reception<" in services

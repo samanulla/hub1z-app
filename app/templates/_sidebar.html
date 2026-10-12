@@ -77,25 +77,56 @@
 {% elif current_user.is_admin %}
   {% set section = section_navigation() %}
   {% set area = section.key if section else '' %}
-  {{ group('Workspace') }}
-  {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('admin.dashboard'), area == 'overview', badges.get('alerts')) }}
-  {{ link('Leads', 'bi-funnel-fill', url_for('admin.leads'), ep.startswith('admin.lead')) }}
-  {% if config.get('MARKETPLACE_ENABLED') and (current_user.is_super_admin or current_user.is_platform_owner or current_user.role.value == 'manager') %}
-    {{ link('Marketplace', 'bi-shop', url_for('admin.marketplace'), ep.startswith('admin.marketplace')) }}
-  {% endif %}
-  {{ link('Workspace', 'bi-geo-alt-fill', url_for('admin.locations_list'), area == 'workspace' and not ep.startswith('admin.lead') and not ep.startswith('admin.marketplace')) }}
+  {% set can_money = current_user.is_super_admin or current_user.is_manager or current_user.is_platform_owner %}
   {% if is_marketplace_partner(operator) %}
+    {{ group('Workspace') }}
+    {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('admin.dashboard'), area == 'overview', badges.get('alerts')) }}
+    {{ link('Leads', 'bi-funnel-fill', url_for('admin.leads'), ep.startswith('admin.lead')) }}
+    {{ link('Rooms & desks', 'bi-geo-alt-fill', url_for('admin.locations_list'), area == 'space') }}
     {{ link('Hub1z invoices', 'bi-receipt', url_for('admin.hub1z_billing'), ep.startswith('admin.hub1z')) }}
   {% else %}
-  {{ link('People', 'bi-people-fill', url_for('admin.people'), area == 'people') }}
-  {{ link('Billing', 'bi-receipt', url_for('admin.invoices_list'), area == 'billing') }}
-  {{ link('Reports', 'bi-bar-chart-fill', url_for('admin.reports_home'), ep.startswith('admin.report')) }}
-  {{ link('Services', 'bi-chat-square', url_for('community.announcements'), area == 'services', badges.get('parcels')) }}
+    {{ group('Today') }}
+    {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('admin.dashboard'), area == 'overview', badges.get('alerts')) }}
+    {{ link('Front desk', 'bi-person-check-fill', url_for('community.visitors_reception'), area == 'frontdesk', badges.get('parcels')) }}
+    {{ group('Customers') }}
+    {{ link('Companies', 'bi-building-fill', url_for('admin.companies_list'), ep.startswith(('admin.compan', 'admin.invite')) or ep == 'admin.people') }}
+    {{ link('Members', 'bi-people-fill', url_for('admin.individuals_list'), ep.startswith('admin.individual')) }}
+    {{ link('Leads', 'bi-funnel-fill', url_for('admin.leads'), ep.startswith('admin.lead')) }}
+    {{ link('Subscriptions', 'bi-card-checklist', url_for('admin.subscriptions_list'), ep.startswith('admin.subscription')) }}
+    {{ group('Space') }}
+    {{ link('Calendar', 'bi-calendar3', url_for('book.calendar'), ep.startswith('book.')) }}
+    {{ link('Rooms & desks', 'bi-geo-alt-fill', url_for('admin.locations_list'), area == 'space' and not ep.startswith('book.')) }}
+    {{ group('Team') }}
+    {{ link('Staff', 'bi-person-badge-fill', url_for('admin.staff_list'), ep.startswith(('admin.staff', 'admin.salary', 'admin.payroll'))) }}
+    {{ link('Attendance', 'bi-clock-history', url_for('admin.attendance'), ep.startswith('admin.attendance') and ep != 'admin.attendance_scan') }}
+    {% if can_money %}
+      {{ group('Money') }}
+      {{ link('Invoices', 'bi-receipt', url_for('admin.invoices_list'), area == 'money' and not ep.startswith(('admin.expense', 'admin.report')), badges.get('drafts')) }}
+      {{ link('Expenses', 'bi-wallet2', url_for('admin.expenses_list'), ep.startswith('admin.expense'), none, 'expenses') }}
+      {{ link('Reports', 'bi-bar-chart-fill', url_for('admin.reports_home'), ep.startswith('admin.report')) }}
+      {{ group('Setup') }}
+      {{ link('Plans', 'bi-tags-fill', url_for('admin.plans_list'), ep.startswith('admin.plan')) }}
+      {% if current_user.is_super_admin or current_user.is_platform_owner %}
+        {{ link('Settings', 'bi-gear-fill', url_for('admin.settings'), area == 'setup' and not ep.startswith('admin.plan')) }}
+      {% else %}
+        {{ link('Settings', 'bi-gear-fill', url_for('admin.email_templates'), area == 'setup' and not ep.startswith('admin.plan')) }}
+      {% endif %}
+    {% endif %}
+    {{ group('More') }}
+    {{ link('Community', 'bi-chat-heart-fill', url_for('community.announcements'), area == 'community') }}
+    {% if config.get('MARKETPLACE_ENABLED') and can_money %}
+      {{ link('Marketplace', 'bi-shop', url_for('admin.marketplace'), ep.startswith('admin.marketplace')) }}
+    {% endif %}
   {% endif %}
-  {% if current_user.is_super_admin or current_user.is_platform_owner %}
-    {{ link('Settings', 'bi-gear-fill', url_for('admin.settings'), area == 'settings') }}
-  {% else %}
-    {{ link('Settings', 'bi-gear-fill', url_for('admin.email_templates'), area == 'settings') }}
+  {% if is_marketplace_partner(operator) %}
+    {% if current_user.is_super_admin or current_user.is_platform_owner %}
+      {{ link('Settings', 'bi-gear-fill', url_for('admin.settings'), area == 'setup') }}
+    {% else %}
+      {{ link('Settings', 'bi-gear-fill', url_for('admin.email_templates'), area == 'setup') }}
+    {% endif %}
+    {% if config.get('MARKETPLACE_ENABLED') and can_money %}
+      {{ link('Marketplace', 'bi-shop', url_for('admin.marketplace'), ep.startswith('admin.marketplace')) }}
+    {% endif %}
   {% endif %}
 
 {% elif current_user.is_company_admin %}

@@ -541,8 +541,18 @@ def company_detail(company_id: int):
     subs = Subscription.query.filter_by(company_id=c.id).order_by(Subscription.created_at.desc()).all()
     subscription_requests = (SubscriptionChangeRequest.query.filter_by(company_id=c.id)
                              .order_by(SubscriptionChangeRequest.created_at.desc()).all())
+    spaces: dict[int, dict] = {}
+    for row in (SeatAllocation.query.filter_by(company_id=c.id, status=AllocationStatus.ACTIVE)
+                .order_by(SeatAllocation.id).all()):
+        entry = spaces.setdefault(row.seat_id, {"seat": row.seat, "subscription": row.subscription,
+                                                "places": 0, "names": []})
+        entry["places"] += 1
+        if row.user:
+            entry["names"].append(row.user.full_name)
+    recent_invoices = Invoice.query.filter_by(company_id=c.id).order_by(Invoice.created_at.desc()).limit(8).all()
     return render_template("admin/companies/detail.html", company=c, subscriptions=subs,
-                           subscription_requests=subscription_requests)
+                           subscription_requests=subscription_requests, spaces=list(spaces.values()),
+                           recent_invoices=recent_invoices)
 
 
 @admin_bp.route("/companies/<int:company_id>/edit", methods=["GET", "POST"])

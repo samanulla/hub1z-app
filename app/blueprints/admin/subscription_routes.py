@@ -14,8 +14,8 @@ from flask_login import current_user
 
 from ...extensions import db
 from ...models import (
-    Company, Location, PricingPlan, Subscription, SubscriptionStatus, User, UserRole,
-    SubscriptionChangeRequest, SubscriptionRequestStatus,
+    AllocationStatus, Company, Location, PricingPlan, SeatAllocation, Subscription, SubscriptionStatus, User,
+    UserRole, SubscriptionChangeRequest, SubscriptionRequestStatus,
 )
 from ...utils.decorators import admin_required, manager_or_super_required
 from ...services import audit_service, credit_service, billing_service, subscription_spaces
@@ -158,6 +158,40 @@ def register_subscription_routes(bp):
             form.deposit_months.data = defaults.deposit_months
             form.extra_people.data = 0
         return _page()
+
+    @bp.route("/subscriptions")
+    @admin_required
+    def subscriptions_list():
+        status = "all" if request.args.get("status") == "all" else "active"
+        query = Subscription.query.order_by(Subscription.start_date.desc())
+        if status == "active":
+            query = query.filter(Subscription.status == SubscriptionStatus.ACTIVE)
+        subs = query.all()
+        held: dict[int, dict] = {}
+        if subs:
+            rows = SeatAllocation.query.filter(SeatAllocation.subscription_id.in_([s.id for s in subs]),
+                                               SeatAllocation.status == AllocationStatus.ACTIVE).all()
+            for row in rows:
+                entry = held.setdefault(row.subscription_id, {"spaces": [], "named": 0})
+                if row.seat.code not in entry["spaces"]:
+                    entry["spaces"].append(row.seat.code)
+                entry["named"] += 1 if row.user_id and row.company_id else 0
+        return render_template(
+            "admin/subscriptions/list.html", subs=subs, held=held, status=status,
+            companies=Company.query.order_by(Company.name).all(),
+            people=User.query.filter_by(role=UserRole.INDIVIDUAL).order_by(User.full_name).all())
+
+    @bp.route("/subscriptions/new")
+    @manager_or_super_required
+    def subscription_pick():
+        company_id = request.args.get("company_id", type=int)
+        user_id = request.args.get("user_id", type=int)
+        if company_id:
+            return redirect(url_for("admin.company_subscription_new", company_id=company_id))
+        if user_id:
+            return redirect(url_for("admin.individual_subscription_new", user_id=user_id))
+        flash("Choose a company or a member first.", "warning")
+        return redirect(url_for("admin.subscriptions_list"))
 
     @bp.route("/companies/<int:company_id>/subscriptions/new", methods=["GET", "POST"])
     @manager_or_super_required

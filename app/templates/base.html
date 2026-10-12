@@ -62,6 +62,22 @@
         <a class="btn btn-brand btn-sm h-top-checkin" href="{{ url_for('book.calendar') }}" title="Calendar"><i class="bi bi-calendar3"></i><span>Calendar</span></a>
         <a class="btn btn-brand btn-sm h-top-checkin" href="{{ url_for('checkin.pass_page') }}" title="Check-in QR"><i class="bi bi-qr-code-scan"></i><span>Check-in QR</span></a>
         {% endif %}
+        {% if authed and current_user.is_admin and not current_user.is_platform_staff %}
+        <div class="dropdown">
+          <button class="btn btn-dark btn-sm" type="button" data-bs-toggle="dropdown" aria-expanded="false" data-quick-create><i class="bi bi-plus-lg"></i><span> New</span></button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{{ url_for('admin.company_new') }}"><i class="bi bi-building me-2"></i>Company</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('admin.lead_new') }}"><i class="bi bi-funnel me-2"></i>Lead</a></li>
+            {% if current_user.is_manager or current_user.is_super_admin or current_user.is_platform_owner %}
+            <li><a class="dropdown-item" href="{{ url_for('admin.subscriptions_list') }}#new"><i class="bi bi-card-checklist me-2"></i>Subscription</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('admin.invoice_new') }}"><i class="bi bi-receipt me-2"></i>Invoice</a></li>
+            {% endif %}
+            <li><a class="dropdown-item" href="{{ url_for('community.visitors_reception') }}"><i class="bi bi-door-open me-2"></i>Visitor</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('admin.parcels') }}"><i class="bi bi-box-seam me-2"></i>Parcel</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('community.announcement_new') }}"><i class="bi bi-megaphone me-2"></i>Announcement</a></li>
+          </ul>
+        </div>
+        {% endif %}
         {% if authed %}
         {% set notices = notification_summary(current_user) %}
         <div class="dropdown" data-notification-center data-summary-url="{{ url_for('notifications.badge') }}" data-csrf="{{ csrf_token() }}">
