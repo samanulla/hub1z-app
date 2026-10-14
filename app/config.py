@@ -26,7 +26,13 @@ class BaseConfig:
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True, "pool_recycle": 300}
 
     WTF_CSRF_TIME_LIMIT = 60 * 60 * 4
-    PERMANENT_SESSION_LIFETIME = timedelta(days=7)
+    # Sign-in lifetime. Without "Remember me" a sign-in ends after SESSION_IDLE_HOURS without activity;
+    # with it, the browser stays signed in for REMEMBER_ME_DAYS (Flask-Login's own default is a full year).
+    SESSION_IDLE_HOURS = int(os.getenv("SESSION_IDLE_HOURS", "12"))
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=SESSION_IDLE_HOURS)
+    REMEMBER_ME_DAYS = int(os.getenv("REMEMBER_ME_DAYS", "14"))
+    REMEMBER_COOKIE_DURATION = timedelta(days=REMEMBER_ME_DAYS)
+    REMEMBER_COOKIE_REFRESH_EACH_REQUEST = False
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
 

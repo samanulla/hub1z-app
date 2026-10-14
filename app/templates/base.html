@@ -146,7 +146,7 @@
       {% endwith %}
 
       {% set section = section_navigation() %}
-      {% if section and section['items'] %}
+      {% if section and section['items']|length > 1 %}
       <nav class="nav nav-pills gap-1 mb-3" aria-label="Section navigation">
         {% for item in section['items'] %}<a class="nav-link {{ 'active' if item.active }}" href="{{ item.url }}" {% if item.active %}aria-current="page"{% endif %}>{{ item.label }}{% if item.feature and not has_feature(item.feature) %} <span class="badge bg-secondary">Upgrade</span>{% endif %}</a>{% endfor %}
       </nav>
@@ -159,6 +159,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/hub1z-ui.js') }}"></script>
+<script src="{{ url_for('static', filename='js/password-toggle.js') }}" defer></script>
 <script>document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) { new bootstrap.Tooltip(el); });</script>
 <script src="{{ url_for('static', filename='js/slug-check.js') }}" defer></script>
 {% if authed %}<script src="{{ url_for('static', filename='js/notifications.js') }}"></script>{% endif %}

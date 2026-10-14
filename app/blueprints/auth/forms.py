@@ -7,7 +7,7 @@ from wtforms.validators import DataRequired, Email, EqualTo, Length, Optional, R
 class LoginForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email(), Length(max=255)])
     password = PasswordField("Password", validators=[DataRequired(), Length(min=6, max=200)])
-    remember = BooleanField("Remember me")
+    remember = BooleanField("Keep me signed in on this device")
     submit = SubmitField("Sign in")
 
 

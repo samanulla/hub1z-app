@@ -161,7 +161,7 @@ def test_menus_group_workspace_items_and_community_separately():
     for email in ("employee@acmeco.com", "individual@demospace.com"):
         c = _client(app, DEMO, email, PERSONA_PASSWORD)
         html = _get(c, DEMO, "/me/").data
-        assert html.index(b">My space<") < html.index(b">Book<") < html.index(b">Calendar<") < html.index(b">Community<"), email
+        assert html.index(b">My space<") < html.index(b">Book<") < html.index(b">Community<"), email
         assert b">Announcements<" in html and b">Guest passes<" in html
 
     owner = _client(app, DEMO, "owner@demospace.com", PERSONA_PASSWORD)

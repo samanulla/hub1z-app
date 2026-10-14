@@ -364,3 +364,11 @@ a.h-alert:hover { background: var(--h-surface-2); }
 /* ------------------------------------------------------------- parcels */
 .h-pickup { display: flex; align-items: baseline; justify-content: space-between; background: var(--h-brand-50); border-radius: 12px; padding: 10px 14px; }
 .h-pickup b { font-size: 22px; letter-spacing: .25em; color: var(--h-brand-600); }
+
+/* Show/hide eye on password fields (password-toggle.js) */
+.h-pw { position: relative; }
+.h-pw > input { padding-right: 44px; }
+.h-pw > input.is-invalid { background-image: none; }
+.h-pw-toggle { position: absolute; top: 0; right: 0; height: 100%; width: 42px; display: flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--h-ink-3); border-radius: 0 var(--h-radius-sm) var(--h-radius-sm) 0; }
+.h-pw-toggle:hover { color: var(--h-ink); }
+.h-pw-toggle:focus-visible { outline: 2px solid var(--h-brand); outline-offset: -2px; }

@@ -18,7 +18,7 @@
           {{ form.hidden_tag() }}
           {{ field(form.email, autofocus=true) }}
           {{ field(form.password) }}
-          {{ field(form.remember) }}
+          {{ field(form.remember, help='Stays signed in for ' ~ config.REMEMBER_ME_DAYS ~ ' days. Without it you are signed out after ' ~ config.SESSION_IDLE_HOURS ~ ' hours without activity, or when the browser is closed.') }}
           <button class="btn btn-dark w-100" type="submit">{{ form.submit.label.text }}</button>
         </form>
         <hr>

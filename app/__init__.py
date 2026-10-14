@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
+
 from flask import Flask, render_template, redirect, url_for, abort, g, request
 from flask_login import current_user
 from dotenv import load_dotenv
@@ -49,6 +51,24 @@ def _init_extensions(app: Flask) -> None:
     storage_service.init(app)
 
     from .models.user import User
+
+    @app.url_defaults
+    def _version_static_files(endpoint, values):
+        # /static/x.css?v=<file mtime>: a changed file gets a new address, so neither the browser nor the app's
+        # service worker (which answers /static/ from its cache first) can serve the old copy after a deploy.
+        if endpoint == "static" and "v" not in values and values.get("filename"):
+            try:
+                values["v"] = int((Path(app.static_folder) / values["filename"]).stat().st_mtime)
+            except OSError:
+                pass
+
+    @app.before_request
+    def _end_idle_sessions():
+        # A permanent session expires PERMANENT_SESSION_LIFETIME after the last request (it is refreshed on every
+        # request), so an unattended sign-in ends on its own. "Remember me" is the separate, longer-lived cookie.
+        from flask import session
+        if current_user.is_authenticated:
+            session.permanent = True
 
     @login_manager.user_loader
     def load_user(user_id: str):

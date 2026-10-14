@@ -16,9 +16,9 @@
 </details>
 {% endmacro %}
 
+{# The Calendar is a button in the top bar for everyone, so the menu only has Book. #}
 {% macro book_links() %}
-  {{ link('Book', 'bi-calendar-plus-fill', url_for('book.index'), ep in ('book.index', 'book.location_home', 'book.seat_book', 'book.room_book')) }}
-  {{ link('Calendar', 'bi-calendar3', url_for('book.calendar'), ep.startswith('book.') and ep not in ('book.index', 'book.location_home', 'book.seat_book', 'book.room_book')) }}
+  {{ link('Book', 'bi-calendar-plus-fill', url_for('book.index'), ep.startswith('book.')) }}
 {% endmacro %}
 
 {# Announcements, the member directory and everyday services (passes, visitors, help). #}
@@ -70,17 +70,18 @@
     {% endif %}
     {% endcall %}
   {% endif %}
-  {% if current_user.has_platform_permission('reports') %}
-    {{ group('Reports') }}
-    {{ link('Reports', 'bi-bar-chart-fill', url_for('platform.reports'), ep == 'platform.reports') }}
-  {% endif %}
-  {% if current_user.has_platform_permission('documents') %}
-    {{ group('Platform') }}
-    {{ link('Documents', 'bi-folder-fill', url_for('platform.platform_documents'), ep == 'platform.platform_documents') }}
-  {% endif %}
-  {% if current_user.is_platform_owner %}
-    {{ group('Owner only') }}
-    {{ link('Platform team', 'bi-people-fill', url_for('platform.team_list'), ep.startswith('platform.team') or ep.startswith('platform.manager')) }}
+  {% if current_user.has_platform_permission('reports') or current_user.has_platform_permission('documents') or current_user.is_platform_owner %}
+    {% call nav_group('Platform', 'p-platform') %}
+    {% if current_user.has_platform_permission('reports') %}
+      {{ link('Reports', 'bi-bar-chart-fill', url_for('platform.reports'), ep == 'platform.reports') }}
+    {% endif %}
+    {% if current_user.has_platform_permission('documents') %}
+      {{ link('Documents', 'bi-folder-fill', url_for('platform.platform_documents'), ep == 'platform.platform_documents') }}
+    {% endif %}
+    {% if current_user.is_platform_owner %}
+      {{ link('Platform team', 'bi-people-fill', url_for('platform.team_list'), ep.startswith('platform.team') or ep.startswith('platform.manager')) }}
+    {% endif %}
+    {% endcall %}
   {% endif %}
 
 {% elif current_user.is_admin %}
@@ -153,7 +154,7 @@
   {% set area = section.key if section else '' %}
   {{ group('Company') }}
   {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('company.dashboard'), ep == 'company.dashboard') }}
-  {{ link('Workspace', 'bi-calendar3', url_for('book.index'), area == 'workspace') }}
+  {{ link('Workspace', 'bi-person-workspace', url_for('book.index'), area == 'workspace') }}
   {{ link('People', 'bi-people-fill', url_for('company.employees'), ep.startswith('company.employee') or ep == 'company.accept_invite') }}
   {{ link('Billing', 'bi-receipt', url_for('company.invoices'), area == 'billing') }}
   {{ link('Services', 'bi-chat-square', url_for('community.announcements'), area == 'services', badges.get('parcels')) }}
@@ -162,11 +163,17 @@
   {{ group('My space') }}
   {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('member.dashboard'), ep == 'member.dashboard') }}
   {{ book_links() }}
+  {{ link('My bookings', 'bi-journal-check', url_for('member.bookings'), ep == 'member.bookings') }}
   {{ link('My parcels', 'bi-box-seam', url_for('member.parcels'), ep == 'member.parcels', badges.get('parcels')) }}
   {% if current_user.role.value == 'individual' %}
     {{ link('Invoices & payments', 'bi-receipt', url_for('member.invoices'), ep.startswith('member.invoice') or ep in ('member.payment_submission_new', 'member.payment_receipt', 'member.credit_note_pdf')) }}
   {% endif %}
-  {{ group('Community') }}
-  {{ link('Announcements', 'bi-megaphone-fill', url_for('community.announcements'), ep == 'community.announcements') }}
+  {% call nav_group('Community', 'm-community') %}
+  {{ link('Announcements', 'bi-megaphone-fill', url_for('community.announcements'), ep.startswith('community.announcement')) }}
+  {{ link('Member directory', 'bi-person-lines-fill', url_for('community.directory'), ep in ('community.directory', 'community.edit_profile')) }}
   {{ link('Guest passes', 'bi-person-plus-fill', url_for('community.guest_passes'), ep == 'community.guest_passes') }}
+  {{ link('Visitors', 'bi-door-open-fill', url_for('community.visitors'), ep.startswith('community.visitor') and ep != 'community.visitors_reception') }}
+  {{ link('Printing credits', 'bi-printer-fill', url_for('community.printing'), ep.startswith('community.printing')) }}
+  {{ link('Refer & earn', 'bi-gift-fill', url_for('community.referrals'), ep == 'community.referrals') }}
+  {% endcall %}
 {% endif %}
