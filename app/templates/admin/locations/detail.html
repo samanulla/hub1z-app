@@ -48,8 +48,8 @@
   <div class="col-md-4">
     <div class="card"><div class="card-body">
       <h6>Inventory</h6>
-      <div><a href="{{ url_for('admin.seats_list', location_id=location.id) }}">Seats ({{ location.active_seats|length }}{% if location.inactive_seats %}, {{ location.inactive_seats|length }} inactive{% endif %}) →</a></div>
-      <div><a href="{{ url_for('admin.rooms_list', location_id=location.id) }}">Rooms ({{ location.active_rooms|length }}) →</a></div>
+      <div><a href="{{ url_for('admin.seats_list', location_id=location.id) }}">Offices &amp; desks ({{ location.active_seats|length }}{% if location.inactive_seats %}, {{ location.inactive_seats|length }} inactive{% endif %}) →</a></div>
+      <div><a href="{{ url_for('admin.rooms_list', location_id=location.id) }}">Meeting rooms ({{ location.active_rooms|length }}) →</a></div>
     </div></div>
   </div>
 </div>

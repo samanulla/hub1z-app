@@ -16,7 +16,7 @@ def test_owner_sees_grouped_menu_with_money_setup_and_marketplace_last():
     html = _get(owner, DEMO, "/admin/").get_data(as_text=True)
     for group in ("Today", "Customers", "Space", "Team", "Money", "Setup"):
         assert LABEL % group in html, group
-    for item in (">Front desk<", ">Companies<", ">Members<", ">Subscriptions<", ">Rooms &amp; desks<",
+    for item in (">Front desk<", ">Companies<", ">Members<", ">Subscriptions<", ">Inventory<",
                  ">Invoices<", ">Plans<", ">Settings<", ">Community<"):
         assert item in html, item
     assert html.index(LABEL % "Today") < html.index(LABEL % "Customers") < html.index(LABEL % "Money") \

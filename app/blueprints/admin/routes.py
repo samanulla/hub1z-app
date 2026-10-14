@@ -232,11 +232,28 @@ def seats_list(location_id: int):
     loc = Location.query.get_or_404(location_id)
     every_seat = Seat.query.filter_by(location_id=loc.id).order_by(Seat.code).all()
     include_inactive = request.args.get("include_inactive") == "1"
+    type_filter = request.args.get("type", "")
+    if type_filter not in {t.value for t in SeatType}:
+        type_filter = ""
     active = [s for s in every_seat if s.is_active]
     inactive = [s for s in every_seat if not s.is_active]
+    type_counts = {t.value: sum(1 for s in active if s.seat_type == t) for t in SeatType}
+    if type_filter:
+        active = [s for s in active if s.seat_type.value == type_filter]
+        inactive = [s for s in inactive if s.seat_type.value == type_filter]
+    # Who holds each assignable office/desk right now (hot desks are a shared pool, so they are never held).
+    held = {}
+    holders = (SeatAllocation.query.filter(SeatAllocation.seat_id.in_([s.id for s in every_seat] or [0]),
+                                           SeatAllocation.status == AllocationStatus.ACTIVE)
+               .order_by(SeatAllocation.id).all())
+    for row in holders:
+        name = row.company.name if row.company else (row.user.full_name if row.user else "")
+        if name and name not in held.setdefault(row.seat_id, []):
+            held[row.seat_id].append(name)
     return render_template("admin/seats/list.html", location=loc, seats=active,
                            inactive_seats=inactive if include_inactive else [],
-                           inactive_count=len(inactive), include_inactive=include_inactive)
+                           inactive_count=len(inactive), include_inactive=include_inactive,
+                           type_filter=type_filter, type_counts=type_counts, held=held)
 
 
 @admin_bp.route("/seats/<int:seat_id>/delete", methods=["POST"])

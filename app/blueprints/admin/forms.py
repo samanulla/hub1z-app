@@ -70,7 +70,8 @@ class SeatForm(FlaskForm):
     floor_id = SelectField("Floor", coerce=int, validators=[DataRequired()])
     code = StringField("Seat code", validators=[DataRequired(), Length(max=30)])
     seat_type = SelectField("Type", choices=_enum_choices(SeatType), validators=[DataRequired()])
-    capacity = IntegerField("Capacity", default=1, validators=[NumberRange(min=1, max=200)])
+    capacity = IntegerField("People it seats", validators=[Optional(), NumberRange(min=1, max=200)],
+                            description="Required for a private office: plans are matched to offices by this number.")
     hourly_rate = DecimalField("Hourly rate (INR)", default=0, validators=[NumberRange(min=0)])
     daily_rate = DecimalField("Daily rate (INR)", default=0, validators=[NumberRange(min=0)])
     monthly_rate = DecimalField("Monthly rate (INR)", default=0, validators=[NumberRange(min=0)])
@@ -78,6 +79,16 @@ class SeatForm(FlaskForm):
     notes = TextAreaField("Notes", validators=[Optional()])
     carry_details = BooleanField("Carry over details", default=True)
     submit = SubmitField("Save")
+
+    def validate(self, extra_validators=None):
+        valid = super().validate(extra_validators=extra_validators)
+        if self.capacity.data is None:
+            if self.seat_type.data == SeatType.PRIVATE_OFFICE.value:
+                self.capacity.errors = list(self.capacity.errors) + [
+                    "Enter how many people this office seats, so it matches the right plans."]
+                return False
+            self.capacity.data = 1
+        return valid
 
 
 class BulkSeatForm(SeatForm):

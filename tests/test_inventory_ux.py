@@ -90,7 +90,7 @@ def test_inactive_seats_are_not_counted_in_inventory():
         assert len(location.active_seats) == before + 1 and len(location.inactive_seats) >= 1
     owner = _client(app, DEMO, "owner@demospace.com")
     detail = _get(owner, DEMO, f"/admin/locations/{location_id}").get_data(as_text=True)
-    assert f"Seats ({before + 1}, " in detail and "inactive" in detail
+    assert f"Offices &amp; desks ({before + 1}, " in detail and "inactive" in detail
     listing = _get(owner, DEMO, "/admin/locations").get_data(as_text=True)
     assert f"{before + 1} <span" in listing or f"<td>{before + 1}" in listing
 
@@ -142,3 +142,56 @@ def test_rate_fields_point_to_where_prices_are_set():
     seat_form = _get(owner, DEMO, f"/admin/locations/{location_id}/seats/new").get_data(as_text=True)
     assert "walk-in rates" in seat_form and 'href="/admin/plans"' in seat_form
     assert "walk-in prices" in _get(owner, DEMO, "/admin/plans").get_data(as_text=True)
+
+
+def _seat_form(floor_id, code, seat_type, capacity=""):
+    return {"floor_id": floor_id, "code": code, "seat_type": seat_type, "capacity": capacity,
+            "hourly_rate": "0", "daily_rate": "0", "monthly_rate": "0", "is_active": "y"}
+
+
+def test_private_office_needs_a_capacity_but_a_desk_does_not():
+    app, _ = _seeded_app()
+    _, location_id, floor_id = _demo(app)
+    owner = _client(app, DEMO, "owner@demospace.com")
+    url = f"/admin/locations/{location_id}/seats/new"
+    missing = _post(owner, DEMO, url, _seat_form(floor_id, "CAP-OFC", "private_office"))
+    assert missing.status_code == 200 and "how many people this office seats" in missing.get_data(as_text=True)
+    assert _post(owner, DEMO, url, _seat_form(floor_id, "CAP-OFC", "private_office", "4")).status_code == 302
+    assert _post(owner, DEMO, url, _seat_form(floor_id, "CAP-DESK", "dedicated_desk")).status_code == 302
+    with app.app_context():
+        rows = {s.code: s.capacity for s in Seat.query.execution_options(skip_operator_filter=True)
+                .filter(Seat.code.in_(["CAP-OFC", "CAP-DESK"]))}
+    assert rows == {"CAP-OFC": 4, "CAP-DESK": 1}
+
+
+def test_offices_and_desks_list_shows_free_or_held_and_filters_by_type():
+    from datetime import date
+    from app.models import AllocationStatus, Company, SeatAllocation
+    app, _ = _seeded_app()
+    operator_id, location_id, floor_id = _demo(app)
+    with app.app_context():
+        company = Company.query.execution_options(skip_operator_filter=True).filter_by(operator_id=operator_id).first()
+        free = Seat(operator_id=operator_id, location_id=location_id, floor_id=floor_id, code="CABIN-A",
+                    seat_type=SeatType.PRIVATE_OFFICE, capacity=4)
+        held = Seat(operator_id=operator_id, location_id=location_id, floor_id=floor_id, code="CABIN-B",
+                    seat_type=SeatType.PRIVATE_OFFICE, capacity=4)
+        unset = Seat(operator_id=operator_id, location_id=location_id, floor_id=floor_id, code="CABIN-C",
+                     seat_type=SeatType.PRIVATE_OFFICE)
+        db.session.add_all([free, held, unset])
+        db.session.flush()
+        db.session.add(SeatAllocation(operator_id=operator_id, seat_id=held.id, company_id=company.id,
+                                      status=AllocationStatus.ACTIVE, start_date=date.today()))
+        db.session.commit()
+        company_name = company.name
+    owner = _client(app, DEMO, "owner@demospace.com")
+    page = _get(owner, DEMO, f"/admin/locations/{location_id}/seats").get_data(as_text=True)
+    row = lambda code: page[page.index(f"<strong>{code}</strong>"):].split("</tr>")[0]
+    assert "Free" in row("CABIN-A") and "Held" in row("CABIN-B") and company_name in row("CABIN-B")
+    assert "Capacity 1 is the unset default" in row("CABIN-C")
+    assert "Offices &amp; desks at" in page and "create the subscription" in page
+    offices = _get(owner, DEMO, f"/admin/locations/{location_id}/seats?type=private_office").get_data(as_text=True)
+    assert "CABIN-A" in offices and "HD-" not in offices.split("<tbody>")[1]
+    desks = _get(owner, DEMO, f"/admin/locations/{location_id}/seats?type=dedicated_desk").get_data(as_text=True)
+    assert "CABIN-A" not in desks
+    sidebar = _get(owner, DEMO, "/admin/locations").get_data(as_text=True)
+    assert ">Inventory<" in sidebar and "Meeting rooms" in sidebar

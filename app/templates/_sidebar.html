@@ -82,7 +82,7 @@
     {{ group('Workspace') }}
     {{ link('Dashboard', 'bi-grid-1x2-fill', url_for('admin.dashboard'), area == 'overview', badges.get('alerts')) }}
     {{ link('Leads', 'bi-funnel-fill', url_for('admin.leads'), ep.startswith('admin.lead')) }}
-    {{ link('Rooms & desks', 'bi-geo-alt-fill', url_for('admin.locations_list'), area == 'space') }}
+    {{ link('Inventory', 'bi-geo-alt-fill', url_for('admin.locations_list'), area == 'space') }}
     {{ link('Hub1z invoices', 'bi-receipt', url_for('admin.hub1z_billing'), ep.startswith('admin.hub1z')) }}
   {% else %}
     {{ group('Today') }}
@@ -95,7 +95,7 @@
     {{ link('Subscriptions', 'bi-card-checklist', url_for('admin.subscriptions_list'), ep.startswith('admin.subscription')) }}
     {{ group('Space') }}
     {{ link('Calendar', 'bi-calendar3', url_for('book.calendar'), ep.startswith('book.')) }}
-    {{ link('Rooms & desks', 'bi-geo-alt-fill', url_for('admin.locations_list'), area == 'space' and not ep.startswith('book.')) }}
+    {{ link('Inventory', 'bi-geo-alt-fill', url_for('admin.locations_list'), area == 'space' and not ep.startswith('book.')) }}
     {{ group('Team') }}
     {{ link('Staff', 'bi-person-badge-fill', url_for('admin.staff_list'), ep.startswith(('admin.staff', 'admin.salary', 'admin.payroll'))) }}
     {{ link('Attendance', 'bi-clock-history', url_for('admin.attendance'), ep.startswith('admin.attendance') and ep != 'admin.attendance_scan') }}

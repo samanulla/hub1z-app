@@ -22,7 +22,7 @@ def section_navigation():
                           ("Lockers", "community.lockers"), ("Check-in scan", "admin.attendance_scan")],
             "customers": [("Companies", "admin.companies_list"), ("Members", "admin.individuals_list"),
                           ("Leads", "admin.leads"), ("Subscriptions", "admin.subscriptions_list")],
-            "space": [("Calendar", "book.calendar"), ("Book", "book.index"), ("Rooms & desks", "admin.locations_list"),
+            "space": [("Calendar", "book.calendar"), ("Book", "book.index"), ("Inventory", "admin.locations_list"),
                       ("Who holds what", "admin.allocations"), ("Credits", "admin.credits_overview")],
             "team": [("Staff", "admin.staff_list"), ("Attendance", "admin.attendance"),
                      ("Payroll", "admin.payroll_list")],
