@@ -61,6 +61,7 @@
         {% if authed and not current_user.is_platform_staff %}
         <a class="btn btn-brand btn-sm h-top-checkin" href="{{ url_for('book.calendar') }}" title="Calendar"><i class="bi bi-calendar3"></i><span>Calendar</span></a>
         <a class="btn btn-brand btn-sm h-top-checkin" href="{{ url_for('checkin.pass_page') }}" title="Check-in QR"><i class="bi bi-qr-code-scan"></i><span>Check-in QR</span></a>
+        <a class="btn btn-brand btn-sm h-top-checkin" href="{{ url_for('community.tickets') }}" title="Support"><i class="bi bi-life-preserver"></i><span>Support</span></a>
         {% endif %}
         {% if authed and current_user.is_admin and not current_user.is_platform_staff %}
         <div class="dropdown">
@@ -104,7 +105,7 @@
             {% if current_user.is_company_admin %}
             <li><a class="dropdown-item" href="{{ url_for('company.profile') }}"><i class="bi bi-building me-2"></i>Company profile</a></li>
             {% elif current_user.is_super_admin and not current_user.is_platform_staff %}
-            <li><a class="dropdown-item" href="{{ url_for('admin.settings') }}"><i class="bi bi-building me-2"></i>Operator profile</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('admin.settings') }}"><i class="bi bi-building me-2"></i>Profile</a></li>
             {% endif %}
             <li><a class="dropdown-item" href="{{ url_for('auth.change_password') }}"><i class="bi bi-key me-2"></i>Change password</a></li>
             <li><a class="dropdown-item" href="{{ url_for('auth.two_factor_status') }}"><i class="bi bi-shield-check me-2"></i>Two-factor</a></li>

@@ -4,7 +4,7 @@
 
 {% block content %}
 <h3 class="{{ 'mb-1' if setup_active else 'mb-4' }}">{{ operator.name if operator else "Operator" }} overview</h3>
-{% if setup_active %}<p class="muted small mb-4">This is the business name you gave us. You can change it any time under <a href="{{ url_for('admin.settings') }}">Settings, Operator profile</a>.</p>{% endif %}
+{% if setup_active %}<p class="muted small mb-4">This is the business name you gave us. You can change it any time under <a href="{{ url_for('admin.settings') }}">Settings, Profile</a>.</p>{% endif %}
 
 {% if setup_guide %}
 <div class="h-card mb-4" style="border-color:var(--h-brand, #5b5bd6)"><div class="h-card-body">

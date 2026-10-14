@@ -18,8 +18,8 @@
   <td>{{ s.monthly_rate | money }}</td>
   <td class="text-end text-nowrap">
     <a class="btn btn-sm btn-outline-dark" href="{{ url_for('admin.seat_edit', seat_id=s.id) }}">Edit</a>
-    <button class="btn btn-sm btn-outline-danger" type="submit" form="delete-seat-{{ s.id }}" title="Delete this office or desk"
-            onclick="return confirm('Delete seat {{ s.code }}? This cannot be undone.');"><i class="bi bi-trash"></i><span class="visually-hidden">Delete {{ s.code }}</span></button>
+    {% if not held.get(s.id) %}<button class="btn btn-sm btn-outline-danger" type="submit" form="delete-seat-{{ s.id }}" title="Delete this office or desk"
+            onclick="return confirm('Delete {{ s.code }}? This cannot be undone.');"><i class="bi bi-trash"></i><span class="visually-hidden">Delete {{ s.code }}</span></button>{% endif %}
   </td>
 </tr>
 {% endfor %}

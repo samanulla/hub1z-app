@@ -225,11 +225,16 @@ def _register_root_routes(app: Flask) -> None:
                 "available_seats": max(0, len(seats) - booked_seats),
                 "available_rooms": max(0, len(rooms) - booked_rooms),
             })
+        saved = (operator.profile_details or {}).get("site") or {}
+        site = {"headline": saved.get("headline") or "", "hero_image_url": saved.get("hero_image_url") or "",
+                "established_year": saved.get("established_year"), "show_stats": saved.get("show_stats", True),
+                "about_title": saved.get("about_title") or "", "about_text": saved.get("about_text") or ""}
         return {
             "operator": operator,
             "locations": locations,
             "plans": plans,
             "availability": availability,
+            "site": site,
         }
 
     @app.route("/")
@@ -237,7 +242,9 @@ def _register_root_routes(app: Flask) -> None:
         from flask import g
         if getattr(g, "marketplace_host", False):
             return redirect(url_for("marketplace.home"))
-        if current_user.is_authenticated:
+        # Operator admins can open their own public page (Settings > Home page > View home page).
+        previewing = request.args.get("preview") == "1" and current_user.is_authenticated and current_user.is_admin
+        if current_user.is_authenticated and not previewing:
             return redirect(url_for("auth.post_login_redirect"))
         if getattr(g, "operator", None):
             return render_template("public/landing.html", **operator_public_data())

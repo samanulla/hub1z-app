@@ -14,35 +14,29 @@ def section_navigation():
     endpoint = request.endpoint or ""
     if endpoint.startswith("notifications."):
         return None
+    if current_user.is_admin and endpoint.startswith("book."):
+        return None  # the Calendar is opened from the top bar and has no tabs of its own
     groups = {}
     if current_user.is_admin:
         groups = {
             "overview": [("Dashboard", "admin.dashboard"), ("Alerts", "admin.alerts")],
             "frontdesk": [("Reception", "community.visitors_reception"), ("Mail & parcels", "admin.parcels"),
                           ("Lockers", "community.lockers"), ("Check-in scan", "admin.attendance_scan")],
-            "customers": [("Companies", "admin.companies_list"), ("Members", "admin.individuals_list"),
-                          ("Leads", "admin.leads"), ("Subscriptions", "admin.subscriptions_list")],
-            "space": [("Calendar", "book.calendar"), ("Book", "book.index"), ("Inventory", "admin.locations_list"),
-                      ("Who holds what", "admin.allocations"), ("Credits", "admin.credits_overview")],
-            "team": [("Staff", "admin.staff_list"), ("Attendance", "admin.attendance"),
-                     ("Payroll", "admin.payroll_list")],
-            "money": [("Invoices", "admin.invoices_list"), ("Credit notes", "admin.credit_notes"),
-                      ("Refunds", "admin.refunds"), ("Expenses", "admin.expenses_list"),
-                      ("Expense categories", "admin.expense_categories"), ("Reports", "admin.reports_home")],
-            "setup": [("Plans", "admin.plans_list"), ("Documents", "admin.operator_documents"),
-                      ("Email templates", "admin.email_templates")],
+            # Customers, Space Setup and Team have no tabs: their pages are siblings in the left menu.
+            "customers": [], "space": [], "team": [],
+            "passes": [("Day pass", "member.day_passes"), ("Visitor pass", "community.visitors"),
+                       ("Guest pass", "community.guest_passes")],
+            # Finance tabs only link the pages that belong to one left-menu item.
+            "money": [],
+            "setup": [("Documents", "admin.operator_documents"), ("Email templates", "admin.email_templates")],
             "community": [("Announcements", "community.announcements"), ("Member directory", "community.directory"),
-                          ("Guest passes", "community.guest_passes"), ("Visitors", "community.visitors"),
-                          ("Day pass", "member.day_passes"), ("Support tickets", "community.tickets"),
                           ("Printing credits", "community.printing"), ("Refer & earn", "community.referrals")],
             "marketplace": [("Overview & listings", "admin.marketplace"), ("Bookings", "admin.marketplace_bookings"), ("Commission", "admin.marketplace_commission")],
         }
-        if current_user.is_manager or current_user.is_super_admin:
-            groups["customers"].insert(3, ("Invitations", "admin.invites_list"))
         if current_user.is_super_admin:
-            groups["setup"] = [("Plans", "admin.plans_list"), ("Billing settings", "admin.billing_settings"),
-                               ("Operator profile", "admin.settings"), ("Documents", "admin.operator_documents"),
-                               ("Email templates", "admin.email_templates"), ("Hub1z invoices", "admin.hub1z_billing"),
+            groups["setup"] = [("Profile", "admin.settings"), ("Home page", "admin.website_settings"),
+                               ("Billing", "admin.billing_settings"),
+                               ("Documents", "admin.operator_documents"), ("Email templates", "admin.email_templates"),
                                ("Audit log", "admin.audit_log")]
         if endpoint in ("admin.dashboard", "admin.alerts"):
             key = "overview"
@@ -55,17 +49,30 @@ def section_navigation():
         elif endpoint.startswith(("admin.staff", "admin.salary", "admin.payroll", "admin.attendance")):
             key = "team"
         elif endpoint.startswith(("admin.invoice", "admin.payment", "admin.credit_note", "admin.refund",
-                                  "admin.expense", "admin.report", "admin.billing_run")):
+                                  "admin.expense", "admin.report", "admin.billing_run", "admin.hub1z")):
             key = "money"
-        elif endpoint.startswith(("admin.plan", "admin.operator_documents", "admin.email_template", "admin.audit",
-                                  "admin.billing", "admin.hub1z")) or endpoint == "admin.settings":
+        elif endpoint.startswith(("admin.operator_documents", "admin.email_template", "admin.audit",
+                                  "admin.billing", "admin.website")) or endpoint == "admin.settings":
             key = "setup"
+        elif endpoint.startswith("admin.plan"):
+            key = "space"
+        elif endpoint in ("community.visitors", "community.visitor_check_in", "community.visitor_check_out",
+                          "community.guest_passes") or endpoint.startswith("member.day_pass"):
+            key = "passes"
         elif endpoint.startswith("admin.marketplace"):
             key = "marketplace"
-        elif endpoint.startswith(("community.", "member.day_pass")):
+        elif endpoint.startswith("community."):
             key = "community"
         else:
             key = "space"
+        if key == "money":
+            if endpoint.startswith(("admin.invoice", "admin.payment", "admin.credit_note", "admin.refund",
+                                    "admin.billing_run")):
+                groups["money"] = [("Invoices", "admin.invoices_list"), ("Credit notes", "admin.credit_notes"),
+                                   ("Refunds", "admin.refunds")]
+            elif endpoint.startswith("admin.expense"):
+                groups["money"] = [("Expenses", "admin.expenses_list"),
+                                   ("Expense categories", "admin.expense_categories")]
     elif current_user.is_company_admin:
         groups = {
             "overview": [("Dashboard", "company.dashboard")],
@@ -90,7 +97,7 @@ def section_navigation():
         return None
     groups["services"] = [("Announcements", "community.announcements"), ("Member directory", "community.directory"),
                           ("Guest passes", "community.guest_passes"), ("Visitors", "community.visitors"),
-                          ("Day pass", "member.day_passes"), ("Support tickets", "community.tickets"),
+                          ("Day pass", "member.day_passes"),
                           ("Printing credits", "community.printing"), ("Refer & earn", "community.referrals")]
     if not current_user.is_admin:
         groups["services"] += [("Mail & parcels", "company.parcels")]

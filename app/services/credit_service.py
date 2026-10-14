@@ -101,6 +101,7 @@ def capacity_breakdown(operator_id: int) -> list[dict]:
             minutes = (loc.close_time.hour * 60 + loc.close_time.minute) - (loc.open_time.hour * 60 + loc.open_time.minute)
             slots_per_day = max(0, minutes // SLOT_MINUTES)
         rows.append({"room": room.name, "location": loc.name, "slots": slots_per_day,
+                     "hours": slots_per_day * SLOT_MINUTES / 60, "per_hour": room.credits_per_slot * 60 // SLOT_MINUTES,
                      "days": settings.capacity_days_per_month, "per_slot": room.credits_per_slot,
                      "credits": slots_per_day * settings.capacity_days_per_month * room.credits_per_slot})
     return rows

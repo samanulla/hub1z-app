@@ -1,10 +1,12 @@
 """Admin forms."""
+import re
+
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from wtforms import (StringField, IntegerField, DecimalField, SelectField,
                      TextAreaField, TimeField, BooleanField, SubmitField, DateField,
                      PasswordField, SelectMultipleField)
-from wtforms.validators import DataRequired, InputRequired, Length, Optional, NumberRange, Email, EqualTo
+from wtforms.validators import DataRequired, InputRequired, Length, Optional, NumberRange, Email, EqualTo, ValidationError
 
 from ...models import (
     SeatType, PlanType, BillingCycle, PlanScope, BillingUnit, LocationScope, PlanStatus, CompanyStatus,
@@ -487,6 +489,26 @@ class SystemSettingsForm(FlaskForm):
     invoice_prefix = StringField("Invoice number prefix", validators=[DataRequired(), Length(max=10)])
 
     submit = SubmitField("Save settings")
+
+
+class HomePageForm(FlaskForm):
+    """What the operator's public home page shows. Stored under profile_details['site']."""
+    headline = StringField("Headline", validators=[Optional(), Length(max=120)],
+                           description="The big line at the top. Leave blank for the default.")
+    hero_image_url = StringField("Hero image address", validators=[Optional(), Length(max=500)],
+                                 description="A https:// link to a wide photo of your space. Leave blank for the default photo.")
+    established_year = IntegerField("Open since", validators=[Optional(), NumberRange(min=1900, max=2100)],
+                                    description="Shown above the headline, for example 'Est. 2020'.")
+    show_stats = BooleanField("Show live numbers (desks, locations, open now, meeting rooms)", default=True)
+    about_title = StringField("About heading", validators=[Optional(), Length(max=120)])
+    about_text = TextAreaField("About your workspace", validators=[Optional(), Length(max=1200)],
+                               description="A short story or welcome. The About section is hidden while this is empty.")
+    submit = SubmitField("Save home page")
+
+    def validate_hero_image_url(self, field):
+        value = (field.data or "").strip()
+        if value and not re.fullmatch(r"https://[^\s'\"()<>\\]+", value):
+            raise ValidationError("Use a full https:// link with no spaces, quotes or brackets.")
 
 
 class OperatorSettingsForm(BusinessDetailsForm):

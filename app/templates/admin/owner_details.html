@@ -5,7 +5,7 @@
 {% block content %}
 <div class="h-page-head">
   <div>
-    <div class="h-crumbs"><span>{{ operator.name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><a href="{{ url_for('admin.settings') }}">Operator profile</a><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Owner details</span></div>
+    <div class="h-crumbs"><span>{{ operator.name }}</span><i class="bi bi-chevron-right" style="font-size:10px"></i><a href="{{ url_for('admin.settings') }}">Profile</a><i class="bi bi-chevron-right" style="font-size:10px"></i><span>Owner details</span></div>
     <h1>Owner details</h1>
     <div class="muted mt-1">In many businesses the person who signs up is not the owner. Tell us who owns the business and, if you are acting for them, how you are authorised. We ask for this before a paid plan so invoices and agreements are with the right people.</div>
   </div>
@@ -70,7 +70,7 @@
   </div></div>
 
   <button class="btn btn-brand" type="submit">Save owner details</button>
-  <a class="btn btn-link" href="{{ url_for('admin.settings') }}">Back to Operator profile</a>
+  <a class="btn btn-link" href="{{ url_for('admin.settings') }}">Back to Profile</a>
 </form>
 
 <script>

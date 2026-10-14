@@ -138,6 +138,13 @@ def test_check_in_qr_sits_in_the_top_bar_for_everyone_who_can_use_it():
         html = _get(c, DEMO, landing).data
         assert b"h-top-checkin" in html, email
         assert html.count(b'href="/checkin/pass"') >= 1, email
+        header = html.split(b'<header class="h-top">')[1].split(b'</header>')[0]
+        assert header.index(b'title="Check-in QR"') < header.index(b'title="Support"'), email
+        assert b'href="/hub/tickets"' in header, email
+        sidebar = html.split(b'<aside class="h-side"')[1].split(b'</aside>')[0]
+        assert b">Support tickets<" not in sidebar, email
+        if landing == "/admin/":
+            assert b">Calendar<" not in sidebar
     platform = _client(app, APEX, "admin@hub1z.com", OWNER_PASSWORD)
     assert b"h-top-checkin" not in _get(platform, APEX, "/platform/").data
 
@@ -159,9 +166,27 @@ def test_menus_group_workspace_items_and_community_separately():
 
     owner = _client(app, DEMO, "owner@demospace.com", PERSONA_PASSWORD)
     html = _get(owner, DEMO, "/admin/locations").data
-    tabs = html.split(b'aria-label="Section navigation"', 1)[1]
-    assert tabs.index(b">Calendar<") < tabs.index(b">Book<") < tabs.index(b">Inventory<")
+    sidebar = html.split(b'<aside class="h-side"')[1].split(b'</aside>')[0]
+    order = [b">Inventory<", b">Plans<", b">Who holds what<", b">Credits<", b">Passes<"]
+    assert [sidebar.index(label) for label in order] == sorted(sidebar.index(label) for label in order)
+    assert b'aria-label="Section navigation"' not in html     # siblings are in the left menu, not repeated as tabs
     assert b"Book &amp; community" not in html
-    assert b">Hub1z invoices<" in _get(owner, DEMO, "/admin/settings").data
+    for path in ("/admin/companies", "/admin/staff", "/admin/allocations", "/admin/credits"):
+        assert b'aria-label="Section navigation"' not in _get(owner, DEMO, path).data, path
+    finance = _get(owner, DEMO, "/admin/invoices").data.split(b'aria-label="Section navigation"', 1)[1].split(b"</nav>", 1)[0]
+    assert b">Credit notes<" in finance and b">Refunds<" in finance and b">Reports<" not in finance
+    assert b">Hub1z invoices<" in _get(owner, DEMO, "/admin/invoices").data.split(b'<aside class="h-side"')[1].split(b'</aside>')[0]
+    settings = _get(owner, DEMO, "/admin/settings").data.split(b'aria-label="Section navigation"', 1)[1]
+    order = [b">Profile<", b">Billing<", b">Documents<", b">Email templates<", b">Audit log<"]
+    assert [settings.index(label) for label in order] == sorted(settings.index(label) for label in order)
+    assert b">Plans<" not in settings and b">Hub1z invoices<" not in settings
+    passes = _get(owner, DEMO, "/me/day-passes").data.split(b'aria-label="Section navigation"', 1)[1]
+    assert passes.index(b">Day pass<") < passes.index(b">Visitor pass<") < passes.index(b">Guest pass<")
+    community = _get(owner, DEMO, "/hub/announcements").data.split(b'aria-label="Section navigation"', 1)[1]
+    for gone in (b">Support tickets<", b">Guest passes<", b">Visitors<", b">Day pass<"):
+        assert gone not in community.split(b"</nav>", 1)[0], gone
+    calendar = owner.get("/book/calendar", headers={"Host": DEMO}, follow_redirects=True).data
+    assert b"h-top-checkin" in calendar
+    assert b'aria-label="Section navigation"' not in calendar
     services = _get(owner, DEMO, "/admin/parcels").data
     assert b">Lockers<" in services and b">Reception<" in services

@@ -14,13 +14,13 @@ def test_owner_sees_grouped_menu_with_money_setup_and_marketplace_last():
     app, _ = _seeded_app()
     owner = _client(app, DEMO, "owner@demospace.com")
     html = _get(owner, DEMO, "/admin/").get_data(as_text=True)
-    for group in ("Today", "Customers", "Space", "Team", "Money", "Setup"):
+    for group in ("Today", "Customers", "Space Setup", "Team", "Finance"):
         assert LABEL % group in html, group
     for item in (">Front desk<", ">Companies<", ">Members<", ">Subscriptions<", ">Inventory<",
                  ">Invoices<", ">Plans<", ">Settings<", ">Community<"):
         assert item in html, item
-    assert html.index(LABEL % "Today") < html.index(LABEL % "Customers") < html.index(LABEL % "Money") \
-        < html.index(LABEL % "Setup")
+    assert html.index(LABEL % "Today") < html.index(LABEL % "Customers") < html.index(LABEL % "Finance") \
+        < html.index(">Settings<")
     assert ">Services<" not in html
     assert 'data-quick-create' in html and ">Subscription<" in html and ">Invoice<" in html
 
@@ -36,8 +36,8 @@ def test_location_manager_does_not_see_money_or_setup():
         db.session.commit()
     client = _client(app, DEMO, "loc@demospace.com", PERSONA_PASSWORD)
     html = _get(client, DEMO, "/admin/").get_data(as_text=True)
-    assert LABEL % "Customers" in html and LABEL % "Space" in html
-    assert LABEL % "Money" not in html and LABEL % "Setup" not in html
+    assert LABEL % "Customers" in html and LABEL % "Space Setup" in html
+    assert LABEL % "Finance" not in html and ">Settings<" not in html
 
 
 def test_subscriptions_list_and_picker():
@@ -80,3 +80,17 @@ def test_drafts_badge_counts_subscription_invoices_waiting_to_be_sent():
         db.session.commit()
     html = _get(owner, DEMO, "/admin/").get_data(as_text=True)
     assert 'h-nav-badge">1<' in html
+
+
+def test_menu_groups_collapse_and_the_current_page_keeps_its_group_open():
+    app, _ = _seeded_app()
+    owner = _client(app, DEMO, "owner@demospace.com")
+    html = _get(owner, DEMO, "/admin/companies").get_data(as_text=True)
+    side = html.split('<aside class="h-side"', 1)[1].split("</aside>", 1)[0]
+    assert '<details class="h-nav-group" data-group="customers" open data-active="1">' in side
+    for closed in ("space", "team", "finance"):
+        assert f'<details class="h-nav-group" data-group="{closed}">' in side, closed
+    assert LABEL % "Today" in side and "h-nav-group\" data-group=\"today\"" not in side   # daily pages never collapse
+    assert 'class="h-nav-label">Settings<' not in side and ">Settings<" in side            # one link, no caption
+    inventory = _get(owner, DEMO, "/admin/locations").get_data(as_text=True).split('<aside class="h-side"', 1)[1]
+    assert 'data-group="space" open data-active="1"' in inventory and 'data-group="customers">' in inventory

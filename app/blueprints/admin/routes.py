@@ -18,7 +18,7 @@ from ...models import (
     Document, DocumentKind, CompanyDocument, Invoice, DayPass, DayPassStatus, RoomCategory,
 )
 from ...services.storage import storage_service
-from ...services import tier_limits, audit_service
+from ...services import tier_limits, audit_service, subscription_spaces
 from ...services.formatting import floor_label
 from ...utils.decorators import admin_required, super_admin_required, manager_or_super_required
 from .forms import (
@@ -212,8 +212,13 @@ def seats_bulk_edit(location_id: int):
         form.seat_ids.data = sorted(selected_ids)
     if form.validate_on_submit():
         selected = [seat for seat in available if seat.id in form.seat_ids.data]
+        held_ids = set(subscription_spaces.holders(seat.id for seat in selected))
+        kept = 0
         for seat in selected:
             for name in form.apply_fields.data:
+                if seat.id in held_ids and name in subscription_spaces.HELD_LOCKED_FIELDS:
+                    kept += 1
+                    continue
                 value = form[name].data
                 if name == "seat_type":
                     value = SeatType(value)
@@ -222,6 +227,8 @@ def seats_bulk_edit(location_id: int):
                 setattr(seat, name, value)
         db.session.commit()
         flash(f"{len(selected)} seats updated.", "success")
+        if kept:
+            flash("Type, capacity and status were not changed on offices or desks that a customer holds.", "warning")
         return redirect(url_for("admin.seats_list", location_id=location.id))
     selected = [seat for seat in available if seat.id in (form.seat_ids.data or [])]
     return render_template("admin/seats/bulk_edit.html", form=form, location=location, seats=selected)
@@ -242,14 +249,7 @@ def seats_list(location_id: int):
         active = [s for s in active if s.seat_type.value == type_filter]
         inactive = [s for s in inactive if s.seat_type.value == type_filter]
     # Who holds each assignable office/desk right now (hot desks are a shared pool, so they are never held).
-    held = {}
-    holders = (SeatAllocation.query.filter(SeatAllocation.seat_id.in_([s.id for s in every_seat] or [0]),
-                                           SeatAllocation.status == AllocationStatus.ACTIVE)
-               .order_by(SeatAllocation.id).all())
-    for row in holders:
-        name = row.company.name if row.company else (row.user.full_name if row.user else "")
-        if name and name not in held.setdefault(row.seat_id, []):
-            held[row.seat_id].append(name)
+    held = subscription_spaces.holders(s.id for s in every_seat)
     return render_template("admin/seats/list.html", location=loc, seats=active,
                            inactive_seats=inactive if include_inactive else [],
                            inactive_count=len(inactive), include_inactive=include_inactive,
@@ -319,22 +319,31 @@ def seat_edit(seat_id: int):
     seat = Seat.query.get_or_404(seat_id)
     form = SeatForm(obj=seat)
     form.floor_id.choices = [(f.id, floor_label(f)) for f in seat.location.floors]
+    held_by = subscription_spaces.holders([seat.id]).get(seat.id, [])
+    has_history = (SeatBooking.query.filter_by(seat_id=seat.id).first() is not None
+                   or SeatAllocation.query.filter_by(seat_id=seat.id).first() is not None)
+    context = dict(location=seat.location, title="Edit office or desk", seat=seat, held_by=held_by,
+                   can_delete=not has_history)
     if form.validate_on_submit():
         duplicate = Seat.query.filter(Seat.location_id == seat.location_id, Seat.code == form.code.data,
                                       Seat.id != seat.id).first()
         if duplicate:
             form.code.errors.append("This seat code is already in use at this location.")
-            return render_template("admin/seats/form.html", form=form, location=seat.location, title="Edit seat")
+            return render_template("admin/seats/form.html", form=form, **context)
+        if held_by:  # type, size and status stay as sold, whatever was posted
+            form.seat_type.data = seat.seat_type.value
+            form.capacity.data = seat.capacity
+            form.is_active.data = seat.is_active
         form.populate_obj(seat)
         try:
             db.session.commit()
         except IntegrityError:
             db.session.rollback()
             form.code.errors.append("This seat code was just added. Choose another code.")
-            return render_template("admin/seats/form.html", form=form, location=seat.location, title="Edit seat")
-        flash("Seat updated.", "success")
+            return render_template("admin/seats/form.html", form=form, **context)
+        flash("Saved.", "success")
         return redirect(url_for("admin.seats_list", location_id=seat.location_id))
-    return render_template("admin/seats/form.html", form=form, location=seat.location, title="Edit seat")
+    return render_template("admin/seats/form.html", form=form, **context)
 
 
 # ----------------------------------------------------- conference rooms --

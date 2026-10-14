@@ -8,7 +8,7 @@ YOUR PLAN: {{ plan_label }}{% if trial_tier_name %} (everything in {{ trial_tier
 SIGN IN: {{ login_url }}
 
 WHAT TO DO FIRST
-1. Add who owns the business. Under Settings, Operator profile, tell us the owner or director and, if you are setting this up on their behalf, upload their authorisation. You will need this before moving to a paid plan.
+1. Add who owns the business. Under Settings, Profile, tell us the owner or director and, if you are setting this up on their behalf, upload their authorisation. You will need this before moving to a paid plan.
 2. Add your location, floors, seats and meeting rooms.
 3. Set up how members pay you. Add your UPI ID and GST details so every invoice carries a QR code and the right tax split.
 4. Invite your team and your first members or companies.

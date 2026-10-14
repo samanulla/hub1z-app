@@ -5,31 +5,47 @@
 {% block content %}
 {% include "admin/_inventory_nav.html" %}
 <h3>{{ title }} — {{ location.name }}</h3>
+{% set locked = held_by is defined and held_by %}
+{% if locked %}
+<div class="alert alert-warning small" role="note">
+  <b>Held by {{ held_by | join(', ') }}.</b> Type, capacity and active status are locked because the subscription's plan was sold against this
+  {{ 'office' if seat.seat_type.value == 'private_office' else 'desk' }}. You can still change the code, floor, walk-in rates and notes.
+  To change the rest, end or move the subscription first.
+</div>
+{% endif %}
 <div class="card"><div class="card-body">
   <form method="post" novalidate>
     {{ form.hidden_tag() }}
     <div class="row">
       <div class="col-md-4">{{ field(form.floor_id) }}</div>
       <div class="col-md-4">{{ field(form.code) }}</div>
-      <div class="col-md-4">{{ field(form.seat_type) }}</div>
+      <div class="col-md-4">{{ field(form.seat_type, attrs={'disabled': True} if locked else {}) }}</div>
     </div>
     <div class="row">
-      <div class="col-md-3">{{ field(form.capacity) }}</div>
+      <div class="col-md-3">{{ field(form.capacity, attrs={'disabled': True} if locked else {}) }}</div>
       <div class="col-md-3">{{ field(form.hourly_rate) }}</div>
       <div class="col-md-3">{{ field(form.daily_rate) }}</div>
       <div class="col-md-3">{{ field(form.monthly_rate) }}</div>
     </div>
     <div class="form-text mb-3">These are <b>walk-in rates</b> for booking this seat by the hour, day or month. What a member or company pays on a subscription is set in <a href="{{ url_for('admin.plans_list') }}">Pricing plans</a>.</div>
-    {{ field(form.is_active) }}
+    {% if locked %}
+      <input type="hidden" name="seat_type" value="{{ seat.seat_type.value }}">
+      <input type="hidden" name="capacity" value="{{ seat.capacity }}">
+      {% if seat.is_active %}<input type="hidden" name="is_active" value="y">{% endif %}
+      {{ field(form.is_active, attrs={'disabled': True}) }}
+    {% else %}{{ field(form.is_active) }}{% endif %}
     {{ field(form.notes) }}
     {% if request.endpoint == 'admin.seat_new' %}{{ field(form.carry_details, help="When you use Save & add next, the next seat form opens pre-filled with this seat's type, capacity and rates, so you only change the code.") }}{% endif %}
     <button class="btn btn-dark" type="submit" name="submit_action" value="save">Save</button>
     {% if request.endpoint == 'admin.seat_new' %}<button class="btn btn-outline-dark" type="submit" name="submit_action" value="save_next"><i class="bi bi-plus-lg"></i> Save &amp; add next</button>{% endif %}
     <a class="btn btn-link" href="{{ url_for('admin.seats_list', location_id=location.id) }}">Cancel</a>
-    {% if request.endpoint == 'admin.seat_edit' %}<button class="btn btn-outline-danger float-end" type="submit" form="delete-seat"
-      onclick="return confirm('Delete this seat? This cannot be undone. Seats with bookings or allocations cannot be deleted; mark them inactive instead.');"><i class="bi bi-trash"></i> Delete seat</button>{% endif %}
+    {% if request.endpoint == 'admin.seat_edit' %}
+      {% if can_delete %}<button class="btn btn-outline-danger float-end" type="submit" form="delete-seat"
+        onclick="return confirm('Delete this office or desk? This cannot be undone.');"><i class="bi bi-trash"></i> Delete</button>
+      {% else %}<span class="float-end small text-muted">Cannot be deleted: it has booking or subscription history. Mark it inactive instead.</span>{% endif %}
+    {% endif %}
   </form>
-  {% if request.endpoint == 'admin.seat_edit' %}
+  {% if request.endpoint == 'admin.seat_edit' and can_delete %}
   <form id="delete-seat" method="post" action="{{ url_for('admin.seat_delete', seat_id=request.view_args.seat_id) }}" hidden>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   </form>

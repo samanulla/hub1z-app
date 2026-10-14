@@ -8,11 +8,33 @@ from ...extensions import db
 from ...models import SystemSettings, Location, UserRole, Seat, User, Document
 from ...services import audit_service, owner_details
 from ...utils.decorators import super_admin_required
-from .forms import SystemSettingsForm, OperatorSettingsForm
+from .forms import SystemSettingsForm, OperatorSettingsForm, HomePageForm
 from ..profile_forms import PROFILE_GROUPS, save_details
 
 
 def register_settings_routes(bp):
+
+    @bp.route("/settings/home-page", methods=["GET", "POST"])
+    @super_admin_required
+    def website_settings():
+        operator = g.operator
+        site = dict((operator.profile_details or {}).get("site") or {})
+        form = HomePageForm(data=site)
+        if not form.is_submitted():
+            form.show_stats.data = site.get("show_stats", True)
+        if form.validate_on_submit():
+            fields = {"headline": form.headline.data, "hero_image_url": form.hero_image_url.data,
+                      "about_title": form.about_title.data, "about_text": form.about_text.data}
+            site = {name: (value or "").strip() for name, value in fields.items() if (value or "").strip()}
+            if form.established_year.data:
+                site["established_year"] = form.established_year.data
+            site["show_stats"] = bool(form.show_stats.data)
+            operator.profile_details = {**(operator.profile_details or {}), "site": site}
+            audit_service.record("settings.home_page", "operator", operator.id, {"fields": sorted(site)})
+            db.session.commit()
+            flash("Home page saved.", "success")
+            return redirect(url_for("admin.website_settings"))
+        return render_template("admin/home_page_settings.html", form=form, operator=operator)
 
     @bp.route("/settings", methods=["GET", "POST"])
     @super_admin_required

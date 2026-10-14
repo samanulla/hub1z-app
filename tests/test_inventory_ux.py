@@ -195,3 +195,74 @@ def test_offices_and_desks_list_shows_free_or_held_and_filters_by_type():
     assert "CABIN-A" not in desks
     sidebar = _get(owner, DEMO, "/admin/locations").get_data(as_text=True)
     assert ">Inventory<" in sidebar and "Meeting rooms" in sidebar
+
+
+def _held_office(app, code="HELD-1"):
+    from datetime import date
+    from app.models import AllocationStatus, Company, SeatAllocation
+    operator_id, location_id, floor_id = _demo(app)
+    with app.app_context():
+        company = Company.query.execution_options(skip_operator_filter=True).filter_by(operator_id=operator_id).first()
+        seat = Seat(operator_id=operator_id, location_id=location_id, floor_id=floor_id, code=code,
+                    seat_type=SeatType.PRIVATE_OFFICE, capacity=4)
+        db.session.add(seat)
+        db.session.flush()
+        db.session.add(SeatAllocation(operator_id=operator_id, seat_id=seat.id, company_id=company.id,
+                                      status=AllocationStatus.ACTIVE, start_date=date.today()))
+        db.session.commit()
+        return seat.id, company.name
+
+
+def test_held_office_keeps_type_capacity_and_status_but_other_details_can_change():
+    app, _ = _seeded_app()
+    _, _, floor_id = _demo(app)
+    seat_id, company_name = _held_office(app)
+    owner = _client(app, DEMO, "owner@demospace.com")
+    page = _get(owner, DEMO, f"/admin/seats/{seat_id}/edit").get_data(as_text=True)
+    assert f"Held by {company_name}" in page and "locked" in page
+    assert "Cannot be deleted" in page and "Delete this office or desk" not in page
+    # Tampered values are ignored: only the code, rates and notes are applied.
+    data = _seat_form(floor_id, "HELD-1B", "dedicated_desk", "9")
+    data.pop("is_active")
+    data["monthly_rate"] = "1500"
+    assert _post(owner, DEMO, f"/admin/seats/{seat_id}/edit", data).status_code == 302
+    with app.app_context():
+        seat = db.session.get(Seat, seat_id)
+        assert (seat.code, seat.seat_type, seat.capacity, seat.is_active, int(seat.monthly_rate)) == \
+            ("HELD-1B", SeatType.PRIVATE_OFFICE, 4, True, 1500)
+
+
+def test_free_office_can_be_changed_and_deleted_and_held_one_has_no_trash_button():
+    app, _ = _seeded_app()
+    operator_id, location_id, floor_id = _demo(app)
+    held_id, _ = _held_office(app, "HELD-2")
+    free_id = _add_seat(app, "FREE-1")
+    owner = _client(app, DEMO, "owner@demospace.com")
+    page = _get(owner, DEMO, f"/admin/locations/{location_id}/seats").get_data(as_text=True)
+    assert f'form="delete-seat-{free_id}"' in page and f'form="delete-seat-{held_id}"' not in page
+    edit = _get(owner, DEMO, f"/admin/seats/{free_id}/edit").get_data(as_text=True)
+    assert "Delete this office or desk" in edit and "locked" not in edit
+    assert _post(owner, DEMO, f"/admin/seats/{free_id}/edit",
+                 _seat_form(floor_id, "FREE-1", "dedicated_desk", "1")).status_code == 302
+    with app.app_context():
+        assert db.session.get(Seat, free_id).seat_type == SeatType.DEDICATED_DESK
+
+
+def test_inventory_menu_has_no_calendar_book_or_repeated_tabs():
+    app, _ = _seeded_app()
+    owner = _client(app, DEMO, "owner@demospace.com")
+    html = _get(owner, DEMO, "/admin/locations").get_data(as_text=True)
+    sidebar = html.split('<aside class="h-side"', 1)[1].split("</aside>", 1)[0]
+    assert ">Inventory<" in sidebar and ">Credits<" in sidebar and ">Calendar<" not in sidebar
+    assert 'aria-label="Section navigation"' not in html
+
+
+def test_credits_page_explains_the_room_calculation_in_plain_steps():
+    app, _ = _seeded_app()
+    owner = _client(app, DEMO, "owner@demospace.com")
+    page = _get(owner, DEMO, "/admin/credits").get_data(as_text=True)
+    for text in ("Your rooms offer", "You give away", "Still to give", "hours open a day",
+                 "Credits/hour", "Give monthly credits", "Give a one-off bonus"):
+        assert text in page, text
+    assert "Band suggests" not in page and "Complimentary" not in page
+    assert _get(owner, DEMO, "/admin/credits/settings").status_code == 200

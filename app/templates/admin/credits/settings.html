@@ -10,17 +10,20 @@
 
 <div class="row g-4">
   <div class="col-lg-6"><div class="card"><div class="card-body">
-    <h5>Pool &amp; rules</h5>
+    <h5>Rules</h5>
     <form method="post">
       {{ form.hidden_tag() }}
+      <h6 class="mt-2">How much you give away</h6>
       {{ field(form.complimentary_share_pct) }}
       {{ field(form.reserve_pct) }}
-      {{ field(form.pool_mode) }}
       {{ field(form.capacity_days_per_month) }}
+      {{ field(form.pool_mode) }}
+      <h6 class="mt-4">Unused and extra credits</h6>
       {{ field(form.rollover_enabled) }}
       {{ field(form.rollover_cap) }}
       {{ field(form.purchased_expiry_months) }}
       {{ field(form.pay_per_use_enabled) }}
+      <h6 class="mt-4">No-shows</h6>
       {{ field(form.no_show_minutes) }}
       <button class="btn btn-dark">Save settings</button>
     </form>
@@ -52,10 +55,10 @@
     </div></div>
 
     <div class="card"><div class="card-body">
-      <h5>Seat bands</h5>
+      <h5>Suggested credits by company size</h5>
       <p class="text-muted small">Suggested monthly credits by company size. You can always allocate a different number.</p>
       <table class="table table-sm">
-        <thead><tr><th>Seats</th><th>Monthly credits</th><th></th></tr></thead>
+        <thead><tr><th>Seats in the company</th><th>Suggested credits a month</th><th></th></tr></thead>
         <tbody>
           {% for b in bands %}
           <tr>

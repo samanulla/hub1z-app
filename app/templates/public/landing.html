@@ -4,9 +4,9 @@
 
 {% block body %}
 <!-- ============ HERO ============ -->
-<section class="hero-full">
+<section class="hero-full"{% if site.hero_image_url %} style="--hero-image: url('{{ site.hero_image_url }}');"{% endif %}>
   <nav class="marketing-nav on-hero">
-    <a class="brand" href="/"><span class="brand-dot"></span> {{ operator.name if operator else app_name }}</a>
+    <a class="brand" href="/">{% if operator and operator.logo_url %}<img class="brand-logo" src="{{ operator.logo_url }}" alt="{{ operator.name }}">{% else %}<span class="brand-dot"></span> {{ operator.name if operator else app_name }}{% endif %}</a>
     <div class="nav-links">
       <a class="nav-link" href="{{ url_for('public_spaces') }}">Spaces</a>
       <a class="nav-link" href="{{ url_for('public_membership') }}">Membership</a>
@@ -17,8 +17,8 @@
 
   <div class="container-x" style="padding-top: 4rem;">
     <div style="max-width: 720px;">
-      <div class="eyebrow" style="margin-bottom: 1.5rem;">Est. 2020 · India-first</div>
-      <h1>A workspace<br>as thoughtful<br>as your work.</h1>
+      {% if site.established_year %}<div class="eyebrow" style="margin-bottom: 1.5rem;">Est. {{ site.established_year }}</div>{% elif locations %}<div class="eyebrow" style="margin-bottom: 1.5rem;">{{ locations[0].city }}</div>{% endif %}
+      <h1>{% if site.headline %}{{ site.headline }}{% else %}A workspace<br>as thoughtful<br>as your work.{% endif %}</h1>
       <p style="margin-top: 1.5rem;">
         {{ operator.tagline if operator and operator.tagline else "Beautifully designed coworking. Serious operational software. From single-city studios to multi-brand operators — one login, real hospitality." }}
       </p>
@@ -31,28 +31,30 @@
 </section>
 
 <!-- ============ STATS BAND ============ -->
+{% if site.show_stats %}
 <section style="background: var(--cream-2); padding: 4rem 0; border-bottom: 1px solid var(--line);">
   <div class="container-x">
     <div class="row g-4 text-center text-md-start">
-      <div class="col-6 col-md-3">
+      <div class="col-6 col-md-3"><div class="site-stat">
         <div class="num-serif small saffron">{{ availability|sum(attribute='seat_count') }}</div>
-        <div class="eyebrow" style="margin-top: .5rem;">Desks</div>
+        <div class="eyebrow" style="margin-top: .5rem;">Desks</div></div>
       </div>
-      <div class="col-6 col-md-3">
+      <div class="col-6 col-md-3"><div class="site-stat">
         <div class="num-serif small">{{ locations|length }}</div>
-        <div class="eyebrow" style="margin-top: .5rem;">Locations</div>
+        <div class="eyebrow" style="margin-top: .5rem;">Locations</div></div>
       </div>
-      <div class="col-6 col-md-3">
+      <div class="col-6 col-md-3"><div class="site-stat">
         <div class="num-serif small">{{ availability|sum(attribute='available_seats') }}</div>
-        <div class="eyebrow" style="margin-top: .5rem;">Desks open now</div>
+        <div class="eyebrow" style="margin-top: .5rem;">Desks open now</div></div>
       </div>
-      <div class="col-6 col-md-3">
+      <div class="col-6 col-md-3"><div class="site-stat">
         <div class="num-serif small">{{ availability|sum(attribute='room_count') }}</div>
-        <div class="eyebrow" style="margin-top: .5rem;">Meeting rooms</div>
+        <div class="eyebrow" style="margin-top: .5rem;">Meeting rooms</div></div>
       </div>
     </div>
   </div>
 </section>
+{% endif %}
 
 <!-- ============ SPACES (photo left, text right) ============ -->
 <section class="section" id="spaces">
@@ -175,19 +177,19 @@
   </div>
 </section>
 
-<!-- ============ STORY / QUOTE ============ -->
-<section class="section" id="story">
+<!-- ============ ABOUT (set by the operator under Settings > Home page) ============ -->
+{% if site.about_text %}
+<section class="section" id="about">
   <div class="container-x">
     <div style="max-width: 800px; margin: 0 auto; text-align: center;">
-      <div class="eyebrow">05 · The story</div>
+      <div class="eyebrow">05 · About</div>
       <hr class="divider" style="margin: 1rem auto 2rem;">
-      <p class="serif" style="font-size: clamp(1.5rem, 3vw, 2.25rem); line-height: 1.35; color: var(--ink); font-weight: 500;">
-        “A workspace should feel like a favourite café, run like a boutique hotel, and be operated with the software of a global brand.”
-      </p>
-      <div class="eyebrow" style="margin-top: 2rem;">— Our founding thesis</div>
+      {% if site.about_title %}<h2 style="margin-bottom: 1.25rem;">{{ site.about_title }}</h2>{% endif %}
+      <p style="font-size: 1.2rem; line-height: 1.6; color: var(--ink); white-space: pre-line;">{{ site.about_text }}</p>
     </div>
   </div>
 </section>
+{% endif %}
 
 <!-- ============ CTA ============ -->
 <section class="bg-ink" style="padding: 6rem 0;">
@@ -223,11 +225,11 @@
     <div class="row g-4" style="margin-bottom: 3rem;">
       <div class="col-md-4">
         <div class="brand" style="font-family: 'Inter', system-ui, sans-serif; letter-spacing: -0.02em; font-size: 1.6rem; font-weight: 700; display: inline-flex; align-items: center; gap: .5rem;">
-          <span class="brand-dot" style="width: 8px; height: 8px; background: var(--saffron); border-radius: 50%;"></span>
+          <span class="brand-dot" style="width: 8px; height: 8px; background: var(--brand-light); border-radius: 50%;"></span>
           {{ operator.name if operator else app_name }}
         </div>
         <p style="color: rgba(251,247,240,.65); margin-top: 1rem; max-width: 320px;">
-          {{ operator.tagline if operator and operator.tagline else "A workspace as thoughtful as your work. India-first coworking platform." }}
+          {{ operator.tagline if operator and operator.tagline else "A workspace as thoughtful as your work." }}
         </p>
       </div>
       <div class="col-6 col-md-2">

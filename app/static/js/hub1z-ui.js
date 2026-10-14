@@ -14,6 +14,18 @@
 
   var sidebar = $('#appSidebar');
   if (sidebar) {
+    // Collapsible menu groups: the group holding the current page stays open; the others follow what the user chose last.
+    var groupKey = 'hub1z.navgroups.' + sidebar.getAttribute('data-user-id');
+    var groupState = {};
+    try { groupState = JSON.parse(localStorage.getItem(groupKey) || '{}') || {}; } catch (error) {}
+    sidebar.querySelectorAll('details.h-nav-group').forEach(function (group) {
+      var name = group.getAttribute('data-group');
+      if (!group.hasAttribute('data-active') && name in groupState) group.open = !!groupState[name];
+      group.addEventListener('toggle', function () {
+        groupState[name] = group.open;
+        try { localStorage.setItem(groupKey, JSON.stringify(groupState)); } catch (error) {}
+      });
+    });
     var scrollKey = 'hub1z.sidebar.' + sidebar.getAttribute('data-user-id');
     try { sidebar.scrollTop = Number(sessionStorage.getItem(scrollKey)) || 0; } catch (error) {}
     function revealActiveLink() {

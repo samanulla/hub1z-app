@@ -58,6 +58,22 @@ def free_seats(plan=None) -> list[Seat]:
     return query.order_by(Seat.code).all()
 
 
+def holders(seat_ids) -> dict[int, list[str]]:
+    """Customers currently holding each seat, by seat id (names in the order they were assigned)."""
+    out: dict[int, list[str]] = {}
+    rows = SeatAllocation.query.filter(SeatAllocation.seat_id.in_(list(seat_ids) or [0]),
+                                       SeatAllocation.status == AllocationStatus.ACTIVE).order_by(SeatAllocation.id)
+    for row in rows:
+        name = row.company.name if row.company else (row.user.full_name if row.user else "")
+        if name and name not in out.setdefault(row.seat_id, []):
+            out[row.seat_id].append(name)
+    return {seat_id: names for seat_id, names in out.items() if names}
+
+
+# What cannot change while a customer holds the space: the plan was sold against that type and size.
+HELD_LOCKED_FIELDS = ("seat_type", "capacity", "is_active")
+
+
 def create_space(location: Location, code: str, plan) -> Seat:
     code = (code or "").strip()
     if not code:

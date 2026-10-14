@@ -170,7 +170,7 @@ def test_people_hub_combines_search_and_preserves_operator_isolation():
     assert b'Acme Co' in content and b'Ivy Individual' not in content
 
 
-def test_invitations_live_under_people_and_render_distinct_content():
+def test_invitations_have_their_own_left_menu_item_and_render_distinct_content():
     from tests.test_release_upi_parcels_alerts import DEMO, _client, _get, _seeded_app
     app, _ = _seeded_app()
     owner = _client(app, DEMO, "owner@demospace.com")
@@ -181,6 +181,6 @@ def test_invitations_live_under_people_and_render_distinct_content():
     assert b'Pending individual invites' in invitations and b'Pending company invites' in invitations
     assert b'Search name, email or phone' not in invitations
     sidebar = invitations.split(b'<aside class="h-side"')[1].split(b'</aside>')[0]
-    assert b'href="/admin/invites"' not in sidebar
-    assert b'h-nav-link active" href="/admin/companies"' in sidebar
-    assert b'href="/admin/invites"' in invitations.split(b'aria-label="Section navigation"')[1]
+    assert b'h-nav-link active" href="/admin/invites"' in sidebar
+    assert b'h-nav-link active" href="/admin/companies"' not in sidebar
+    assert b'aria-label="Section navigation"' not in invitations   # siblings live in the left menu, not in tabs
